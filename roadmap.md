@@ -59,11 +59,14 @@
 - [x] Name/timecode-preserving cleaner + RSS repair planner, dry-run/canary actions, tests, deploy.
 - [x] Live dry run of all empty/overcut/missing (1,703 fixable); reviewed 38-episode canary (3 batches).
 - [x] 471 missing/skipped episodes with verified Spotify/YouTube text handed to the capped lanes.
-- [ ] Bounded background lane for the remaining ~1,665 RSS-fixable rows (waits on owner review of the canary).
-- [ ] 1,893 old YouTube-derived texts with RSS as best source (657 without a verified link): reviewed canary only on owner OK.
+- [x] Bounded background lane for the remaining RSS-fixable rows (durable repair queue, cron 195).
+- [x] Old YouTube-derived texts with RSS as best source: owner OK 2026-10-21; audited and handled by the legacy lane (see below).
 
 ## Durable clean-text repair queue (2026-10-21)
 - [x] Queue table, seed/reconcile, lease/backoff/dead letter, RSS-change trigger, function + adaptive cron 195, gates, tests, deploy.
 - [x] 1 388 episodes repaired with backups; empty 5 236→4 520, over-trimmed 2 763→1 379.
-- [ ] Remaining ~342 open rows finish on scheduled runs (daily cap; runs on its own).
-- [ ] 1 941 legacy ytdesc conflicts + 128 gated rows need human review (blocked: owner review decision).
+- [x] Expired leases explained (old CPU-killed runs, reclaimed 40/run in priority order); open 302 → 222 by 18:11 UTC.
+- [ ] Remaining 222 open RSS rows finish on scheduled runs after the 00:00 UTC cap reset (runs on its own).
+- [x] Full read-only audit of 1 941 legacy ytdesc texts (provenance, identity, content); planner, tests, 36-episode canary (c5bc1948-00dc-464d-8e02-d38a617de86a), rollback test, automatic legacy lane (≤40/run, ≤300 writes/day) in cron 195.
+- [ ] Legacy lane drains the rest on its own (~1 day of evaluation; writes capped 300/day).
+- [ ] ~500 legacy + 128 gated rows marked needs_review wait for a human decision (blocked: owner review).

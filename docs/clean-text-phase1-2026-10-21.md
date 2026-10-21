@@ -83,3 +83,47 @@ Live and autonomous. Deterministic, $0, no AI. HU backend only; `.com` untouched
 Rollback any batch: `select public.rollback_clean_text_repair_v1('<batch_id>')`; batch ids in `app_settings.clean_text_repair_queue_state.batch_ids` and `clean_text_repair_queue.last_batch_id`. Pause: `clean_text_repair_queue_controls.enabled=false`.
 
 Not done automatically (by design): 1 941 legacy ytdesc/RSS conflicts (`needs_review`), 128 gated rows, 9 quarantined.
+
+## Open RSS rows + legacy YouTube-description texts (2026-10-21 17:43–18:45 UTC)
+
+$0, deterministic, no AI. HU only; `.com`, SEO, person GPT untouched. Job 74 (old autopilot) and 189 (person GPT) stay off; job 193 unchanged; no new cron.
+
+### Open RSS rows (302 at 17:33)
+
+- The 200 "leased" rows were leases left by two early runs that hit the CPU limit (16:43–16:47). The claim function does reclaim expired leases (no bug); it takes them in priority order, 40 per run, limited by the daily cap. 17:11 and 17:41 reclaimed 80 of them (job 195 → HTTP 200 from the function both times, verified in the HTTP response log).
+- 18:11 run: 40 claimed, 33 applied, 7 no source; open 262 → **222**. Unique episodes repaired by the queue: **1,493** (`total_applied` 1,734 counts attempts incl. 291 rolled back and redone).
+- Daily cap 1,500 is almost reached today (UTC). The remaining 222 continue after 00:00 UTC at 40 per run (expected done by ~03:45 UTC). Nothing exceeds the cap.
+
+### Legacy `deterministic_v4+ytdesc` texts (1,941) — full read-only audit
+
+Provenance: the stored source hash identifies the exact YouTube description used for **1,594**; **323** more by ≥90 % token containment; **24** unknown. Identity: v3 pairing (confirmed, score ≥ 0.78, no blockers) plus own title / release date / episode number / channel checks → 1,520 verified, 396 unverified, 25 wrong video.
+
+Planner `_shared/clean-text-legacy-ytdesc.ts` (all 1,941 planned offline and the reviewed sample re-planned live with identical results):
+
+| Bucket | Meaning | Episodes | Write |
+|---|---|---:|---|
+| A | Verified video, text informative and complete → kept, attribution set to YouTube (same text, same hash, backed up) | 167 | attribution only |
+| B | Stored text adds nothing over RSS, or video wrong/unverified, substantive RSS → replaced by the episode's RSS | 260 | yes (backup + CAS) |
+| C | Ambiguous identity or content would be lost either way → `needs_review` | 500 | no |
+| D | No alternative: kept when it matches the episode title (2), else quarantined (1) | 3 | no |
+| E | Already equivalent to RSS → done, no change | 1,006 | no |
+| P | Other source lane (Spotify/YouTube best source) → protected | 5 | no |
+
+C detail: verified video but RSS has names/chapters the stored text lacks 200; RSS adds names but cannot replace safely (link-label leftovers etc.) 122; unverified, names would be lost 73; unverified but same title/day (plausible) 57; unverified with large content loss 17; verified video with little informative text and no usable RSS 14; needs re-clean 7; Spotify alternative 4; short RSS 3; rejected pairing but title-matching text 2; auto gate 1.
+
+Review: 42 + 21 + 36 real examples across all buckets and shows were read. Rules added from the review: link-label leftovers / domain / handle fragments block RSS replacements; a rejected pairing is not "wrong" when the stored text matches the title; weak date mismatch alone is not "wrong"; person names that would be lost send unverified rows to review.
+
+### Canary and rollback test
+
+- Canary batch **`c5bc1948-00dc-464d-8e02-d38a617de86a`** (36 episodes, 18:04 UTC): 25 replaced by RSS (7 wrong video, 7 unverified, 10 RSS superset, 1 uninformative video), 8 attribution-only, 3 to review. 33 backups, 0 conflicts, 0 URLs, every A text byte-identical, every B now RSS-attributed. Average length of replaced texts 441 → 576.
+- Search check (internal clean-text index): "Káposzta Benőről", "Horváth Bélával", "Kezdődik a 2024-es alapszakasz", "Bennszülött Bálna" now find the right episodes; phrases from the wrong videos ("Csoboth Kevin", "Gergő és Shirin") no longer match them. Site search for "Káposzta Benőről" returns the episode with its public RSS text only.
+- Rollback test on one throwaway episode: batch `16281b14-b3a1-4fbc-930b-6e3228987e0a` applied → rolled back (text, method, hash restored byte-exact) → re-applied as `a2b1f998-1808-466f-b866-7c98b18f509f`.
+- No public exposure: anonymous reads of clean text and the queue return nothing; the new input lookup is denied to visitors.
+
+### Automatic lane (same queue, same cron 195)
+
+- Migration `0075_clean_text_repair_queue_legacy_lane`: claim lanes (`regular` first, `legacy` only with leftover capacity; risky rows without a confirmed link first), explicit-id canary claim, planner inputs lookup, status with `unique_applied`, `leased_expired`, `legacy_open`, `legacy_writes_today`.
+- Controls: `legacy_enabled=true`, ≤40 legacy rows per run, **≤300 legacy writes per UTC day** (separate from the 1,500 RSS cap). Each legacy row is evaluated once and gets a finite status; it is re-evaluated only when its RSS description really changes. RSS-change rows on legacy texts go through the same planner. Adaptive cadence and `archive_drained` now also wait for the legacy backlog.
+- Reviewed batches (RSS 43, YouTube 40, Spotify 30, phase-1 RSS 38, promo fix 3) and every other backed-up row are never rewritten by this lane.
+
+Rollback any legacy batch: `clean-text-repair` `{action:"rollback", batch_id}`; ids in `clean_text_repair_queue_state.legacy_batch_ids`. Pause only the legacy lane: `clean_text_repair_queue_controls.legacy_enabled=false`.

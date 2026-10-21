@@ -11134,8 +11134,31 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      claim_clean_text_repair_queue_ids_v1: {
+        Args: { p_ids: string[]; p_lease_seconds?: number; p_owner: string }
+        Returns: {
+          attempts: number
+          episode_id: string
+          repair_kind: string
+          source_fingerprint: string
+        }[]
+      }
       claim_clean_text_repair_queue_v1: {
         Args: { p_lease_seconds?: number; p_limit?: number; p_owner: string }
+        Returns: {
+          attempts: number
+          episode_id: string
+          repair_kind: string
+          source_fingerprint: string
+        }[]
+      }
+      claim_clean_text_repair_queue_v2: {
+        Args: {
+          p_lane?: string
+          p_lease_seconds?: number
+          p_limit?: number
+          p_owner: string
+        }
         Returns: {
           attempts: number
           episode_id: string
@@ -11175,6 +11198,10 @@ export type Database = {
       clean_text_repair_fingerprint_v1: {
         Args: { p_description: string }
         Returns: string
+      }
+      clean_text_repair_queue_legacy_inputs_v1: {
+        Args: { p_episode_ids: string[] }
+        Returns: Json
       }
       clean_text_repair_queue_seed_v1: { Args: never; Returns: Json }
       clean_text_repair_queue_status_v1: { Args: never; Returns: Json }
