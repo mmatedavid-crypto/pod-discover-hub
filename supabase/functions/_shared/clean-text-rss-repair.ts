@@ -20,7 +20,33 @@ import { youtubeRecleanGate } from "./youtube-source-gain.ts";
 
 export const RSS_REPAIR_KINDS = ["empty_substantive", "empty_any", "overcut", "missing_rss"] as const;
 export const RSS_REPAIR_MAX_CANARY = 50;
+/** A non-empty prior is replaced only when the new text adds at least this many names/timecodes. */
+export const MIN_ADDED_NAMED_EVIDENCE = 2;
 const ALT_SOURCE_METHOD_RX = /youtube|ytdesc|spotify|transcript|article/i;
+const EVIDENCE_TOKEN_RX = /\d{1,2}:\d{2}(?::\d{2})?|\p{Lu}[\p{L}'’-]{2,}/gu;
+const NON_EVIDENCE_RX = /^(?:facebook|instagram|insta|tiktok|youtube|spotify|apple|google|patreon|discord|telegram|linkedin|threads|twitter|twitch|soundcloud|deezer|itunes|weboldal|honlap|hírlevél|web|e-?mail|podcast\p{L}*|adószám|számlaszám|bankszámla|paypal|donably|revolut|visit|learn)$/iu;
+
+/**
+ * Timecodes and mid-sentence capitalised words (names, titles, places) in `next`
+ * that `prior` does not contain. Sentence-initial words and platform/CTA words do
+ * not count, so added promo or call-to-action sentences are not "information".
+ */
+export function addedNamedEvidence(prior: string, next: string): string[] {
+  const p = String(prior || "");
+  const out = new Set<string>();
+  const text = String(next || "");
+  for (const m of text.matchAll(EVIDENCE_TOKEN_RX)) {
+    const tok = m[0];
+    if (p.includes(tok) || NON_EVIDENCE_RX.test(tok)) continue;
+    if (!/^\d/.test(tok)) {
+      const before = text.slice(Math.max(0, (m.index ?? 0) - 3), m.index ?? 0).replace(/\s+$/, "");
+      const prev = before.slice(-1);
+      if (!prev || /[.!?…\n"„“»«(\[\p{Extended_Pictographic}•·|-]/u.test(prev)) continue;
+    }
+    out.add(tok);
+  }
+  return Array.from(out);
+}
 
 export type RssRepairTarget = {
   episode_id: string;
@@ -78,6 +104,7 @@ export async function planRssRepair(t: RssRepairTarget, opts: { method?: string 
   if (!extract.ok) reasons.push(...extract.reasons.map((r: string) => `extract_${r}`));
   if (prior) {
     if (lostNamedTokens(prior, text).length) reasons.push("would_lose_prior_names");
+    if (addedNamedEvidence(prior, text).length < MIN_ADDED_NAMED_EVIDENCE) reasons.push("no_added_names_or_timecodes");
     const gate = youtubeRecleanGate(prior, text, { min_info_gain_chars: 40 });
     reasons.push(...gate.reasons.filter((r) => r !== "residual_url"));
   }
