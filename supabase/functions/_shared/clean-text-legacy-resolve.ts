@@ -266,7 +266,7 @@ export function identityVerdict(ev: IdentityEvidence | null): { verdict: Verdict
   }
   if (lateUpload) return { verdict: "ambiguous", why: [`late_upload_${ev.date_days}d_needs_confirmation`] };
   if (titleOk && ev.channel_ok && ev.date_days !== null && ev.date_days <= 14
-    && (contentLinked || ev.spotify_corroborates || (ev.channel_dominant && ev.date_days <= 3 && (ev.title_sim ?? 0) >= 0.85))) {
+    && (contentLinked || ev.spotify_corroborates || (ev.link_status !== "rejected" && ev.channel_dominant && ev.date_days <= 3 && (ev.title_sim ?? 0) >= 0.85))) {
     return { verdict: "correct", why: ["title_match", "channel_ok", `date_${ev.date_days}d`, contentLinked ? "content_overlaps_rss" : ev.spotify_corroborates ? "spotify_corroborates" : "dominant_channel_same_days"] };
   }
   return { verdict: "ambiguous", why: ["insufficient_deterministic_evidence"] };
