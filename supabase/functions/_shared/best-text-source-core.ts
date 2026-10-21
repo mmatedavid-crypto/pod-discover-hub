@@ -466,7 +466,7 @@ export async function planSpotifyReclean(admin: any, candidates: RecleanCandidat
     if (!spotifySelectionVerified(cand.evidence)) { reject(["unverified_spotify_selection"]); continue; }
     const bk = backups.get(cand.episode_id);
     if (bk?.protected || bk?.autoYoutube) { reject(["protected_prior_repair_batch"]); continue; }
-    if (/youtube|ytdesc/i.test(curMethod)) { reject(["prior_youtube_derived_kept"]); continue; }
+    if (/youtube|ytdesc|multisrc/i.test(curMethod)) { reject(["prior_youtube_derived_kept"]); continue; }
     const status = String(ctx.epById.get(cand.episode_id)?.clean_text_status || "");
     if (status === "pending" || status === "error") { reject([`clean_text_status_${status}_runner_owns`]); continue; }
     const recurring = recurringFor(recurringByPodcast.get(String(cand.podcast_id || "")), raw);
