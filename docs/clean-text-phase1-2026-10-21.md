@@ -127,3 +127,10 @@ Review: 42 + 21 + 36 real examples across all buckets and shows were read. Rules
 - Reviewed batches (RSS 43, YouTube 40, Spotify 30, phase-1 RSS 38, promo fix 3) and every other backed-up row are never rewritten by this lane.
 
 Rollback any legacy batch: `clean-text-repair` `{action:"rollback", batch_id}`; ids in `clean_text_repair_queue_state.legacy_batch_ids`. Pause only the legacy lane: `clean_text_repair_queue_controls.legacy_enabled=false`.
+
+### Live state 18:41 UTC
+
+- Cron 195 run 18:41 (HTTP 200, 4.1 s): 7 RSS repairs (daily cap 1,500 reached exactly), then 33 legacy rows evaluated automatically (1 replaced by RSS, 18 already equivalent, 14 to review).
+- RSS queue: 215 open (102 pending + 113 expired leases waiting for reclaim), resumes after 00:00 UTC. Unique repaired episodes: 1,500.
+- Legacy: 70 evaluated (35 writes: 27 RSS replacements, 8 attribution-only; 35 active backups), 1,871 still to evaluate by the lane.
+- HU texts: empty 4,520 → 4,408; empty with RSS ≥ 500 chars 200 → 88.
