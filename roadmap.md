@@ -61,3 +61,9 @@
 - [x] 471 missing/skipped episodes with verified Spotify/YouTube text handed to the capped lanes.
 - [ ] Bounded background lane for the remaining ~1,665 RSS-fixable rows (waits on owner review of the canary).
 - [ ] 1,893 old YouTube-derived texts with RSS as best source (657 without a verified link): reviewed canary only on owner OK.
+
+## Durable clean-text repair queue (2026-10-21)
+- [x] Queue table, seed/reconcile, lease/backoff/dead letter, RSS-change trigger, function + adaptive cron 195, gates, tests, deploy.
+- [x] 1 388 episodes repaired with backups; empty 5 236→4 520, over-trimmed 2 763→1 379.
+- [ ] Remaining ~342 open rows finish on scheduled runs (daily cap; runs on its own).
+- [ ] 1 941 legacy ytdesc conflicts + 128 gated rows need human review (blocked: owner review decision).
