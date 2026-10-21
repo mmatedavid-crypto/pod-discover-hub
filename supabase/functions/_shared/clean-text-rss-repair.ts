@@ -24,7 +24,7 @@ export const RSS_REPAIR_MAX_CANARY = 50;
 export const MIN_ADDED_NAMED_EVIDENCE = 2;
 const ALT_SOURCE_METHOD_RX = /youtube|ytdesc|spotify|transcript|article/i;
 const EVIDENCE_TOKEN_RX = /\d{1,2}:\d{2}(?::\d{2})?|\p{Lu}[\p{L}'’-]{2,}/gu;
-const NON_EVIDENCE_RX = /^(?:facebook|instagram|insta|tiktok|youtube|spotify|apple|google|patreon|discord|telegram|linkedin|threads|twitter|twitch|soundcloud|deezer|itunes|weboldal|honlap|hírlevél|web|e-?mail|podcast\p{L}*|adószám|számlaszám|bankszámla|paypal|donably|revolut|visit|learn)$/iu;
+const NON_EVIDENCE_RX = /^(?:facebook|instagram|insta|tiktok|youtube|spotify|apple|google|patreon|discord|telegram|linkedin|threads|twitter|twitch|soundcloud|deezer|itunes|weboldal|honlap|hírlevél|web|e-?mail|podcast\p{L}*|adószám|számlaszám|bankszámla|paypal|donably|revolut|visit|learn|ön\\p{L}*|önök\\p{L}*)$/iu;
 
 /**
  * Timecodes and mid-sentence capitalised words (names, titles, places) in `next`
@@ -40,7 +40,7 @@ export function addedNamedEvidence(prior: string, next: string): string[] {
     if (p.includes(tok) || NON_EVIDENCE_RX.test(tok)) continue;
     if (!/^\d/.test(tok)) {
       const before = text.slice(Math.max(0, (m.index ?? 0) - 3), m.index ?? 0).replace(/\s+$/, "");
-      const prev = before.slice(-1);
+      const prev = Array.from(before).pop() || "";
       if (!prev || /[.!?…\n"„“»«(\[\p{Extended_Pictographic}•·|-]/u.test(prev)) continue;
     }
     out.add(tok);
