@@ -106,6 +106,15 @@ function splitSentencesKeep(input: string): string[] {
 function stripCtaFromSentence(sentence: string): string | null {
   const m = CTA_SENTENCE_RX.exec(sentence);
   if (!m) return sentence;
+  // "Patreon támogatóink számára elérhető tartalmából: Fiat Stilo ablakemelő …":
+  // a short CTA lead-in before a colon; the content after the colon is kept.
+  if (m.index <= 3) {
+    const colon = sentence.indexOf(":", m.index);
+    if (colon > 0 && colon - m.index < 90) {
+      const after = sentence.slice(colon + 1).trim();
+      if (wordCount(after) >= 6) return stripCtaFromSentence(after);
+    }
+  }
   const words = wordCount(sentence);
   const before = sentence.slice(0, m.index).replace(/[\s\p{P}\p{S}]+$/u, "").trim();
   if (words <= 14 || wordCount(before) < 6) return null;
@@ -223,7 +232,68 @@ export function isPriorGood(prior: string | null | undefined): boolean {
  * - invalid v4 → extract-only rescue if it validates
  * - otherwise preserve prior good text, or skip/quarantine; never write empty/overcut text as done
  */
+const HASHTAG_TOKEN = "#[\\p{L}\\p{N}_]+";
+const LEADING_TAG_WALL_RX = new RegExp(`^((?:${HASHTAG_TOKEN}[\\s,]*){2,}${HASHTAG_TOKEN})(?=$|[^\\p{L}\\p{N}_])`, "u");
+const TRAILING_TAG_WALL_RX = new RegExp(`(?:^|[\\s,])(?:${HASHTAG_TOKEN}[\\s,]*){3,}$`, "u");
+
+/**
+ * Removal-only: a wall of ≥3 hashtags at the start or end of a line is tag spam.
+ * When the last leading tag is glued to the first word of the sentence
+ * ("#ÖnismeretMi történik"), that word is kept. Single disclosure tags such as
+ * "#hirdetés" stay.
+ */
+export function stripHashtagWalls(text: string): string {
+  const out = String(text || "").split("\n").map((line) => {
+    let l = line;
+    const m = LEADING_TAG_WALL_RX.exec(l.trimStart());
+    if (m) {
+      const rest = l.trimStart().slice(m[0].length);
+      const lastTag = m[1].match(new RegExp(`${HASHTAG_TOKEN}$`, "u"))?.[0] || "";
+      const glued = /^\s*\p{Ll}/u.test(rest) ? lastTag.match(/\p{Ll}(\p{Lu}[\p{Ll}]*)$/u) : null;
+      l = `${glued ? glued[1] : ""}${rest}`.replace(/^[\s,]+/, "");
+    }
+    l = l.replace(TRAILING_TAG_WALL_RX, "").replace(/[\s,]+$/, "");
+    return l;
+  });
+  return out.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+/**
+ * Removal-only: "… Jó szórakozást! Instagram : Blog : Facebook :" — two or more
+ * trailing short labels whose links were removed are dropped. A longer segment
+ * (real sentence) stops the scan; a single trailing label is kept.
+ */
+export function stripTrailingLinkLabels(text: string): string {
+  let t = String(text || "").trimEnd();
+  // Leftover link punctuation after the last label ("Ezt ittuk : :(", "… : -").
+  const core = t.replace(/(?:\s*[:\-–—(),;]+)+$/u, "");
+  if (core !== t && /:/.test(t.slice(core.length))) t = `${core}:`;
+  let n = 0;
+  while (n < 20 && t.endsWith(":")) {
+    const body = t.slice(0, -1);
+    const cut = Math.max(body.lastIndexOf(":"), body.lastIndexOf("."), body.lastIndexOf("!"), body.lastIndexOf("?"), body.lastIndexOf("\n"));
+    const seg = body.slice(cut + 1).trim();
+    if (!seg || seg.split(/\s+/).length > 3) break;
+    t = body.slice(0, cut + 1).trimEnd();
+    n++;
+  }
+  return n >= 2 && t.length >= 40 ? t : String(text || "");
+}
+
 export function decideCleanText(input: {
+  raw: string;
+  v4?: { text: string; removed: string[] };
+  priorCleanedText?: string | null;
+}): CleanDecision {
+  const d = decideCleanTextCore(input);
+  if (d.action !== "write") return d;
+  let stripped = stripHashtagWalls(d.text);
+  if (/https?:\/\//i.test(String(input.raw || ""))) stripped = stripTrailingLinkLabels(stripped);
+  if (stripped === d.text || stripped.length < 40) return d;
+  return { ...d, text: stripped, removed: Array.from(new Set([...d.removed, "hashtag_wall"])) };
+}
+
+function decideCleanTextCore(input: {
   raw: string;
   v4?: { text: string; removed: string[] };
   priorCleanedText?: string | null;
