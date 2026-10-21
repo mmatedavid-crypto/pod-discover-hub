@@ -1662,6 +1662,30 @@ export type Database = {
           },
         ]
       }
+      episode_best_source_youtube_queue: {
+        Row: {
+          enqueued_at: string
+          episode_id: string
+          link_id: string | null
+          rss_len: number | null
+          yt_len: number | null
+        }
+        Insert: {
+          enqueued_at?: string
+          episode_id: string
+          link_id?: string | null
+          rss_len?: number | null
+          yt_len?: number | null
+        }
+        Update: {
+          enqueued_at?: string
+          episode_id?: string
+          link_id?: string | null
+          rss_len?: number | null
+          yt_len?: number | null
+        }
+        Relationships: []
+      }
       episode_best_text_source: {
         Row: {
           cleaned_len: number
@@ -10803,6 +10827,12 @@ export type Database = {
           sample: Json
         }[]
       }
+      best_source_youtube_gain_targets_v1: {
+        Args: { p_after?: string; p_limit?: number }
+        Returns: {
+          episode_id: string
+        }[]
+      }
       cache_person_judge_batch: {
         Args: {
           _batch_id: string
@@ -11030,6 +11060,10 @@ export type Database = {
       }
       get_episode_index_text: {
         Args: { p_episode_id: string; p_max_chars?: number }
+        Returns: string
+      }
+      get_episode_public_clean_description_v1: {
+        Args: { p_episode_id: string }
         Returns: string
       }
       get_homepage_rails_v1: {
@@ -12139,6 +12173,7 @@ export type Database = {
         }
         Returns: Json
       }
+      youtube_source_quality_metrics_v1: { Args: never; Returns: Json }
     }
     Enums: {
       app_role: "admin" | "user"

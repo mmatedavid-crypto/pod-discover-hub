@@ -28,3 +28,11 @@
 - [ ] Public episode pages do not read cleaned text (table is admin-only); exposing non-transcript clean text needs owner decision.
 - [ ] Remaining ~406 canary-eligible empty records: next canary only on owner approval.
 - [ ] Person GPT tick (cron 189) paused until clean-text repair is done; resume only on owner approval.
+
+## Verified YouTube → clean text → search (2026-10-21)
+- [x] Informative-gain comparison (boilerplate/CTA/sponsor/recurring blocks excluded), v5 source policy, tests.
+- [x] Fix frozen best-source cursors; per-feed progress and failure telemetry.
+- [x] Staged 2,790-target queue, full read-only dry run, 40-episode reviewed canary (batch 8e365da4-f9db-4bbc-90f7-4fc6506fb358), search check 24/24.
+- [x] Bounded automatic backfill (20/run) and backed-up YouTube re-clean (10/run, 150/day) enabled.
+- [ ] Public display of YouTube-derived clean text (blocked: owner decision on YouTube terms + frontend publish).
+- [ ] Re-embed changed clean text for semantic search (blocked: paid embeddings need owner budget).
