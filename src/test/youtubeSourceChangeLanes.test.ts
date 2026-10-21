@@ -63,7 +63,7 @@ describe("repair-batch protection", () => {
     ]);
     expect(c.get("a")?.protected).toBe(true);
     expect(c.get("b")?.protected).toBe(true);
-    expect(c.get("c")).toEqual({ protected: false, autoYoutube: true });
+    expect(c.get("c")).toEqual({ protected: false, autoYoutube: true, autoSpotify: false });
   });
 });
 

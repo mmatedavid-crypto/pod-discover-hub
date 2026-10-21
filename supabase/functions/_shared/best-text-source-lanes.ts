@@ -20,7 +20,19 @@ export function laneBudgets(limit: number, ctrl: any, maxTargets = 60) {
   const fast = ctrl?.fast_lane_enabled === false ? 0 : Math.min(lim, clamp(ctrl?.fast_lane_per_run, 0, 40, 20));
   const feedMin = Math.min(FEED_MIN_PER_RUN, Math.max(0, max - fast));
   const backfill = Math.max(0, Math.min(clamp(ctrl?.youtube_backfill_per_run, 0, 40, 20), max - fast - feedMin));
-  return { limit: lim, max, fast, backfill, feedMin };
+  // Staged Spotify set: only when enabled, after the YouTube lanes, within the hard max.
+  const spotifyBackfill = ctrl?.spotify_backfill_enabled === true
+    ? Math.max(0, Math.min(clamp(ctrl?.spotify_backfill_per_run, 0, 20, 10), max - fast - feedMin - backfill))
+    : 0;
+  return { limit: lim, max, fast, backfill, spotifyBackfill, feedMin };
+}
+
+/** Spotify re-clean: own small per-run limit and daily cap (default 0 = off). */
+export function spotifyRecleanAllowance(ctrl: any, usedToday: number) {
+  const cap = clamp(ctrl?.spotify_reclean_daily_cap, 0, 300, 0);
+  const perRun = clamp(ctrl?.spotify_reclean_per_run, 0, 20, 5);
+  const remaining = Math.max(0, cap - Math.max(0, Number(usedToday) || 0));
+  return { cap, perRun, allowed: ctrl?.spotify_reclean_enabled === true ? Math.min(perRun, remaining) : 0 };
 }
 
 export function recleanAllowances(ctrl: any, usedToday: number) {

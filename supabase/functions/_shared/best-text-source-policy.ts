@@ -7,8 +7,9 @@
 // can use it later. Transcripts are rss_public_index_only: never public display.
 import { conservativeRescueClean } from "./clean-text-validation.ts";
 import { compareYoutubeGain, type YoutubeGain } from "./youtube-source-gain.ts";
+import { compareSpotifyGain, spotifyMatchVerified, spotifyRawText, SPOTIFY_RIGHTS_STATUS, type SpotifyGain } from "./spotify-source-gain.ts";
 
-export const BEST_SOURCE_POLICY_VERSION = "best_text_source_v5_youtube_informative_gain";
+export const BEST_SOURCE_POLICY_VERSION = "best_text_source_v6_spotify_informative_gain";
 export const TRANSCRIPT_ALLOWED_RIGHTS = new Set(["rss_public_index_only", "licensed", "owned"]);
 
 export type EpisodeRow = {
@@ -17,6 +18,7 @@ export type EpisodeRow = {
   title: string | null;
   description: string | null;
   updated_at?: string | null;
+  podcasts?: { language_decision?: string | null; spotify_match_confidence?: number | null } | null;
 };
 
 export function textQuality(text: string): { score: number; dirty: string[]; len: number } {
@@ -44,8 +46,7 @@ export function contentLength(text: string): number {
   return conservativeRescueClean(String(text || "")).text.length;
 }
 
-export function pickBest(ep: EpisodeRow, spotify: any | null, youtube: any | null, article: any | null, transcript: any | null, ctrl: any, ctx: { recurring?: Set<string> | null } = {}) {
-  const gain = Number(ctrl.prefer_external_gain_chars ?? 150);
+export function pickBest(ep: EpisodeRow, spotify: any | null, youtube: any | null, article: any | null, transcript: any | null, ctrl: any, ctx: { recurring?: Set<string> | null; spotifyRecurring?: Set<string> | null } = {}) {
   const articleGain = Number(ctrl.article_prefer_gain_chars ?? 300);
   const ytMin = Number(ctrl.youtube_min_confidence ?? 0.78);
   const spMin = Number(ctrl.spotify_min_confidence ?? 0.55);
@@ -148,22 +149,37 @@ export function pickBest(ep: EpisodeRow, spotify: any | null, youtube: any | nul
     });
   }
 
-  const spText = String(spotify?.spotify_description || spotify?.spotify_html_description || "").trim();
+  // Spotify: never on raw length. Only a confidently matched episode of a
+  // confidently matched show is compared, and only publisher show notes that
+  // contain all RSS facts and add real information are preferred.
+  const spText = spotifyRawText(spotify);
   const spConfidence = Number(spotify?.match_confidence || 0);
   const spQ = textQuality(spText);
-  if (spText && spConfidence >= spMin && (spQ.len >= rssQ.len + gain || rssQ.len < 120)) {
+  const spVerified = spText ? spotifyMatchVerified(spotify, ep.podcasts?.spotify_match_confidence ?? null, {
+    min_episode_confidence: Math.max(spMin, Number(ctrl.spotify_gain_min_confidence ?? 0.8)),
+    min_show_confidence: Number(ctrl.spotify_show_min_confidence ?? 0.8),
+  }) : { ok: false };
+  const spGain: SpotifyGain | null = spText && spVerified.ok
+    ? compareSpotifyGain(rssText, spText, { ...(ctrl.spotify_gain || {}), recurring: ctx.spotifyRecurring || null })
+    : null;
+  if (spGain && spGain.decision === "spotify_better") {
     candidates.push({
       source_type: "spotify",
       source_ref_id: spotify.id,
       raw_text: spText,
       source_confidence: Math.min(0.92, 0.58 + spConfidence * 0.25 + spQ.score * 0.15),
-      reasons: ["spotify_longer_or_rss_short"],
+      reasons: ["confirmed_spotify_informative_gain", ...spGain.reasons],
       quality: spQ,
+      preferred_over_rss_spotify: true,
       evidence: {
         spotify_match_confidence: spConfidence,
+        spotify_show_match_confidence: ep.podcasts?.spotify_match_confidence ?? null,
         spotify_len: spQ.len,
         rss_len: rssQ.len,
         match_method: spotify.match_method,
+        spotify_gain: spGain,
+        rights_status: SPOTIFY_RIGHTS_STATUS,
+        public_display: false,
         dirty: spQ.dirty,
         transcript_available: transcriptAvailable,
       },
@@ -201,8 +217,9 @@ export function pickBest(ep: EpisodeRow, spotify: any | null, youtube: any | nul
       },
     });
   }
-  // Log the YouTube decision on every candidate, so a kept RSS records why.
+  // Log the YouTube / Spotify decisions on every candidate, so a kept RSS records why.
   if (ytGain) for (const c of candidates) if (c.source_type !== "youtube") c.evidence = { ...c.evidence, youtube_gain: ytGain };
+  if (spGain) for (const c of candidates) if (c.source_type !== "spotify") c.evidence = { ...c.evidence, spotify_gain: spGain };
 
   if (!candidates.length) return null;
   const score = (c: any) => c.source_confidence + Math.min(0.12, c.quality.len / 12000);
@@ -211,6 +228,11 @@ export function pickBest(ep: EpisodeRow, spotify: any | null, youtube: any | nul
   // only a confirmed publisher article that scores higher may still win.
   const yt = sorted.find((c) => c.preferred_over_rss);
   if (yt && sorted[0] !== yt && sorted[0].source_type !== "article") return yt;
+  if (yt) return sorted[0];
+  // Verified Spotify show notes (superset of RSS) beat RSS and a thin-RSS
+  // transcript; a higher-scoring confirmed article still wins.
+  const sp = sorted.find((c) => c.preferred_over_rss_spotify);
+  if (sp && sorted[0] !== sp && sorted[0].source_type !== "article") return sp;
   return sorted[0];
 }
 

@@ -1662,6 +1662,30 @@ export type Database = {
           },
         ]
       }
+      episode_best_source_spotify_queue: {
+        Row: {
+          enqueued_at: string
+          episode_id: string
+          rss_len: number | null
+          sp_len: number | null
+          spotify_meta_id: string | null
+        }
+        Insert: {
+          enqueued_at?: string
+          episode_id: string
+          rss_len?: number | null
+          sp_len?: number | null
+          spotify_meta_id?: string | null
+        }
+        Update: {
+          enqueued_at?: string
+          episode_id?: string
+          rss_len?: number | null
+          sp_len?: number | null
+          spotify_meta_id?: string | null
+        }
+        Relationships: []
+      }
       episode_best_source_youtube_queue: {
         Row: {
           enqueued_at: string
@@ -2899,6 +2923,45 @@ export type Database = {
           episode_id?: string
           published_at?: string | null
           slug?: string
+        }
+        Relationships: []
+      }
+      episode_transcript_lexical_chunks: {
+        Row: {
+          char_end: number
+          char_start: number
+          chunk_idx: number
+          episode_id: string
+          indexed_at: string
+          rights_status: string
+          source_class: string
+          transcript_content_hash: string
+          transcript_id: string
+          tsv: unknown
+        }
+        Insert: {
+          char_end: number
+          char_start: number
+          chunk_idx: number
+          episode_id: string
+          indexed_at?: string
+          rights_status: string
+          source_class: string
+          transcript_content_hash: string
+          transcript_id: string
+          tsv: unknown
+        }
+        Update: {
+          char_end?: number
+          char_start?: number
+          chunk_idx?: number
+          episode_id?: string
+          indexed_at?: string
+          rights_status?: string
+          source_class?: string
+          transcript_content_hash?: string
+          transcript_id?: string
+          tsv?: unknown
         }
         Relationships: []
       }
@@ -10882,6 +10945,12 @@ export type Database = {
           sample: Json
         }[]
       }
+      best_source_spotify_targets_v1: {
+        Args: { p_after?: string; p_limit?: number }
+        Returns: {
+          episode_id: string
+        }[]
+      }
       best_source_youtube_gain_targets_v1: {
         Args: { p_after?: string; p_limit?: number }
         Returns: {
@@ -11400,6 +11469,15 @@ export type Database = {
         }[]
       }
       immutable_unaccent: { Args: { s: string }; Returns: string }
+      index_transcript_lexical_v1: {
+        Args: {
+          p_allowed_classes?: string[]
+          p_chunk_chars?: number
+          p_episode_ids: string[]
+          p_overlap?: number
+        }
+        Returns: Json
+      }
       is_hungarianish_public_ai_text: {
         Args: { _text: string }
         Returns: boolean
@@ -11407,6 +11485,10 @@ export type Database = {
       is_publicly_visible_hu_podcast: {
         Args: { p_id: string }
         Returns: boolean
+      }
+      lexical_phrase_tsquery_v1: {
+        Args: { p_prefix_last?: boolean; p_text: string }
+        Returns: unknown
       }
       list_people_alpha: {
         Args: { p_letter?: string; p_limit?: number; p_offset?: number }
@@ -11940,6 +12022,20 @@ export type Database = {
           subtitle: string
         }[]
       }
+      search_transcript_lexical_v1: {
+        Args: {
+          p_episode_ids?: string[]
+          p_limit?: number
+          p_prefix_last?: boolean
+          p_query: string
+        }
+        Returns: {
+          chunk_hits: number
+          episode_id: string
+          first_char: number
+          source_class: string
+        }[]
+      }
       select_classifier_candidates: {
         Args: { p_limit?: number; p_taxonomy_version?: string }
         Returns: {
@@ -12227,6 +12323,28 @@ export type Database = {
           topics: string[]
         }[]
       }
+      transcript_lexical_index_targets_v1: {
+        Args: { p_limit?: number }
+        Returns: {
+          episode_id: string
+        }[]
+      }
+      transcript_person_evidence_dry_run_v1: {
+        Args: { p_episode_ids: string[] }
+        Returns: {
+          episode_id: string
+          identity_ambiguous: boolean
+          mention_id: string
+          mention_type: string
+          name_tokens: number
+          person_id: string
+          relevance_status: string
+          role_type: string
+          transcript_hits: number
+          transcript_indexed: boolean
+        }[]
+      }
+      transcript_source_class_v1: { Args: { p_model: string }; Returns: string }
       unaccent: { Args: { "": string }; Returns: string }
       update_page_event_dwell: {
         Args: { _dwell_ms: number; _id: string }
