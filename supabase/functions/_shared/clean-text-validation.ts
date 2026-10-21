@@ -64,9 +64,33 @@ const SHORT_FOOTER_LINE_RX = new RegExp(
 const CTA_SENTENCE_RX =
   /(?:\b(?:kövesd|kövess(?:etek|en|étek)?|iratkozz(?:atok)?\s+fel|feliratkoz\w*|támogasd|támogass(?:atok)?|támogatni\s+szeretn\w+|hívj\s+meg\s+egy\s+kávéra|meghívnál\s+minket|adomány\w*|bankszámla\w*|közleménybe\s+kérjük|patreon|ko-fi|subscribe|follow\s+us|support\s+(?:us|the\s+show)|learn\s+more\s+about\s+your\s+ad\s+choices|hol\s+érheted\s+el|minden\s+jog\s+fenntartva|all\s+rights\s+reserved)\b|©)/i;
 
+const RESIDUAL_URL_FRAGMENT_RX = /(?:^|[\s.])(?:ly|hu|com|net|org|io)\/[\p{L}\p{N}_-]|\.\s(?:hu|com|ly)\/(?:\s|$)/iu;
+
+// Names, topics and timecodes: capitalised words and mm:ss stamps.
+const NAMED_TOKEN_RX = /\d{1,2}:\d{2}(?::\d{2})?|\p{Lu}[\p{L}'’-]{2,}/gu;
+const NON_CONTENT_TOKEN_RX = new RegExp(
+  `^(?:${PLATFORM_WORDS}|linkek?|links?|kövess\\p{L}*|kövesd|iratkozz\\p{L}*|támogass\\p{L}*|támogasd|támogatni|köszönjük|köszönöm|kapcsolódj|csatlakozz\\p{L}*|hallgasd|nézd|hírlevél\\p{L}*|hírlevel\\p{L}*|webshop|weboldal\\p{L}*|honlap\\p{L}*|podcast\\p{L}*|adomány\\p{L}*|bankszámla\\p{L}*|paypal|donably|ko-fi|revolut|learn|visit|support|subscribe|follow)$`,
+  "iu",
+);
+
+/**
+ * Names / topics / timecodes present in `from` but absent from `to`
+ * (platform, link and call-to-action words are not counted as content).
+ */
+export function lostNamedTokens(from: string, to: string): string[] {
+  const target = String(to || "");
+  const out = new Set<string>();
+  for (const t of String(from || "").match(NAMED_TOKEN_RX) || []) {
+    if (NON_CONTENT_TOKEN_RX.test(t)) continue;
+    if (!target.includes(t)) out.add(t);
+  }
+  return Array.from(out);
+}
+
 function wordCount(input: string): number {
   return (String(input || "").match(/[\p{L}\p{N}][\p{L}\p{N}'’-]+/gu) || []).length;
 }
+
 
 /** Split only where whitespace follows sentence punctuation, so "Podcastle.ai" or "1.5" stay intact. */
 function splitSentencesKeep(input: string): string[] {
@@ -159,6 +183,8 @@ export function validateCleanOutput(raw: string, cleaned: string): CleanVerdict 
   const reasons: string[] = [];
 
   if (/https?:\/\/|www\.[a-z0-9-]+\./i.test(clean)) reasons.push("residual_url");
+  // Half-removed links such as "bit. ly/x" → "ly/x" or ". hvg. hu/".
+  else if (RESIDUAL_URL_FRAGMENT_RX.test(clean)) reasons.push("residual_url_fragment");
   if (/(^|\s)@[A-Za-z0-9._-]{2,}/.test(clean)) reasons.push("residual_handle");
   if (/\b(?:undefined|null|\[object Object\])\b/.test(clean)) reasons.push("placeholder_text");
   if (/<\/?[a-z][a-z0-9]*(?:\s[^>]*)?>|<a\s+href/i.test(clean)) reasons.push("residual_html");
@@ -207,6 +233,24 @@ export function decideCleanText(input: {
   const hasPrior = isPriorGood(input.priorCleanedText);
 
   if (v4Verdict.status === "valid" || v4Verdict.status === "valid_short") {
+    // v4 sometimes drops guest/host credit lines, topic lists or timecodes. When the
+    // extract-only rescue keeps them (and loses nothing v4 kept), prefer the rescue.
+    const rescueAlt = conservativeRescueClean(raw);
+    const lost = lostNamedTokens(rescueAlt.text, v4Text);
+    if (lost.length >= MIN_LOST_NAMED_TOKENS && lostNamedTokens(v4Text, rescueAlt.text).length === 0) {
+      const altVerdict = validateCleanOutput(raw, rescueAlt.text);
+      const altExtract = validateExtractOnlyTrim(htmlToPlain(raw), rescueAlt.text, { minOverlap: 0.97, maxAddedTokenRatio: 0.03, minCompressionRatio: 0 });
+      if ((altVerdict.status === "valid" || altVerdict.status === "valid_short") && altExtract.ok) {
+        return {
+          action: "write",
+          text: rescueAlt.text,
+          removed: Array.from(new Set([...rescueAlt.removed, RESCUE_METHOD_SUFFIX, "v4_dropped_named_content"])),
+          rescued: true,
+          verdict: altVerdict,
+          v4_verdict: v4Verdict,
+        };
+      }
+    }
     return { action: "write", text: v4Text, removed: [...v4.removed], rescued: false, verdict: v4Verdict, v4_verdict: v4Verdict };
   }
   if (v4Verdict.status === "no_content") {
