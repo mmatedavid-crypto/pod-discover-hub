@@ -76,7 +76,7 @@ export type ResolvePlan = {
 const CHAPTER_RX = /^\s*[(\[]?\d{1,2}[:.]\d{2}(?:[:.]\d{2})?[)\]]?\s*[-–—|:]?\s*\p{L}/u;
 const TIMECODE_RX = /\b\d{1,2}:\d{2}(?::\d{2})?\b/g;
 const LINKISH_RX = /https?:\/\/|www\.|\b[a-z0-9-]+\.(?:hu|com|org|net|io|ly|me|tv|fm|eu)\b/i;
-const CTA_RX = /(tetszett|értékeld|értékelj|kérlek|értéket teremt|támogatónk|hetente új|iratkozz|feliratkoz|kövess|kovess|követhetsz|kövessetek|támogass|tamogass|támogatóink|patreon|csatlakozz|lájkol|like-?old|oszd meg|ossza meg|értesítés|harangot|hallgasd meg .{0,30}(spotify|apple|youtube|google)|elérhető .{0,40}(spotify|apple|youtube|google podcast)|szponzor|kuponkód|kedvezménykód|promóciós kód|hirdetés|reklám|subscribe|follow us|support us|írj nekünk|írjatok|e-?mail(?:ben)?:|nyereményjáték)/iu;
+const CTA_RX = /(creative commons|cc by|free download|music promoted|audio library|royalty|zene:|music:|tetszett|értékeld|értékelj|kérlek|értéket teremt|támogatónk|hetente új|iratkozz|feliratkoz|kövess|kovess|követhetsz|kövessetek|támogass|tamogass|támogatóink|patreon|csatlakozz|lájkol|like-?old|oszd meg|ossza meg|értesítés|harangot|hallgasd meg .{0,30}(spotify|apple|youtube|google)|elérhető .{0,40}(spotify|apple|youtube|google podcast)|szponzor|kuponkód|kedvezménykód|promóciós kód|hirdetés|reklám|subscribe|follow us|support us|írj nekünk|írjatok|e-?mail(?:ben)?:|nyereményjáték)/iu;
 const PLATFORM_TOKEN_RX = /^(facebook|instagram|youtube|spotify|tiktok|twitter|linkedin|patreon|discord|apple|google|podcast|podcasts|itunes|x)$/i;
 
 const ws = (s: string) => String(s || "").replace(/\s+/g, " ").trim();
@@ -89,7 +89,7 @@ const ABBREV_RX = /(?:\b(?:dr|Dr|prof|Prof|ifj|id|stb|pl|kb|ill|ún|St|Mr|Mrs|Ms
 
 /** Sentence units of one line: chapter lines whole, abbreviations ("Dr.") not split, missing spaces repaired. */
 function splitUnits(line: string): string[] {
-  const l = line.replace(/(?<=[.!?…)])\s*(?=\(?\d{1,2}:\d{2})/g, "\n").replace(/(?<=\p{Ll}[.!?…])(?=\p{Lu}\p{Ll})/gu, " ");
+  const l = line.replace(/(?<![\d:.])\s*(?=\(?\b\d{1,2}:\d{2}(?::\d{2})?\)?\s*[-–—])/g, "\n").replace(/(?<=[.!?…)])\s*(?=\(?\d{1,2}:\d{2})/g, "\n").replace(/(?<=\p{Ll}[.!?…])(?=\p{Lu}\p{Ll})/gu, " ");
   const out: string[] = [];
   for (const sub of l.split("\n")) {
     const t = sub.trim();
@@ -120,7 +120,7 @@ function unitRejectReasons(s: string, rawSeq: string, recurring?: Set<string> | 
   if (LINKISH_RX.test(s)) r.push("link");
   if (/(^|\s)@[A-Za-z0-9._-]{2,}/.test(s)) r.push("handle");
   r.push(...linkResidueReasons(s));
-  if (LINK_LEAD_RX.test(s) || /[:：]\s*[-–—]?\s*$/.test(s)) r.push("link_lead_in");
+  if (LINK_LEAD_RX.test(s) || /[:：]\s*[-–—]?\s*$/.test(s) || /[:：]\s*(?:\.{2,}|…)/.test(s) || /\b(?:rss|feed)\s*:/i.test(s)) r.push("link_lead_in");
   if (isBoilerplateUnit(s)) r.push("boilerplate");
   if (!chapter && (CTA_RX.test(s) || SOCIAL_RX.test(s))) r.push("cta_social_sponsor");
   if (recurring && recurring.size && recurring.has(unitKey(s))) r.push("show_recurring");
@@ -138,7 +138,8 @@ function unitRejectReasons(s: string, rawSeq: string, recurring?: Set<string> | 
 export function rssOnlyAdditions(prior: string, rssText: string, rawRss: string, recurring?: Set<string> | null) {
   const priorPool = tokenPool(prior);
   const priorTc = timecodes(prior);
-  const rawSeq = normalizeTokens(htmlToPlain(rawRss).replace(URL_RX, " ")).join(" ");
+  // Links become a barrier token: a unit that only exists because a link was cut out of the middle is not extract-only.
+  const rawSeq = normalizeTokens(htmlToPlain(rawRss).replace(URL_RX, " zzlinkzz ")).join(" ");
   const seen = new Set<string>();
   const lines: string[] = [];
   const kept: string[] = [];
