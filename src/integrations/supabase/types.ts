@@ -11118,6 +11118,26 @@ export type Database = {
           summary: string
         }[]
       }
+      clean_text_repair_targets_v2: {
+        Args: {
+          p_episode_ids?: string[]
+          p_kind: string
+          p_limit?: number
+          p_offset?: number
+        }
+        Returns: {
+          active_backups: number
+          best_source_type: string
+          clean_text_status: string
+          current_cleaned_text: string
+          current_cleaner_method: string
+          current_source_hash: string
+          description: string
+          episode_id: string
+          has_clean_row: boolean
+          summary: string
+        }[]
+      }
       count_pipeline_pending: { Args: { kind: string }; Returns: number }
       cron_revert_title_cleanup: { Args: never; Returns: undefined }
       dedup_episodes_audio_url_batch: {
