@@ -78,13 +78,15 @@ async function getCooldown(supabase: any): Promise<number> {
   const until = data?.value?.cooldown_until ? Date.parse(data.value.cooldown_until) : 0;
   return until > Date.now() ? until : 0;
 }
+// Re-read before writing and merge: the episode matcher shares this state row.
+async function patchState(supabase: any, patch: Record<string, unknown>) {
+  const { data } = await supabase.from("app_settings").select("value").eq("key", "spotify_enricher_state").maybeSingle();
+  const value = { ...((data?.value as any) || {}), ...patch };
+  await supabase.from("app_settings").upsert({ key: "spotify_enricher_state", value, updated_at: new Date().toISOString() }, { onConflict: "key" });
+}
 async function setCooldown(supabase: any, ms: number, reason: string) {
   const until = new Date(Date.now() + ms).toISOString();
-  await supabase.from("app_settings").upsert({
-    key: "spotify_enricher_state",
-    value: { cooldown_until: until, reason, set_at: new Date().toISOString() },
-    updated_at: new Date().toISOString(),
-  });
+  await patchState(supabase, { cooldown_until: until, reason, set_at: new Date().toISOString() });
 }
 
 Deno.serve(async (req) => {
@@ -111,7 +113,9 @@ Deno.serve(async (req) => {
     }
 
     const token = await getToken();
-    const summary: any = { matched: 0, no_match: 0, refreshed: 0, errors: 0 };
+    // Telemetry: HTTP status per Spotify call and DB write errors (no tokens, no response bodies).
+    const summary: any = { matched: 0, no_match: 0, duplicate_show: 0, refreshed: 0, show_unavailable: 0, errors: 0, db_errors: 0, http: {} as Record<string, number> };
+    const countHttp = (res: Response | null) => { const k = res ? String(res.status) : "none"; summary.http[k] = (summary.http[k] || 0) + 1; };
     let cooldownTriggered = false;
 
     const overBudget = () => Date.now() - startedAt > WALL_BUDGET_MS;
@@ -123,7 +127,7 @@ Deno.serve(async (req) => {
         .select("id, title, display_title, language, spotify_match_status")
         .ilike("language", "hu%")
         .is("spotify_id", null)
-        .or("spotify_match_status.is.null,spotify_match_status.neq.no_match")
+        .or("spotify_match_status.is.null,spotify_match_status.not.in.(no_match,duplicate_show)")
         .limit(limit);
       if (error) throw error;
 
@@ -139,6 +143,7 @@ Deno.serve(async (req) => {
             cooldownTriggered = true;
             break;
           }
+          countHttp(res);
           if (!res || !res.ok) { summary.errors++; continue; }
           const j = await res.json();
           const hits = j?.shows?.items || [];
@@ -148,7 +153,7 @@ Deno.serve(async (req) => {
             if (s > bestScore) { bestScore = s; best = h; }
           }
           if (best && bestScore >= 0.6) {
-            await supabase.from("podcasts").update({
+            const { error: upErr } = await supabase.from("podcasts").update({
               spotify_id: best.id,
               spotify_url: best.external_urls?.spotify || null,
               spotify_match_status: "matched",
@@ -156,7 +161,16 @@ Deno.serve(async (req) => {
               spotify_match_confidence: bestScore,
               spotify_last_synced_at: new Date().toISOString(),
             }).eq("id", p.id);
-            summary.matched++;
+            if (!upErr) summary.matched++;
+            else if (upErr.code === "23505") {
+              // Show already linked to another catalog podcast (duplicate feed): record it
+              // once instead of re-searching (and silently failing) every run.
+              const { error: dErr } = await supabase.from("podcasts").update({
+                spotify_match_status: "duplicate_show",
+                spotify_last_synced_at: new Date().toISOString(),
+              }).eq("id", p.id);
+              if (dErr) summary.db_errors++; else summary.duplicate_show++;
+            } else summary.db_errors++;
           } else {
             await supabase.from("podcasts").update({
               spotify_match_status: "no_match",
@@ -180,9 +194,11 @@ Deno.serve(async (req) => {
         .ilike("language", "hu%")
         .not("spotify_id", "is", null);
       if (!force) {
-        q = q.or(`spotify_show_enriched_at.is.null,spotify_show_enriched_at.lt.${freshCutoff}`);
+        // Failed fetches back off for 3 days (spotify_last_synced_at) instead of retrying every run.
+        const retryCutoff = new Date(Date.now() - 3 * 86400 * 1000).toISOString();
+        q = q.or(`and(or(spotify_show_enriched_at.is.null,spotify_show_enriched_at.lt.${freshCutoff}),or(spotify_last_synced_at.is.null,spotify_last_synced_at.lt.${retryCutoff}))`);
       }
-      const { data: pods, error } = await q.limit(limit);
+      const { data: pods, error } = await q.order("spotify_show_enriched_at", { ascending: true, nullsFirst: true }).limit(limit);
       if (error) throw error;
 
       for (const pod of pods || []) {
@@ -194,15 +210,16 @@ Deno.serve(async (req) => {
             cooldownTriggered = true;
             break;
           }
+          countHttp(res);
           if (!res || !res.ok) {
-            const txt = res ? await res.text().catch(() => "") : "";
-            console.error("show fetch failed", pod.spotify_id, res?.status, txt.slice(0, 200));
-            summary.errors++;
+            console.error("show fetch failed", pod.spotify_id, res?.status);
+            if (res && [400, 404].includes(res.status)) summary.show_unavailable++; else summary.errors++;
+            await supabase.from("podcasts").update({ spotify_last_synced_at: new Date().toISOString() }).eq("id", pod.id);
             continue;
           }
           const show = await res.json();
           const imgs = pickImages(show.images);
-          await supabase.from("podcasts").update({
+          const { error: wErr } = await supabase.from("podcasts").update({
             spotify_publisher: show.publisher || null,
             spotify_description: show.description || null,
             spotify_html_description: show.html_description || null,
@@ -220,7 +237,7 @@ Deno.serve(async (req) => {
             spotify_show_enriched_at: new Date().toISOString(),
             spotify_last_synced_at: new Date().toISOString(),
           }).eq("id", pod.id);
-          summary.refreshed++;
+          if (wErr) summary.db_errors++; else summary.refreshed++;
           await new Promise((r) => setTimeout(r, 320));
         } catch (e) {
           summary.errors++;
@@ -228,10 +245,9 @@ Deno.serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({
-      ok: true, ...summary, cooldown_triggered: cooldownTriggered,
-      elapsed_ms: Date.now() - startedAt,
-    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    const result = { ok: true, ...summary, cooldown_triggered: cooldownTriggered, elapsed_ms: Date.now() - startedAt };
+    await patchState(supabase, { last_show_run: { at: new Date().toISOString(), ...result } }).catch(() => {});
+    return new Response(JSON.stringify(result), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e: any) {
     const msg = e?.message || e?.error_description || JSON.stringify(e);
     console.error("spotify-show-enricher error", msg, e);

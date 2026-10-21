@@ -10,7 +10,7 @@ import {
   decideCleanText,
   htmlToPlain,
 } from "../_shared/clean-text-validation.ts";
-import { applyYoutubeReclean, computeSelections, planYoutubeReclean, upsertSelections } from "../_shared/best-text-source-core.ts";
+import { applyYoutubeReclean, computeSelections, planSpotifyReclean, planYoutubeReclean, upsertSelections } from "../_shared/best-text-source-core.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -141,6 +141,47 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Read-only: one page of the staged verified-Spotify target set (keyset on episode_id).
+    if (action === "spotify_dry_run") {
+      // ≤15 per call: 30 long Spotify notes across many shows exceeded edge CPU.
+      const pageSize = Math.max(1, Math.min(15, Number(body.limit || 15)));
+      let ids: string[];
+      if (Array.isArray(body.episode_ids)) {
+        ids = body.episode_ids.map(String).filter((x: string) => /^[0-9a-f-]{36}$/i.test(x)).slice(0, pageSize);
+      } else {
+        const { data: tg, error } = await admin.rpc("best_source_spotify_targets_v1", { p_after: body.after || null, p_limit: pageSize });
+        if (error) throw error;
+        ids = ((tg || []) as any[]).map((r) => String(r.episode_id));
+      }
+      const ctrl = await loadBestCtrl();
+      const sel = await computeSelections(admin, ids, ctrl);
+      const spDecisions = sel.decisions.filter((d) => d.next_source === "spotify");
+      const plans = await planSpotifyReclean(admin, spDecisions.map((d) => ({ episode_id: d.episode_id, podcast_id: d.podcast_id, raw_text: d.raw_text, source_fingerprint: d.source_fingerprint, evidence: d.evidence })));
+      const gain: Record<string, number> = {}, next: Record<string, number> = {}, outcomes: Record<string, number> = {}, reasons: Record<string, number> = {};
+      for (const d of sel.decisions) {
+        next[d.next_source] = (next[d.next_source] || 0) + 1;
+        const g = d.spotify_gain?.decision || (d.evidence?.spotify_gain?.decision) || "not_evaluated";
+        gain[g] = (gain[g] || 0) + 1;
+      }
+      for (const p of plans) {
+        outcomes[p.outcome] = (outcomes[p.outcome] || 0) + 1;
+        for (const r of p.reasons) if (p.outcome !== "apply") reasons[r] = (reasons[r] || 0) + 1;
+      }
+      const sampleN = Math.max(0, Math.min(20, Number(body.samples ?? 0)));
+      return json({
+        ok: true, action, dry_run: true, page_size: pageSize, targets: ids.length,
+        next_after: ids.length ? ids[ids.length - 1] : null, done: ids.length < pageSize,
+        scanned: sel.stats.scanned, spotify_gain: gain, next_source: next, reclean_outcomes: outcomes, reject_reasons: reasons,
+        eligible_ids: plans.filter((p) => p.outcome === "apply").map((p) => p.episode_id),
+        samples: plans.slice(0, sampleN).map((p) => ({
+          episode_id: p.episode_id, outcome: p.outcome, reasons: p.reasons, prior_method: p.prior_method,
+          prior_len: p.prior_len, next_len: p.next_len, preview: p.preview,
+          ...(body.full_text === true ? { next_text: p.item?.cleaned_text ?? null } : {}),
+        })),
+        elapsed_ms: Date.now() - startedAt,
+      });
+    }
+
     const guard = await checkBackgroundJobsAllowed(admin, "clean-text-repair");
     if (guard.blocked) return json({ ok: true, skipped: true, reason: guard.reason });
 
@@ -168,6 +209,34 @@ Deno.serve(async (req) => {
       return json({
         ok: true, action, batch_id: Number(result?.applied || 0) ? batchId : null, requested: ids.length, upserted_best_source: upserted,
         youtube_selected: yt.length, outcomes, result,
+        applied_ids: plans.filter((p) => p.outcome === "apply" && !(result?.conflict_episode_ids || []).includes(p.episode_id)).map((p) => p.episode_id),
+        rejected: plans.filter((p) => p.outcome === "reject").map((p) => ({ episode_id: p.episode_id, reasons: p.reasons })),
+        elapsed_ms: Date.now() - startedAt,
+      });
+    }
+
+    // Spotify canary: best source for explicit ids, then a backed-up CAS re-clean (≤50).
+    if (action === "spotify_canary") {
+      if (body.confirm !== "apply_spotify_canary") return json({ ok: false, error: "confirm=apply_spotify_canary required" }, 400);
+      // ≤15 per call (edge CPU); a 30–50 canary is several calls, each its own backed-up batch.
+      const ids: string[] = Array.isArray(body.episode_ids) ? body.episode_ids.map(String).filter((x: string) => /^[0-9a-f-]{36}$/i.test(x)).slice(0, 15) : [];
+      if (!ids.length) return json({ ok: false, error: "episode_ids required (≤15 per call)" }, 400);
+      const ctrl = await loadBestCtrl();
+      const sel = await computeSelections(admin, ids, ctrl);
+      const upserted = await upsertSelections(admin, sel.rows);
+      const sp = sel.decisions.filter((d) => d.next_source === "spotify");
+      const { data: rows, error: rErr } = await admin.from("episode_best_text_source")
+        .select("episode_id,podcast_id,raw_text,source_fingerprint,evidence,source_type").in("episode_id", sp.map((d) => d.episode_id));
+      if (rErr) throw rErr;
+      const cands = ((rows || []) as any[]).filter((r) => r.source_type === "spotify");
+      const plans = await planSpotifyReclean(admin, cands);
+      const batchId = crypto.randomUUID();
+      const result = await applyYoutubeReclean(admin, plans, batchId);
+      const outcomes: Record<string, number> = {};
+      for (const p of plans) outcomes[p.outcome] = (outcomes[p.outcome] || 0) + 1;
+      return json({
+        ok: true, action, batch_id: Number(result?.applied || 0) ? batchId : null, requested: ids.length, upserted_best_source: upserted,
+        spotify_selected: sp.length, outcomes, result,
         applied_ids: plans.filter((p) => p.outcome === "apply" && !(result?.conflict_episode_ids || []).includes(p.episode_id)).map((p) => p.episode_id),
         rejected: plans.filter((p) => p.outcome === "reject").map((p) => ({ episode_id: p.episode_id, reasons: p.reasons })),
         elapsed_ms: Date.now() - startedAt,

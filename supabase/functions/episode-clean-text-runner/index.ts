@@ -19,7 +19,8 @@ import {
   decideCleanText,
   validateCleanOutput,
 } from "../_shared/clean-text-validation.ts";
-import { cleanYoutubeDescription, loadRecurringByPodcast } from "../_shared/best-text-source-core.ts";
+import { cleanYoutubeDescription, loadRecurringByPodcast, loadRecurringSpotifyByPodcast, SPOTIFY_RECLEAN_METHOD } from "../_shared/best-text-source-core.ts";
+import { stripSpotifyBoilerplate } from "../_shared/spotify-source-gain.ts";
 import { recurringFor } from "../_shared/youtube-source-gain.ts";
 import { detectAiTrimBucket, runAiTrim, AI_TRIM_TARGET_BUCKETS, type AiTrimBucket } from "../_shared/clean-text-ai-trim.ts";
 
@@ -165,6 +166,8 @@ Deno.serve(async (req) => {
       // Podcast-recurring sponsor/intro blocks for verified-YouTube sources (same as the re-clean planner).
       const ytPodcasts = eps.filter((e: any) => bestByEp.get(String(e.id))?.source_type === "youtube").map((e: any) => String(e.podcast_id || ""));
       const recurringByPodcast = ytPodcasts.length ? await loadRecurringByPodcast(admin, ytPodcasts) : new Map();
+      const spPodcasts = eps.filter((e: any) => bestByEp.get(String(e.id))?.source_type === "spotify").map((e: any) => String(e.podcast_id || ""));
+      const spotifyRecurringByPodcast = spPodcasts.length ? await loadRecurringSpotifyByPodcast(admin, spPodcasts) : new Map();
 
       passes++;
       const upsertRows: any[] = [];
@@ -242,6 +245,13 @@ Deno.serve(async (req) => {
             const yc = cleanYoutubeDescription(raw, v4, recurringFor(recurringByPodcast.get(String((ep as any).podcast_id || "")), raw));
             if (yc.ok && (yc.verdict.status === "valid" || yc.verdict.status === "valid_short")) {
               cleaned = yc.text; verdict = yc.verdict; appliedMethod = yc.method;
+            }
+          }
+          // Verified Spotify show notes: same boilerplate removal + method/hash as the Spotify re-clean planner.
+          if (best?.source_type === "spotify") {
+            const sc = cleanYoutubeDescription(stripSpotifyBoilerplate(raw), undefined, recurringFor(spotifyRecurringByPodcast.get(String((ep as any).podcast_id || "")), raw), SPOTIFY_RECLEAN_METHOD);
+            if (sc.ok && (sc.verdict.status === "valid" || sc.verdict.status === "valid_short")) {
+              cleaned = sc.text; verdict = sc.verdict; appliedMethod = sc.method;
             }
           }
           const removedCats = Array.from(new Set([...decision.removed, ...(best?.source_type ? [`source_${best.source_type}`] : [])]));

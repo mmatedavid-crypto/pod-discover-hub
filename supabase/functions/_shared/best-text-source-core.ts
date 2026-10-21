@@ -20,10 +20,12 @@ import {
 } from "./best-text-source-policy.ts";
 import { informativeUnits, recurringFor, recurringUnitCounts, stripRecurringLines, stripSponsorSections, trimDanglingLabels, youtubeRecleanGate } from "./youtube-source-gain.ts";
 import { conservativeRescueClean } from "./clean-text-validation.ts";
+import { spotifyRecurringCounts, stripSpotifyBoilerplate } from "./spotify-source-gain.ts";
 
 export const CHUNK = 50;
 const PREVIEW_INPUT_MAX = 12_000;
 export const YOUTUBE_RECLEAN_METHOD = "deterministic_v4+youtube";
+export const SPOTIFY_RECLEAN_METHOD = "deterministic_v4+spotify";
 
 export async function sha256Hex(s: string): Promise<string> {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
@@ -53,13 +55,39 @@ export async function loadRecurringByPodcast(admin: any, podcastIds: string[]): 
   return out;
 }
 
+/**
+ * Per-show recurrence counts over ≤24 Spotify descriptions sampled evenly across
+ * the show's history (boilerplate wording changes over the years, so the most
+ * recent descriptions alone miss older footers). Two light queries per show.
+ */
+export async function loadRecurringSpotifyByPodcast(admin: any, podcastIds: string[]): Promise<Map<string, Map<string, number>>> {
+  const out = new Map<string, Map<string, number>>();
+  const ids = Array.from(new Set(podcastIds.filter(Boolean))).slice(0, 20);
+  await Promise.all(ids.map(async (pid) => {
+    const { data: rows, error } = await admin.from("episode_spotify_meta")
+      .select("id,release_date").eq("podcast_id", pid).order("release_date", { ascending: true, nullsFirst: false }).order("id", { ascending: true }).limit(4000);
+    if (error) throw error;
+    const all = (rows || []) as any[];
+    if (all.length < 4) return;
+    const step = Math.max(1, all.length / 24);
+    const pick = Array.from(new Set(Array.from({ length: Math.min(24, all.length) }, (_, i) => all[Math.floor(i * step)].id)));
+    const { data: descs, error: dErr } = await admin.from("episode_spotify_meta")
+      .select("spotify_description,spotify_html_description").in("id", pick);
+    if (dErr) throw dErr;
+    const texts = ((descs || []) as any[]).map((d) => String(d.spotify_html_description || d.spotify_description || ""));
+    const c = spotifyRecurringCounts(texts);
+    if (c) out.set(pid, c);
+  }));
+  return out;
+}
+
 /** Load HU episodes and all candidate sources for at most a few hundred ids (chunked `in` lookups). */
 export async function loadEpisodeSources(admin: any, targetIds: string[]) {
   const episodes: EpisodeRow[] = [];
   for (let i = 0; i < targetIds.length; i += CHUNK) {
     const { data, error } = await admin
       .from("episodes")
-      .select("id,podcast_id,title,description,updated_at,podcasts!inner(language_decision)")
+      .select("id,podcast_id,title,description,updated_at,podcasts!inner(language_decision,spotify_match_confidence)")
       .in("id", targetIds.slice(i, i + CHUNK))
       .eq("podcasts.language_decision", "accept_hungarian");
     if (error) throw error;
@@ -126,7 +154,17 @@ export async function loadEpisodeSources(admin: any, targetIds: string[]) {
   }
   const ytPodcasts = episodes.filter((e) => youtubeByEp.has(e.id)).map((e) => e.podcast_id);
   const recurringByPodcast = ytPodcasts.length ? await loadRecurringByPodcast(admin, ytPodcasts) : new Map();
-  return { episodes, spotifyByEp, youtubeByEp, articleByEp, transcriptByEp, prevByEp, recurringByPodcast };
+  // Recurring-block detection only where Spotify could add information at all:
+  // a gain needs ≥200 novel chars with ≤60 RSS-unique chars, i.e. Spotify ≥ RSS + ~140.
+  // Skipping the rest keeps the runner's CPU flat on ordinary feed episodes.
+  const spPodcasts = episodes.filter((e) => {
+    const sp = spotifyByEp.get(e.id);
+    if (!sp) return false;
+    const spLen = String(sp.spotify_html_description || sp.spotify_description || "").length;
+    return spLen >= String(e.description || "").length + 120;
+  }).map((e) => e.podcast_id);
+  const spotifyRecurringByPodcast = spPodcasts.length ? await loadRecurringSpotifyByPodcast(admin, spPodcasts) : new Map();
+  return { episodes, spotifyByEp, youtubeByEp, articleByEp, transcriptByEp, prevByEp, recurringByPodcast, spotifyRecurringByPodcast };
 }
 
 export type SelectionStats = {
@@ -136,6 +174,7 @@ export type SelectionStats = {
   reclean_marked: number;
   source_counts: Record<string, number>;
   youtube_gain: Record<string, number>;
+  spotify_gain: Record<string, number>;
 };
 
 /** Pick the best source per episode; returns upsert-ready rows for changed selections only. */
@@ -144,22 +183,26 @@ export async function computeSelections(admin: any, targetIds: string[], ctrl: a
   const now = new Date().toISOString();
   const rows: any[] = [];
   const decisions: any[] = [];
-  const stats: SelectionStats = { scanned: src.episodes.length, unchanged: 0, rss_noop: 0, reclean_marked: 0, source_counts: {}, youtube_gain: {} };
+  const stats: SelectionStats = { scanned: src.episodes.length, unchanged: 0, rss_noop: 0, reclean_marked: 0, source_counts: {}, youtube_gain: {}, spotify_gain: {} };
   for (const ep of src.episodes) {
     const ytRow = src.youtubeByEp.get(ep.id) || null;
     const recurring = recurringFor(src.recurringByPodcast.get(ep.podcast_id), ytRow?.youtube_description ?? null);
-    const best = pickBest(ep, src.spotifyByEp.get(ep.id) || null, ytRow, src.articleByEp.get(ep.id) || null, src.transcriptByEp.get(ep.id) || null, ctrl, { recurring });
+    const spRow = src.spotifyByEp.get(ep.id) || null;
+    const spotifyRecurring = recurringFor(src.spotifyRecurringByPodcast.get(ep.podcast_id), spRow ? String(spRow.spotify_html_description || spRow.spotify_description || "") : null);
+    const best = pickBest(ep, spRow, ytRow, src.articleByEp.get(ep.id) || null, src.transcriptByEp.get(ep.id) || null, ctrl, { recurring, spotifyRecurring });
     if (!best) continue;
     const gain = best.evidence?.youtube_gain || null;
     if (gain) stats.youtube_gain[gain.decision] = (stats.youtube_gain[gain.decision] || 0) + 1;
+    const spGain = best.evidence?.spotify_gain || null;
+    if (spGain) stats.spotify_gain[spGain.decision] = (stats.spotify_gain[spGain.decision] || 0) + 1;
     const prev = src.prevByEp.get(ep.id) || null;
     const fingerprint = await sourceFingerprint(best);
-    decisions.push({ episode_id: ep.id, podcast_id: ep.podcast_id, prev_source: prev?.source_type || null, next_source: best.source_type, gain, raw_text: best.raw_text, source_fingerprint: fingerprint, evidence: { ...best.evidence, policy_version: BEST_SOURCE_POLICY_VERSION } });
+    decisions.push({ episode_id: ep.id, podcast_id: ep.podcast_id, prev_source: prev?.source_type || null, next_source: best.source_type, gain, spotify_gain: spGain, raw_text: best.raw_text, source_fingerprint: fingerprint, evidence: { ...best.evidence, policy_version: BEST_SOURCE_POLICY_VERSION } });
     if (prev?.source_fingerprint === fingerprint) { stats.unchanged++; continue; }
     // RSS remains the default without a row; only record RSS when a row exists, a transcript or a YouTube decision is available.
-    if (!prev && best.source_type === "rss" && !best.evidence?.transcript_available && !gain) { stats.rss_noop++; continue; }
+    if (!prev && best.source_type === "rss" && !best.evidence?.transcript_available && !gain && !spGain) { stats.rss_noop++; continue; }
     // A verified YouTube selection that was never re-clean-evaluated is evaluated once (gate decides).
-    const reclean = needsReclean(prev, best) || (best.source_type === "youtube" && !prev?.reclean_status);
+    const reclean = needsReclean(prev, best) || ((best.source_type === "youtube" || best.source_type === "spotify") && !prev?.reclean_status);
     if (reclean) stats.reclean_marked++;
     // Preview only (4000 chars stored). deterministic_v4 can take >2 s CPU on some
     // 50k+ transcripts, so long texts are previewed from their first 12k chars.
@@ -212,7 +255,7 @@ const infoLen = (t: string) => informativeUnits(t).units.join(" ").length;
  * text) the extract-only rescue output is used instead. Same method names and
  * source-hash formula in the clean-text runner and the re-clean planner.
  */
-export function cleanYoutubeDescription(rawIn: string, v4In?: { text: string; removed: string[] }, recurring?: Set<string> | null) {
+export function cleanYoutubeDescription(rawIn: string, v4In?: { text: string; removed: string[] }, recurring?: Set<string> | null, methodBase: string = YOUTUBE_RECLEAN_METHOD) {
   // Sponsor/ad sections and podcast-recurring blocks are removed before cleaning
   // (removal only; still extract-only vs the raw text).
   const plain = htmlToPlain(rawIn);
@@ -235,7 +278,7 @@ export function cleanYoutubeDescription(rawIn: string, v4In?: { text: string; re
   }
   if (sponsorStripped) removed = Array.from(new Set([...removed, "youtube_sponsor_sections"]));
   const verdict = validateCleanOutput(raw, text);
-  const method = rescued ? `${YOUTUBE_RECLEAN_METHOD}+${RESCUE_METHOD_SUFFIX}` : YOUTUBE_RECLEAN_METHOD;
+  const method = rescued ? `${methodBase}+${RESCUE_METHOD_SUFFIX}` : methodBase;
   return { ok: true as const, decision, text, rescued, removed, verdict, method };
 }
 
@@ -263,7 +306,7 @@ export const PROTECTED_REPAIR_BATCHES = [
   "8e365da4-f9db-4bbc-90f7-4fc6506fb358",
 ];
 
-export type BackupClass = { protected: boolean; autoYoutube: boolean };
+export type BackupClass = { protected: boolean; autoYoutube: boolean; autoSpotify: boolean };
 
 /**
  * Active (not rolled back) repair backups per episode. An episode is protected
@@ -276,16 +319,19 @@ export function classifyBackups(rows: Array<{ episode_id: string; batch_id?: str
   const prot = new Set(protectedBatches);
   for (const r of rows) {
     const id = String(r.episode_id);
-    const c = out.get(id) || { protected: false, autoYoutube: false };
-    const yt = String(r.new_cleaner_method || "").startsWith(YOUTUBE_RECLEAN_METHOD);
-    if (!yt || (r.batch_id && prot.has(String(r.batch_id)))) c.protected = true;
-    else c.autoYoutube = true;
+    const c = out.get(id) || { protected: false, autoYoutube: false, autoSpotify: false };
+    const m = String(r.new_cleaner_method || "");
+    const yt = m.startsWith(YOUTUBE_RECLEAN_METHOD);
+    const sp = m.startsWith(SPOTIFY_RECLEAN_METHOD);
+    if ((!yt && !sp) || (r.batch_id && prot.has(String(r.batch_id)))) c.protected = true;
+    else if (yt) c.autoYoutube = true;
+    else c.autoSpotify = true;
     out.set(id, c);
   }
   return out;
 }
 
-async function loadRecleanContext(admin: any, ids: string[], withDescription = false) {
+export async function loadRecleanContext(admin: any, ids: string[], withDescription = false) {
   const cleanByEp = new Map<string, any>();
   const epById = new Map<string, any>();
   const backupRows: any[] = [];
@@ -375,6 +421,69 @@ export async function planYoutubeReclean(admin: any, candidates: RecleanCandidat
         quality_reasons: [refresh ? (cleanerUpdate ? "youtube_cleaner_update" : "youtube_source_refresh") : "youtube_informative_gain", `prior_method_${cur?.cleaner_method ?? "none"}`],
         quality_version: CLEAN_TEXT_QUALITY_VERSION,
         source_type: "youtube",
+        expected_source_hash: cur ? (cur.source_hash ?? null) : null,
+        expected_cleaned_sha256: cur ? await sha256Hex(String(cur.cleaned_text || "")) : null,
+      },
+    });
+  }
+  return plans;
+}
+
+/**
+ * Verified Spotify show notes → clean text. Deterministic, extract-only, and only
+ * when the prior text's information is kept and ≥100 informative chars are added
+ * (same gate as YouTube). Never overwrites: reviewed canaries / manual or other
+ * repairs (any non-Spotify backup), YouTube-derived clean text, or episodes the
+ * clean-text runner owns (pending/error). No writes here.
+ */
+export async function planSpotifyReclean(admin: any, candidates: RecleanCandidate[], opts: { gate?: any; protectedBatches?: string[] } = {}): Promise<RecleanPlan[]> {
+  const ctx = await loadRecleanContext(admin, candidates.map((c) => c.episode_id));
+  const backups = classifyBackups(ctx.backupRows, opts.protectedBatches);
+  const recurringByPodcast = await loadRecurringSpotifyByPodcast(admin, candidates.map((c) => String(c.podcast_id || "")));
+  const plans: RecleanPlan[] = [];
+  for (const cand of candidates) {
+    const raw = String(cand.raw_text || "").trim();
+    const cur = ctx.cleanByEp.get(cand.episode_id) || null;
+    const curMethod = String(cur?.cleaner_method || "");
+    const base = { episode_id: cand.episode_id, source_fingerprint: cand.source_fingerprint, evidence: cand.evidence, prior_len: String(cur?.cleaned_text || "").length, prior_method: cur?.cleaner_method ?? null };
+    const reject = (reasons: string[], next_len = 0, preview = "") => plans.push({ ...base, outcome: "reject", reasons, next_len, preview });
+    const bk = backups.get(cand.episode_id);
+    if (bk?.protected || bk?.autoYoutube) { reject(["protected_prior_repair_batch"]); continue; }
+    if (/youtube|ytdesc/i.test(curMethod)) { reject(["prior_youtube_derived_kept"]); continue; }
+    const status = String(ctx.epById.get(cand.episode_id)?.clean_text_status || "");
+    if (status === "pending" || status === "error") { reject([`clean_text_status_${status}_runner_owns`]); continue; }
+    const recurring = recurringFor(recurringByPodcast.get(String(cand.podcast_id || "")), raw);
+    const yc = cleanYoutubeDescription(stripSpotifyBoilerplate(raw), undefined, recurring, SPOTIFY_RECLEAN_METHOD);
+    if (!yc.ok) { reject([`decision_${yc.decision.action}`, ...((yc.decision as any).reasons || [])]); continue; }
+    const { text, verdict, method, removed } = yc;
+    const source_hash = await sha256Hex(`${method}::${raw}`);
+    if (cur?.source_hash === source_hash) {
+      plans.push({ ...base, outcome: "noop_same", reasons: ["already_applied_same_source_hash"], next_len: text.length, preview: text.slice(0, 280) });
+      continue;
+    }
+    const extract = validateExtractOnlyTrim(htmlToPlain(raw), text, { minOverlap: 0.97, maxAddedTokenRatio: 0.03, minCompressionRatio: 0 });
+    const gate = youtubeRecleanGate(cur?.cleaned_text, text, { ...(opts.gate || {}), recurring });
+    const reasons = [...gate.reasons];
+    if (verdict.status !== "valid") reasons.push(`verdict_${verdict.status}`);
+    if (!extract.ok) reasons.push(...extract.reasons.map((r: string) => `extract_${r}`));
+    if (text.length < 80) reasons.push("too_short");
+    if (reasons.length) { reject(reasons, text.length, text.slice(0, 280)); continue; }
+    plans.push({
+      ...base,
+      outcome: "apply",
+      reasons: [`info_gain_${gate.next_info_len - gate.prior_info_len}`],
+      next_len: text.length,
+      preview: text.slice(0, 280),
+      item: {
+        episode_id: cand.episode_id,
+        cleaned_text: text,
+        source_hash,
+        cleaner_method: method,
+        removed_categories: Array.from(new Set([...removed, "source_spotify", "spotify_boilerplate"])),
+        quality_status: verdict.status,
+        quality_reasons: ["spotify_informative_gain", `prior_method_${cur?.cleaner_method ?? "none"}`],
+        quality_version: CLEAN_TEXT_QUALITY_VERSION,
+        source_type: "spotify",
         expected_source_hash: cur ? (cur.source_hash ?? null) : null,
         expected_cleaned_sha256: cur ? await sha256Hex(String(cur.cleaned_text || "")) : null,
       },

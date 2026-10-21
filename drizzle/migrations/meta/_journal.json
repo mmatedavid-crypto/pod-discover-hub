@@ -484,6 +484,13 @@
       "when": 1792584034396,
       "tag": "0068_youtube_link_noop_source_change_queue",
       "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1792591295625,
+      "tag": "0069_spotify_source_transcript_lexical_index",
+      "breakpoints": true
     }
   ]
 }

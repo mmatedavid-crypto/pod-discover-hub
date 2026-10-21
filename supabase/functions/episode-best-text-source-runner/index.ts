@@ -25,10 +25,11 @@ import {
   applyYoutubeReclean,
   computeSelections,
   planRssRevert,
+  planSpotifyReclean,
   planYoutubeReclean,
   upsertSelections,
 } from "../_shared/best-text-source-core.ts";
-import { laneBudgets, recleanAllowances } from "../_shared/best-text-source-lanes.ts";
+import { laneBudgets, recleanAllowances, spotifyRecleanAllowance } from "../_shared/best-text-source-lanes.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -160,6 +161,24 @@ Deno.serve(async (req) => {
       }
     }
 
+    // 2b) Staged verified-Spotify set (keyset on episode_id), only when enabled.
+    const spBackfill = { ...(state.spotify_backfill || {}) } as any;
+    let spBackfillCount = 0;
+    const spBackfillOn = mode === "incremental" && budgets.spotifyBackfill > 0 && !spBackfill.completed_at;
+    if (spBackfillOn) {
+      const per = Math.min(budgets.spotifyBackfill, MAX_TARGETS - targetIds.length);
+      if (per > 0) {
+        stage = "spotify_backfill_targets";
+        const { data, error } = await admin.rpc("best_source_spotify_targets_v1", { p_after: spBackfill.cursor || null, p_limit: per });
+        if (error) throw new Error(`spotify backfill targets: ${error.message}`);
+        const ids = ((data || []) as any[]).map((r) => String(r.episode_id));
+        for (const id of ids) if (!seen.has(id)) { seen.add(id); targetIds.push(id); }
+        spBackfillCount = ids.length;
+        if (ids.length) spBackfill.cursor = ids[ids.length - 1];
+        if (ids.length < per) spBackfill.completed_at = new Date().toISOString();
+      }
+    }
+
     // 1) Archival change feeds; room never exceeds MAX_TARGETS so no feed row is
     // read past its cursor and then clipped.
     if (mode === "incremental") {
@@ -185,7 +204,7 @@ Deno.serve(async (req) => {
     const sel = await computeSelections(admin, targetIds.slice(0, MAX_TARGETS), ctrl);
 
     if (dryRun) {
-      return json({ ok: true, dry_run: true, mode, budgets, target_ids: targetIds.length, feed_counts: feedCounts, backfill_targets: backfillCount, would_upsert: sel.rows.length, ...sel.stats, samples: sel.decisions.slice(0, 10).map((d) => ({ episode_id: d.episode_id, prev: d.prev_source, next: d.next_source, gain: d.gain?.decision ?? null })), queue: await queueSizes(admin), elapsed_ms: Date.now() - startedAt });
+      return json({ ok: true, dry_run: true, mode, budgets, target_ids: targetIds.length, feed_counts: feedCounts, backfill_targets: backfillCount, spotify_backfill_targets: spBackfillCount, would_upsert: sel.rows.length, ...sel.stats, samples: sel.decisions.slice(0, 10).map((d) => ({ episode_id: d.episode_id, prev: d.prev_source, next: d.next_source, gain: d.gain?.decision ?? null })), queue: await queueSizes(admin), elapsed_ms: Date.now() - startedAt });
     }
 
     stage = "upsert_selections";
@@ -254,6 +273,31 @@ Deno.serve(async (req) => {
       };
     }
 
+    // 3b) Verified-Spotify re-clean: own small per-run limit and daily cap (default off).
+    const spRc = { ...(state.spotify_reclean || {}) } as any;
+    const spUsedToday = spRc.day === today ? Number(spRc.applied_today || 0) : 0;
+    const spAllow = spotifyRecleanAllowance(ctrl, spUsedToday);
+    let spotifyResult: any = null;
+    if (spAllow.allowed > 0) {
+      stage = "reclean_spotify";
+      const { data: sp, error: sErr } = await admin.from("episode_best_text_source")
+        .select("episode_id,podcast_id,raw_text,source_fingerprint,evidence")
+        .eq("reclean_status", "pending")
+        .eq("source_type", "spotify")
+        .order("reclean_marked_at", { ascending: true })
+        .limit(spAllow.allowed);
+      if (sErr) throw sErr;
+      const rows = (sp || []) as any[];
+      if (rows.length) {
+        const plans = await planSpotifyReclean(admin, rows);
+        const batchId = crypto.randomUUID();
+        const res = await applyYoutubeReclean(admin, plans, batchId);
+        const outcomes: Record<string, number> = {};
+        for (const p of plans) outcomes[p.outcome] = (outcomes[p.outcome] || 0) + 1;
+        spotifyResult = { batch_id: Number(res?.applied || 0) ? batchId : null, planned: plans.length, outcomes, applied: Number(res?.applied || 0), conflicts: Number(res?.conflicts || 0), invalid: Number(res?.invalid || 0), cap: spAllow.cap, used_today_before: spUsedToday };
+      } else spotifyResult = { planned: 0, applied: 0, cap: spAllow.cap, used_today_before: spUsedToday };
+    }
+
     // Ack the fast lane only after selection + re-clean succeeded.
     let ack: any = null;
     stage = "fast_lane_ack";
@@ -295,15 +339,24 @@ Deno.serve(async (req) => {
           queue_pending: queue.pending, queue_dead: queue.dead, last_at: now,
         },
         youtube_backfill: backfillOn ? { ...backfill, rows_total: Number((fresh.youtube_backfill || {}).rows_total || 0) + backfillCount } : (fresh.youtube_backfill || backfill),
+        spotify_backfill: spBackfillOn ? { ...spBackfill, rows_total: Number((fresh.spotify_backfill || {}).rows_total || 0) + spBackfillCount } : (fresh.spotify_backfill || spBackfill),
+        spotify_reclean: (() => {
+          const f = fresh.spotify_reclean || {};
+          const used = f.day === today ? Number(f.applied_today || 0) : 0;
+          const a = Number(spotifyResult?.applied || 0);
+          const b = [...(Array.isArray(f.batches) ? f.batches : [])];
+          if (spotifyResult?.batch_id) b.unshift({ batch_id: spotifyResult.batch_id, at: now, applied: a });
+          return { day: today, applied_today: used + a, total_applied: Number(f.total_applied || 0) + a, batches: b.slice(0, 40) };
+        })(),
         youtube_reclean: { day: today, applied_today: freshUsed + applied, total_applied: Number(freshRc.total_applied || 0) + applied, rss_reverts_total: Number(freshRc.rss_reverts_total || 0) + Number(recleanResult?.rss_reverts || 0), batches: batches.slice(0, 40) },
         runs_ok: Number(fresh.runs_ok || 0) + 1,
         consecutive_errors: 0,
         last_success_at: now,
-        last_run: { at: now, ok: true, mode, budgets, scanned: sel.stats.scanned, fast_lane: fastLane, feed_counts: feedCounts, backfill_targets: backfillCount, upserted, unchanged: sel.stats.unchanged, rss_noop: sel.stats.rss_noop, reclean_marked: sel.stats.reclean_marked, source_counts: sel.stats.source_counts, youtube_gain: sel.stats.youtube_gain, reclean: recleanResult, runtime_ms: runtimeMs },
+        last_run: { at: now, ok: true, mode, budgets, scanned: sel.stats.scanned, fast_lane: fastLane, feed_counts: feedCounts, backfill_targets: backfillCount, upserted, unchanged: sel.stats.unchanged, rss_noop: sel.stats.rss_noop, reclean_marked: sel.stats.reclean_marked, source_counts: sel.stats.source_counts, youtube_gain: sel.stats.youtube_gain, spotify_gain: sel.stats.spotify_gain, spotify_backfill_targets: spBackfillCount, reclean: recleanResult, spotify_reclean: spotifyResult, runtime_ms: runtimeMs },
       };
     });
 
-    return json({ ok: true, mode, budgets, scanned: sel.stats.scanned, fast_lane: fastLane, upserted, unchanged: sel.stats.unchanged, rss_noop: sel.stats.rss_noop, reclean_marked: sel.stats.reclean_marked, feed_counts: feedCounts, backfill_targets: backfillCount, source_counts: sel.stats.source_counts, youtube_gain: sel.stats.youtube_gain, reclean: recleanResult, elapsed_ms: runtimeMs });
+    return json({ ok: true, mode, budgets, scanned: sel.stats.scanned, fast_lane: fastLane, upserted, unchanged: sel.stats.unchanged, rss_noop: sel.stats.rss_noop, reclean_marked: sel.stats.reclean_marked, feed_counts: feedCounts, backfill_targets: backfillCount, source_counts: sel.stats.source_counts, youtube_gain: sel.stats.youtube_gain, spotify_gain: sel.stats.spotify_gain, spotify_backfill_targets: spBackfillCount, reclean: recleanResult, spotify_reclean: spotifyResult, elapsed_ms: runtimeMs });
   } catch (e) {
     const base = e instanceof Error ? `${e.message}${e.stack ? ` :: ${e.stack.split('\n').slice(0, 3).join(' | ')}` : ''}` : (typeof e === "string" ? e : JSON.stringify(e));
     const msg = `[${stage}] ${base}`;

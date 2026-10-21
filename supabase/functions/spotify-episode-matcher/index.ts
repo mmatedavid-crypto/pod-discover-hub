@@ -70,13 +70,19 @@ async function getCooldown(supabase: any): Promise<number> {
   const until = data?.value?.cooldown_until ? Date.parse(data.value.cooldown_until) : 0;
   return until > Date.now() ? until : 0;
 }
-async function setCooldown(supabase: any, ms: number, reason: string) {
-  await supabase.from("app_settings").upsert({
-    key: "spotify_enricher_state",
-    value: { cooldown_until: new Date(Date.now() + ms).toISOString(), reason, set_at: new Date().toISOString() },
-    updated_at: new Date().toISOString(),
-  });
+// Re-read before writing and merge: the show enricher shares this state row.
+async function patchState(supabase: any, patch: Record<string, unknown>) {
+  const { data } = await supabase.from("app_settings").select("value").eq("key", "spotify_enricher_state").maybeSingle();
+  const value = { ...((data?.value as any) || {}), ...patch };
+  await supabase.from("app_settings").upsert({ key: "spotify_enricher_state", value, updated_at: new Date().toISOString() }, { onConflict: "key" });
 }
+async function setCooldown(supabase: any, ms: number, reason: string) {
+  await patchState(supabase, { cooldown_until: new Date(Date.now() + ms).toISOString(), reason, set_at: new Date().toISOString() });
+}
+
+// Incremental sync: Spotify lists newest first, so after this many consecutive
+// pages whose episodes are all already paired the rest is history (full=true rescans).
+const KNOWN_PAGES_STOP = 2;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -86,6 +92,7 @@ Deno.serve(async (req) => {
     const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
     const limit = Math.min(Number(body.limit) || 20, 100);
     const force = body.force === true;
+    const full = body.full === true;
     const requestedPodcast = body.podcast_id as string | undefined;
 
     if (!body.ignore_cooldown) {
@@ -99,7 +106,8 @@ Deno.serve(async (req) => {
     }
 
     const token = await getToken();
-    const summary = { podcasts_processed: 0, episodes_seen: 0, matched: 0, upserted: 0, errors: 0 };
+    // Telemetry: HTTP status per Spotify call; duplicate Spotify ids are not generic errors.
+    const summary: any = { podcasts_processed: 0, pages: 0, early_stops: 0, episodes_seen: 0, new_spotify_episodes: 0, matched: 0, upserted: 0, dup_spotify_episode: 0, errors: 0, http: {} as Record<string, number> };
     let cooldownTriggered = false;
     const overBudget = () => Date.now() - startedAt > WALL_BUDGET_MS;
 
@@ -136,11 +144,20 @@ Deno.serve(async (req) => {
           oursByDate.set(d, bucket);
         }
 
+        const known = new Set<string>();
+        if (!full && pod.spotify_episodes_last_synced_at) {
+          const { data: kn } = await supabase.from("episode_spotify_meta").select("spotify_episode_id").eq("podcast_id", pod.id).limit(5000);
+          for (const k of kn || []) if (k.spotify_episode_id) known.add(String(k.spotify_episode_id));
+        }
+        let knownPages = 0;
         let url: string | null = `https://api.spotify.com/v1/shows/${pod.spotify_id}/episodes?market=HU&limit=50&offset=0`;
         let pageGuard = 0;
         while (url && pageGuard < 60 && !overBudget() && !cooldownTriggered) {
           pageGuard++;
+          summary.pages++;
           const { res, cooldownMs } = await spFetch(url, token);
+          const hk = res ? String(res.status) : (cooldownMs ? "429" : "none");
+          summary.http[hk] = (summary.http[hk] || 0) + 1;
           if (cooldownMs) {
             await setCooldown(supabase, Math.min(cooldownMs, 6 * 3600_000), `429 episodes (${cooldownMs}ms)`);
             cooldownTriggered = true;
@@ -149,6 +166,8 @@ Deno.serve(async (req) => {
           if (!res || !res.ok) { summary.errors++; break; }
           const j = await res.json();
           const items = j?.items || [];
+          const pageNew = items.filter((x: any) => x?.id && !known.has(String(x.id))).length;
+          summary.new_spotify_episodes += known.size ? pageNew : 0;
           for (const sp of items) {
             if (!sp || !sp.id) continue;
             summary.episodes_seen++;
@@ -192,10 +211,13 @@ Deno.serve(async (req) => {
               match_confidence: bestScore,
               last_synced_at: new Date().toISOString(),
             }, { onConflict: "episode_id" });
-            if (upErr) summary.errors++;
-            else summary.upserted++;
+            if (!upErr) summary.upserted++;
+            else if (upErr.code === "23505") summary.dup_spotify_episode++;
+            else summary.errors++;
           }
           url = j?.next || null;
+          knownPages = known.size && pageNew === 0 ? knownPages + 1 : 0;
+          if (url && knownPages >= KNOWN_PAGES_STOP) { summary.early_stops++; break; }
           await new Promise((r) => setTimeout(r, 300));
         }
 
@@ -210,10 +232,9 @@ Deno.serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({
-      ok: true, ...summary, cooldown_triggered: cooldownTriggered,
-      elapsed_ms: Date.now() - startedAt,
-    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    const result = { ok: true, ...summary, cooldown_triggered: cooldownTriggered, elapsed_ms: Date.now() - startedAt };
+    await patchState(supabase, { last_episode_run: { at: new Date().toISOString(), ...result } }).catch(() => {});
+    return new Response(JSON.stringify(result), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     return new Response(JSON.stringify({ ok: false, error: String(e) }), {
       status: 500,
