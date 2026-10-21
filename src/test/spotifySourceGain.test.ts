@@ -103,7 +103,22 @@ describe("best-source selection with Spotify", () => {
 });
 
 describe("Spotify re-clean planner (backed up, never overwrites protected text)", () => {
-  const cand = { episode_id: "e1", podcast_id: "p1", raw_text: SP_FULL, source_fingerprint: "fp", evidence: {} };
+  const verified = { spotify_gain: { decision: "spotify_better" }, spotify_match_confidence: 0.95, spotify_show_match_confidence: 0.9, public_display: false };
+  const cand = { episode_id: "e1", podcast_id: "p1", raw_text: SP_FULL, source_fingerprint: "fp", evidence: verified };
+  it("never applies legacy length-based or weakly matched Spotify selections", async () => {
+    const legacy = { ...cand, evidence: { spotify_match_confidence: 1, match_method: "name_date" } };
+    expect((await planSpotifyReclean(base(), [legacy]))[0].reasons).toContain("unverified_spotify_selection");
+    const weakShow = { ...cand, evidence: { ...verified, spotify_show_match_confidence: 0.79 } };
+    expect((await planSpotifyReclean(base(), [weakShow]))[0].reasons).toContain("unverified_spotify_selection");
+    const weakEp = { ...cand, evidence: { ...verified, spotify_match_confidence: 0.7 } };
+    expect((await planSpotifyReclean(base(), [weakEp]))[0].outcome).toBe("reject");
+  });
+  it("protects the two reviewed Spotify canary batches", () => {
+    expect(PROTECTED_REPAIR_BATCHES).toContain("f8d5412b-ca9b-44d3-b3df-938bdc74c35c");
+    expect(PROTECTED_REPAIR_BATCHES).toContain("6af44eed-f0e3-453e-a58f-c4d099c11a1c");
+    const c = classifyBackups([{ episode_id: "e1", batch_id: "f8d5412b-ca9b-44d3-b3df-938bdc74c35c", new_cleaner_method: SPOTIFY_RECLEAN_METHOD }]);
+    expect(c.get("e1")?.protected).toBe(true);
+  });
   const base = (over: any = {}) => fakeAdmin({
     episode_clean_text: [{ episode_id: "e1", cleaned_text: RSS, source_hash: "rss", cleaner_method: "deterministic_v4" }],
     episodes: [{ id: "e1", clean_text_status: "done" }],

@@ -94,3 +94,17 @@ Spotify dry run (all 1,058): 564 `spotify_better`, 406 no gain, 64 RSS-unique, 1
 Transcripts: 7,250 HU transcripts ≥900 chars — 151 publisher RSS transcripts, 7,081 YouTube captions, 17 other. Indexed 45 publisher-RSS episodes (1,009 chunks); YouTube captions not indexed (provenance decision). Phrase lookups return only episode ids. Person evidence dry run on those 45 episodes: 35 pending links (17 full name spoken), 23 accepted (11), 4 rejected (1, stays rejected), nothing written.
 
 Rollback: Spotify canary via the existing backed-up CAS rollback for the two batch ids; transcript index is additive (truncate the table).
+
+## Spotify internal lane switched on (2026-10-21 15:00–15:40 UTC)
+
+Owner-approved, internal only (search/processing); nothing from Spotify is shown to visitors. $0 AI.
+
+Before enabling
+- 30 Spotify canary rows re-checked: 30/30 backups active, live text = applied hash, no URLs/CTA, all `done`.
+- The 54 "pending" Spotify best-source rows (+5 older) were selected by the old length-based v5 rule (no gain/show-confidence evidence). Re-selected under v6: 49 → RSS, 8 → verified Spotify, 2 → transcript; none of their clean texts had been changed.
+- `episode_spotify_meta` was readable through the public data API (raw descriptions). Migration `0070_spotify_meta_server_only` removed anon/authenticated access (no visitor code reads it).
+- Code: Spotify re-clean lane only takes rows whose evidence is a verified `spotify_better` selection (episode+show ≥0.8); planner rejects anything else (`unverified_spotify_selection`); Spotify canary batches added to the protected list.
+
+Controls (`episode_best_text_source_controls`): `spotify_backfill_enabled=true`, `spotify_backfill_per_run=3`, `spotify_reclean_enabled=true`, `spotify_reclean_per_run=3`, `spotify_reclean_daily_cap=20`; YouTube limits unchanged (fast 20, archive 20, feeds ≥8, 150/day, max 60). Runs inside cron 193.
+
+Disable: set `spotify_backfill_enabled` and `spotify_reclean_enabled` to false. Rollback: per batch via `clean-text-repair` rollback (batch ids in `episode_best_text_source_state.spotify_reclean.batches`).

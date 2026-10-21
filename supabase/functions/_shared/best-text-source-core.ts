@@ -299,12 +299,27 @@ export type RecleanPlan = {
 /** Deterministic, extract-only YouTube clean text + prior-preserving gate. No writes. */
 /**
  * Owner-reviewed repair batches that automatic runs must never overwrite
- * (43-row RSS canary and the 40-row reviewed YouTube canary, 2026-10-21).
+ * (43-row RSS canary, 40-row reviewed YouTube canary and the two reviewed
+ * 15+15 Spotify canary batches, 2026-10-21).
  */
 export const PROTECTED_REPAIR_BATCHES = [
   "5f25cffd-e041-4f91-a60f-fd8a953a2009",
   "8e365da4-f9db-4bbc-90f7-4fc6506fb358",
+  "f8d5412b-ca9b-44d3-b3df-938bdc74c35c",
+  "6af44eed-f0e3-453e-a58f-c4d099c11a1c",
 ];
+
+/** Episode and show match confidence required before Spotify text is used at all. */
+export const SPOTIFY_RECLEAN_MIN_CONFIDENCE = 0.8;
+
+/** The selection recorded on the best-source row must itself be a verified Spotify gain. */
+export function spotifySelectionVerified(evidence: any): boolean {
+  const ev = evidence || {};
+  return ev.spotify_gain?.decision === "spotify_better"
+    && Number(ev.spotify_match_confidence) >= SPOTIFY_RECLEAN_MIN_CONFIDENCE
+    && Number(ev.spotify_show_match_confidence) >= SPOTIFY_RECLEAN_MIN_CONFIDENCE
+    && ev.public_display !== true;
+}
 
 export type BackupClass = { protected: boolean; autoYoutube: boolean; autoSpotify: boolean };
 
@@ -447,6 +462,8 @@ export async function planSpotifyReclean(admin: any, candidates: RecleanCandidat
     const curMethod = String(cur?.cleaner_method || "");
     const base = { episode_id: cand.episode_id, source_fingerprint: cand.source_fingerprint, evidence: cand.evidence, prior_len: String(cur?.cleaned_text || "").length, prior_method: cur?.cleaner_method ?? null };
     const reject = (reasons: string[], next_len = 0, preview = "") => plans.push({ ...base, outcome: "reject", reasons, next_len, preview });
+    // Legacy (pre-v6, length-based) or weakly matched selections are never applied.
+    if (!spotifySelectionVerified(cand.evidence)) { reject(["unverified_spotify_selection"]); continue; }
     const bk = backups.get(cand.episode_id);
     if (bk?.protected || bk?.autoYoutube) { reject(["protected_prior_repair_batch"]); continue; }
     if (/youtube|ytdesc/i.test(curMethod)) { reject(["prior_youtube_derived_kept"]); continue; }

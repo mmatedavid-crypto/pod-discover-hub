@@ -280,10 +280,12 @@ Deno.serve(async (req) => {
     let spotifyResult: any = null;
     if (spAllow.allowed > 0) {
       stage = "reclean_spotify";
+      // Only rows selected by the informative-gain policy (legacy length-based rows never qualify).
       const { data: sp, error: sErr } = await admin.from("episode_best_text_source")
         .select("episode_id,podcast_id,raw_text,source_fingerprint,evidence")
         .eq("reclean_status", "pending")
         .eq("source_type", "spotify")
+        .eq("evidence->spotify_gain->>decision", "spotify_better")
         .order("reclean_marked_at", { ascending: true })
         .limit(spAllow.allowed);
       if (sErr) throw sErr;
