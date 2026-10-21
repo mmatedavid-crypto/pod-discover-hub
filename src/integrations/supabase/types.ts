@@ -413,6 +413,66 @@ export type Database = {
         }
         Relationships: []
       }
+      clean_text_repair_queue: {
+        Row: {
+          attempts: number
+          enqueued_at: string
+          episode_id: string
+          last_batch_id: string | null
+          last_reasons: string[]
+          lease_owner: string | null
+          lease_until: string | null
+          max_attempts: number
+          next_attempt_at: string
+          outcome: string | null
+          priority: number
+          published_at: string | null
+          repair_kind: string
+          resolved_at: string | null
+          source_fingerprint: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          enqueued_at?: string
+          episode_id: string
+          last_batch_id?: string | null
+          last_reasons?: string[]
+          lease_owner?: string | null
+          lease_until?: string | null
+          max_attempts?: number
+          next_attempt_at?: string
+          outcome?: string | null
+          priority?: number
+          published_at?: string | null
+          repair_kind: string
+          resolved_at?: string | null
+          source_fingerprint: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          enqueued_at?: string
+          episode_id?: string
+          last_batch_id?: string | null
+          last_reasons?: string[]
+          lease_owner?: string | null
+          lease_until?: string | null
+          max_attempts?: number
+          next_attempt_at?: string
+          outcome?: string | null
+          priority?: number
+          published_at?: string | null
+          repair_kind?: string
+          resolved_at?: string | null
+          source_fingerprint?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ctr_snippet_optimizations: {
         Row: {
           clicks: number | null
@@ -11074,6 +11134,15 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      claim_clean_text_repair_queue_v1: {
+        Args: { p_lease_seconds?: number; p_limit?: number; p_owner: string }
+        Returns: {
+          attempts: number
+          episode_id: string
+          repair_kind: string
+          source_fingerprint: string
+        }[]
+      }
       claim_episode_source_changes_v1: {
         Args: { p_lease_seconds?: number; p_limit?: number }
         Returns: {
@@ -11103,6 +11172,30 @@ export type Database = {
       }
       clean_slug: { Args: { fallback: string; input: string }; Returns: string }
       clean_text_quality_audit_v1: { Args: never; Returns: Json }
+      clean_text_repair_fingerprint_v1: {
+        Args: { p_description: string }
+        Returns: string
+      }
+      clean_text_repair_queue_seed_v1: { Args: never; Returns: Json }
+      clean_text_repair_queue_status_v1: { Args: never; Returns: Json }
+      clean_text_repair_queue_targets_v1: {
+        Args: { p_episode_ids: string[] }
+        Returns: {
+          active_backups: number
+          best_source_type: string
+          clean_text_status: string
+          current_cleaned_text: string
+          current_cleaner_method: string
+          current_source_hash: string
+          description: string
+          episode_id: string
+          has_clean_row: boolean
+          is_hungarian: boolean
+          same_description_in_show: number
+          source_fingerprint: string
+          summary: string
+        }[]
+      }
       clean_text_repair_targets_v1: {
         Args: { p_kind: string; p_limit?: number }
         Returns: {
@@ -11138,6 +11231,10 @@ export type Database = {
           same_description_in_show: number
           summary: string
         }[]
+      }
+      complete_clean_text_repair_queue_v1: {
+        Args: { p_owner: string; p_results: Json }
+        Returns: Json
       }
       count_pipeline_pending: { Args: { kind: string }; Returns: number }
       cron_revert_title_cleanup: { Args: never; Returns: undefined }

@@ -60,3 +60,26 @@ Excluded: English legal notice, a truncated sentence, a 60-char ad, supporter na
 - `episode_clean_text_controls.enabled=false` is the adaptive queue-health pause (`auto_paused_reason=queue_empty`, wake threshold 1 pending), not a manual block; 291 new episodes in 48 h got clean text. Legacy global backfill stays off; Gemini trim off.
 - Best-source cron 193 unchanged (:07/:22/:37/:52), runs OK (2.4–4.8 s). Spotify 3/run, 20/day; YouTube 150/day.
 - No new background lane for the 1,665 remaining RSS-fixable rows: next step is a bounded lane only after the owner reviews this canary.
+
+## Durable repair queue (2026-10-21 16:20–16:55 UTC)
+
+Live and autonomous. Deterministic, $0, no AI. HU backend only; `.com` untouched.
+
+- Table `clean_text_repair_queue` (migrations 0073, 0074): one row per HU episode, repair kind + RSS md5 fingerprint, finite statuses (pending/leased/done/no_substantive_source/protected/needs_review/quarantine/retry/dead), SKIP LOCKED lease (10 min), backoff, max 5 attempts then dead letter (also for crashed runs). Admin-only read.
+- Seed/reconcile `clean_text_repair_queue_seed_v1()` set-based, at most every 20 h (first run 38.8 s, 16 448 rows). Rows fixed elsewhere resolve to `done/resolved_elsewhere`.
+- Trigger: a real `episodes.description` change on an existing HU episode re-queues it as `rss_changed` (priority 15); no-op updates do nothing. New episodes stay with `episode-clean-text-runner`.
+- Function `clean-text-repair-queue` (cron jobid 195 `11,41 * * * *` while backlog is open, self-switches to hourly `41 * * * *` when drained): 40 per run, daily apply cap 1 500, chunks of ≤40 per backup batch, post-write verify + batch rollback, breaker (3 failures / conflict ratio 0.2), runner backstop (only auto-paused, HU-only).
+- Extra unattended gate (`_shared/clean-text-repair-queue.ts`): lost chapter timecodes, mostly English, bank details, short ads, supporter lists, and (when replacing existing text) platform-label leftovers → `needs_review`. Show-level recurring sentences (taglines, paywall/subscription notes, music credits) removed using 16 sampled descriptions of the same show; host/guest credits and timecodes always kept.
+- Shared cleaner fixes (also for new episodes, YouTube/Spotify lanes): hashtag walls (≥3 tags) removed, trailing link labels removed, separator rules → line breaks, Patreon/CTA lead-in before a colon no longer drops the episode content after it, removed a catastrophic-backtracking pattern that hit edge CPU limits.
+
+### Results (16:55 UTC)
+
+- Applied (backed up, rollback per batch): **1 388 episodes** in 84 batches; 0 conflicts, 0 invalid, 0 URLs in output. First 5 canary batches (291 rows) were rolled back and redone after rule tightening.
+  - empty, RSS > 500: 229 · empty, RSS 40–500: 487 · missing/skipped: 23 · over-trimmed: 649
+- HU empty clean text 5 236 → **4 520**; empty with RSS ≥ 500: 431 → **200**; over-trimmed (<20 % of RSS ≥ 300): 2 763 → **1 379**.
+- Finite outcomes so far: kept prior (no RSS gain / not safer) 633; no substantive source (link-only, show boilerplate, <40 chars) 11 637; protected (other source lane / backups) 370; needs review 2 069 (1 941 legacy ytdesc, 128 gated); quarantine 9.
+- Open: 102 pending + 240 leased (from two early runs killed by CPU limit; lease expiry → reclaimed). Daily cap reached ~93 %; the rest completes on the next runs (after 00:00 UTC cap reset at the latest).
+
+Rollback any batch: `select public.rollback_clean_text_repair_v1('<batch_id>')`; batch ids in `app_settings.clean_text_repair_queue_state.batch_ids` and `clean_text_repair_queue.last_batch_id`. Pause: `clean_text_repair_queue_controls.enabled=false`.
+
+Not done automatically (by design): 1 941 legacy ytdesc/RSS conflicts (`needs_review`), 128 gated rows, 9 quarantined.

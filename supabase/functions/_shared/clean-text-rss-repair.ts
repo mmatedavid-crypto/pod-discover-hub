@@ -122,7 +122,11 @@ export async function planRssRepair(t: RssRepairTarget, opts: { method?: string 
     outcome: "apply",
     reasons: [decision.rescued ? "rss_rescue_extract_only" : "rss_v4_valid", prior ? "prior_kept_and_extended" : "prior_empty_or_missing"],
     next_len: text.length,
-    lost_from_source: lostNamedTokens(htmlToPlain(raw), text).slice(0, 20),
+    lost_from_source: (() => {
+      const lost = lostNamedTokens(htmlToPlain(raw), text);
+      const tc = lost.filter((x) => /^\d{1,2}:\d{2}/.test(x));
+      return [...tc, ...lost.filter((x) => !tc.includes(x)).slice(0, 20)];
+    })(),
     preview: text.slice(0, 400),
     item: {
       episode_id: String(t.episode_id),
