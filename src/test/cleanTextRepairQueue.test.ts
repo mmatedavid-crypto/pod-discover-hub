@@ -133,3 +133,13 @@ describe("show-level recurring boilerplate", async () => {
     expect(stripRecurringSentences(tagline, rec, unitKey)).toBe(tagline);
   });
 });
+
+describe("cleaning stays fast on separator-heavy notes", async () => {
+  const { decideCleanText } = await import("../../supabase/functions/_shared/clean-text-validation");
+  it("a description with long dash separators and links is decided in well under a second", () => {
+    const raw = "Úgy volt, hogy nem is lesz ma adás, de megjöttek a vendégek, Kollár Kinga is, és a vízügy sem maradt ki a beszélgetésből. " + "-".repeat(49) + " Itt megtaláltok minket: https://example.hu/ IBAN: LT72 3250 " + "-".repeat(49) + " ► Facebook: https://facebook.com/x ► Spotify: https://open.spotify.com/show/x";
+    const t = performance.now();
+    decideCleanText({ raw });
+    expect(performance.now() - t).toBeLessThan(300);
+  });
+});
