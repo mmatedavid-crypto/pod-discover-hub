@@ -102,7 +102,7 @@ export async function legacyResolveApply(admin: any, deps: Deps, owner: string, 
   const { results, batchIds, stop } = await deps.applyLegacy(admin, todo as any, attempts);
   for (const p of unchanged) {
     const r = priorById.get(p.episode_id);
-    results.push({ episode_id: p.episode_id, status: "done", outcome: r.batch_id ? r.outcome : p.outcome, reasons: ["unchanged_skip", `fp:${String(r.fingerprint).slice(0, 16)}`], ...(r.batch_id ? { batch_id: r.batch_id } : {}) });
+    results.push({ episode_id: p.episode_id, status: r.batch_id ? "done" : p.status, outcome: r.batch_id ? r.outcome : p.outcome, reasons: ["unchanged_skip", `fp:${String(r.fingerprint).slice(0, 16)}`], ...(r.batch_id ? { batch_id: r.batch_id } : {}) });
   }
   for (const id of foreign) results.push({ episode_id: id, status: "done", outcome: "not_hungarian", reasons: [] });
   const { error: compErr } = await admin.rpc("complete_clean_text_repair_queue_v1", { p_owner: owner, p_results: results });
