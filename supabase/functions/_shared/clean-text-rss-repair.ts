@@ -24,7 +24,7 @@ export const RSS_REPAIR_MAX_CANARY = 50;
 export const MIN_ADDED_NAMED_EVIDENCE = 2;
 const ALT_SOURCE_METHOD_RX = /youtube|ytdesc|spotify|transcript|article/i;
 const EVIDENCE_TOKEN_RX = /\d{1,2}:\d{2}(?::\d{2})?|\p{Lu}[\p{L}'’-]{2,}/gu;
-const NON_EVIDENCE_RX = /^(?:facebook|instagram|insta|tiktok|youtube|spotify|apple|google|patreon|discord|telegram|linkedin|threads|twitter|twitch|soundcloud|deezer|itunes|weboldal|honlap|hírlevél|web|e-?mail|podcast\p{L}*|adószám|számlaszám|bankszámla|paypal|donably|revolut|visit|learn|ön\\p{L}*|önök\\p{L}*)$/iu;
+const NON_EVIDENCE_RX = /^(?:facebook|instagram|insta|tiktok|youtube|spotify|apple|google|patreon|discord|telegram|linkedin|threads|twitter|twitch|soundcloud|deezer|itunes|weboldal|honlap|hírlevél|web|e-?mail|podcast\p{L}*|adószám|számlaszám|bankszámla|paypal|donably|revolut|visit|learn|ön\p{L}*)$/iu;
 
 /**
  * Timecodes and mid-sentence capitalised words (names, titles, places) in `next`
