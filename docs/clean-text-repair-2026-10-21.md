@@ -30,3 +30,7 @@ Audit after: empty-with-long-description 474 → 431.
 
 ## Person–episode GPT pilot (status only, nothing started)
 Two batches ingested (953 + 1 requests, 954 items applied), actual cost ≈ $0.084 of the $10 cap. Controls still `enabled=true`; the 10-min tick (jobid 189) would submit the next batch within the cap, but is currently blocked by the priority gate (`priority_check_failed` / `higher_priority_work:seo_jobs_pending`).
+
+## Person GPT tick paused (2026-10-21 09:18 UTC, owner request)
+`person-relevance-openai-batch-tick` (jobid 189, `*/10`) set `active=false` until clean-text repair is finished (431 long empty descriptions remain). Unchanged: two ingested batches (954 items), controls (`enabled=true`, $10 daily/total cap), best-source cron 193. No open jobs.
+Resume: `SELECT cron.alter_job(189, active := true);`
