@@ -76,7 +76,7 @@ export type ResolvePlan = {
 const CHAPTER_RX = /^\s*[(\[]?\d{1,2}[:.]\d{2}(?:[:.]\d{2})?[)\]]?\s*[-–—|:]?\s*\p{L}/u;
 const TIMECODE_RX = /\b\d{1,2}:\d{2}(?::\d{2})?\b/g;
 const LINKISH_RX = /https?:\/\/|www\.|\b[a-z0-9-]+\.(?:hu|com|org|net|io|ly|me|tv|fm|eu)\b/i;
-const CTA_RX = /(creative commons|cc by|free download|music promoted|audio library|royalty|zene:|music:|tetszett|értékeld|értékelj|kérlek|értéket teremt|támogatónk|hetente új|iratkozz|feliratkoz|kövess|kovess|követhetsz|kövessetek|támogass|tamogass|támogatóink|patreon|csatlakozz|lájkol|like-?old|oszd meg|ossza meg|értesítés|harangot|hallgasd meg .{0,30}(spotify|apple|youtube|google)|elérhető .{0,40}(spotify|apple|youtube|google podcast)|szponzor|kuponkód|kedvezménykód|promóciós kód|hirdetés|reklám|subscribe|follow us|support us|írj nekünk|írjatok|e-?mail(?:ben)?:|nyereményjáték)/iu;
+const CTA_RX = /(patron|támogatni|extra adás|előre is köszön|creative commons|cc by|free download|music promoted|audio library|royalty|zene:|music:|tetszett|értékeld|értékelj|kérlek|értéket teremt|támogatónk|hetente új|iratkozz|feliratkoz|kövess|kovess|követhetsz|kövessetek|támogass|tamogass|támogatóink|patreon|csatlakozz|lájkol|like-?old|oszd meg|ossza meg|értesítés|harangot|hallgasd meg .{0,30}(spotify|apple|youtube|google)|elérhető .{0,40}(spotify|apple|youtube|google podcast)|szponzor|kuponkód|kedvezménykód|promóciós kód|hirdetés|reklám|subscribe|follow us|support us|írj nekünk|írjatok|e-?mail(?:ben)?:|nyereményjáték)/iu;
 const PLATFORM_TOKEN_RX = /^(facebook|instagram|youtube|spotify|tiktok|twitter|linkedin|patreon|discord|apple|google|podcast|podcasts|itunes|x)$/i;
 
 const ws = (s: string) => String(s || "").replace(/\s+/g, " ").trim();
