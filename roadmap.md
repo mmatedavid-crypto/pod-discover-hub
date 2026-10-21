@@ -20,8 +20,10 @@
 - [ ] After pilot gates pass: scheduled polling and escalation enablement (planned).
 
 ## Clean-text + best-source repair (2026-10-20, before mass person GPT)
-- [ ] Harden clean-text runner: shared validator, no empty/overcut "done", keep prior good text, bounded retry/quarantine.
-- [ ] Best-source runner: incremental change detection for new transcripts on done episodes, bounded indexed batches, no full-table load.
-- [ ] Stage/dry-run + backup/rollback; 20-100 canary only after gates pass.
-- [ ] Gemini AI trim off for this fix; optional OpenAI extract-only adapter stays disabled.
-- [ ] Tests, deploy, canary report with before/after metrics.
+- [x] Harden clean-text runner: shared validator, no empty/overcut "done", keep prior good text, bounded retry/quarantine.
+- [x] Best-source runner: incremental change detection for new transcripts on done episodes, bounded indexed batches, no full-table load.
+- [x] Stage/dry-run + backup/rollback; 43-record canary applied 2026-10-21 (batch 5f25cffd-e041-4f91-a60f-fd8a953a2009).
+- [x] Gemini AI trim off for this fix; optional OpenAI extract-only adapter stays disabled.
+- [x] Tests, deploy, canary report (docs/clean-text-repair-2026-10-21.md); 15-min best-source cron (jobid 193, limit 40).
+- [ ] Public episode pages do not read cleaned text (table is admin-only); exposing non-transcript clean text needs owner decision.
+- [ ] Remaining ~406 canary-eligible empty records: next canary only on owner approval.

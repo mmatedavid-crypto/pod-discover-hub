@@ -88,6 +88,22 @@ describe("best text source policy", () => {
     const best = pickBest(thin, null, null, null, { ...transcript, rights_status: "restricted" }, {});
     expect(best.source_type).toBe("rss");
   });
+
+  it("keeps a short RSS when the confirmed article adds no text", () => {
+    const short = { ...ep, description: "Beszélgetés a hét fontos híreiről és a háttérről." };
+    const article = { id: "a1", status: "confirmed", match_score: 0.9, article_text: short.description };
+    expect(pickBest(short, null, null, article, null, {}).source_type).toBe("rss");
+    const longer = { ...article, article_text: `${short.description} A cikk további részleteket is közöl a témáról.` };
+    expect(pickBest(short, null, null, longer, null, {}).source_type).toBe("article");
+  });
+
+  it("works without loaded transcript segments (runner omits them)", () => {
+    const thin = { ...ep, description: "Rövid." };
+    const { segments: _s, ...noSeg } = transcript;
+    const best = pickBest(thin, null, null, null, noSeg, {});
+    expect(best.source_type).toBe("transcript");
+    expect(best.evidence.has_segments).toBeNull();
+  });
 });
 
 describe("runner safety (static)", () => {

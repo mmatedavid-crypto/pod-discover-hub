@@ -107,7 +107,8 @@ export function pickBest(ep: EpisodeRow, spotify: any | null, youtube: any | nul
         content_hash: transcript.content_hash || null,
         rights_status: transcriptRights,
         public_display: false,
-        has_segments: Array.isArray(transcript.segments) && transcript.segments.length > 0,
+        // The incremental runner does not load segments (memory); null = not inspected.
+        has_segments: Array.isArray(transcript.segments) ? transcript.segments.length > 0 : null,
         segment_count: Array.isArray(transcript.segments) ? transcript.segments.length : null,
         dirty: transcriptQ.dirty,
       },
@@ -121,7 +122,8 @@ export function pickBest(ep: EpisodeRow, spotify: any | null, youtube: any | nul
     articleText
     && article?.status === "confirmed"
     && articleScore >= articleMin
-    && (articleQ.len >= rssQ.len + articleGain || rssQ.len < 220)
+    // A short RSS is only replaced by an article that actually adds text.
+    && (articleQ.len >= rssQ.len + articleGain || (rssQ.len < 220 && articleQ.len > rssQ.len))
   ) {
     candidates.push({
       source_type: "article",
