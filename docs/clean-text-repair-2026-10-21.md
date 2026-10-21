@@ -58,3 +58,25 @@ Stop: set `youtube_reclean_enabled=false` (and/or `youtube_backfill_enabled=fals
 - Public episode pages still show RSS. YouTube description reuse on public pages depends on YouTube API terms (attribution, refresh); `get_episode_public_clean_description_v1` stays off until the owner allowlists sources and the frontend is wired and published.
 - Chunk embeddings for changed clean text are not re-run (paid embeddings); backups carry `downstream_invalidation='pending'`.
 - Rows switching YouTube → RSS (link no longer verified/useful) are marked `reclean_status=pending` but not rewritten (prior text kept).
+
+## YouTube pairing → best source fast lane (2026-10-21, 11:45–12:40 UTC)
+
+Live on the HU backend only. AI cost of the changes: $0 (deterministic).
+
+What changed
+- Migration `0068_youtube_link_noop_source_change_queue`: `episode_youtube_links.updated_at` now moves only on real content/match changes; view/caption observations use `metadata_refreshed_at`. Link writes go through `upsert_episode_youtube_links_v1` (row-locked, change-only, confirmed links sticky, manual/human links never overwritten, `episodes.youtube_paired_at` touched only when the winner really changes). A trigger fills `episode_source_change_queue` (HU podcasts only) on new/promoted/demoted/content-changed confirmed links; `claim_episode_source_changes_v1` (SKIP LOCKED, lease) and `ack_episode_source_change_v1` (change_seq CAS, backoff, dead letter after 5).
+- `youtube-episode-pairer`: RPC writes, reuses earlier AI yes/no decisions for unchanged candidates, reports `write_stats`.
+- `episode-best-text-source-runner`: fast lane first (≤20), archive backfill (20), feeds (≥8), default 40, hard max 60; re-clean cap 150/day with 30 reserved for the fast lane, 10/run; automatic YouTube re-cleans refresh or revert to RSS when the source changes; reviewed canaries (`5f25cffd…`, `8e365da4…`) and manual edits are protected; failures report their stage.
+- `youtube-views-backfill`: writes `metadata_refreshed_at`.
+- Cron 193 moved from `*/15` to `7,22,37,52 * * * *` (still every 15 min, off the top-of-hour peak where the 12:00 run hit a statement timeout, and 7 min after each pairer run).
+
+Measured
+- Pairer 12:30 run: 378 candidate evaluations → 338 no-op, 15 content, 25 metadata-only, 0 episode updates (before: every evaluation rewrote `updated_at`; 4,472 link timestamp bumps in 6 h, 1,708 episodes re-touched in 24 h). Wopcast rescan: 288/288 no-op, 0 AI calls.
+- Fast lane: 11 promoted pairs enqueued 12:30:32, claimed and acked by the 12:37 run (max lag 389 s); earlier test 6/6 (360 s). Queue pending 0, dead 0. All 17 so far chose RSS on content grounds; a new `youtube_better` pair through the fast lane has not occurred yet.
+- Cron 193 at 12:22 and 12:37: HTTP 200, `ok:true`, 4.3–4.8 s, 40 episodes; 8 + 5 archive re-cleans applied (batches `7e51dd41-976b-447e-bd6d-8745fa9bacf7`, `850e7688-e68f-420e-9d90-f10761da6092`), 0 conflicts/invalid.
+- Re-cleans today 70/150; YouTube best sources 1,083, automatic YouTube re-cleans applied 105. Staged 2,790 backfill: 2,610 left (~130 runs ≈ 33 h). Archive YouTube feed: 11,508 rows after the cursor, 10/run (≈12 days; these are old pairs mostly already covered by the staged backfill).
+- 17 early automatic re-cleans: 14 already clean, 3 corrected (batch `e65d674c-158c-4871-9c82-d359392c5d41`), now all idempotent. One (SodaStream football episode) still names the sponsor in a credit line; left as is pending a decision.
+
+Open / not done
+- 2,002 clean texts made by an older pipeline from YouTube descriptions (`deterministic_v4+ytdesc`) while the selected source is RSS; not rewritten (would be a mass change; needs owner decision and a reviewed canary).
+- Public display of YouTube-derived clean text and re-embedding stay off (owner decisions).
