@@ -18,13 +18,15 @@ Deno.serve(async (req) => {
     // Pick rows to update
     let q = sb
       .from("episode_youtube_links")
-      .select("id, youtube_video_id, youtube_view_count, updated_at")
+      .select("id, youtube_video_id, youtube_view_count, metadata_refreshed_at")
       .eq("status", "confirmed")
       .not("youtube_video_id", "is", null);
     if (mode === "missing") q = q.is("youtube_view_count", null);
     else if (mode === "refresh") {
       const cutoff = new Date(Date.now() - 7 * 86400_000).toISOString();
-      q = q.or(`youtube_view_count.is.null,updated_at.lt.${cutoff}`);
+      // View counts are observation-only metadata: they use metadata_refreshed_at,
+      // never updated_at (that would look like a source change downstream).
+      q = q.or(`youtube_view_count.is.null,metadata_refreshed_at.is.null,metadata_refreshed_at.lt.${cutoff}`);
     }
     const { data: rows, error } = await q.limit(limit);
     if (error) throw error;
@@ -65,7 +67,7 @@ Deno.serve(async (req) => {
       for (const u of updates) {
         const { error: upErr } = await sb
           .from("episode_youtube_links")
-          .update({ youtube_view_count: u.views, updated_at: new Date().toISOString() })
+          .update({ youtube_view_count: u.views, metadata_refreshed_at: new Date().toISOString() })
           .eq("id", u.id);
         if (!upErr) updated++;
       }
@@ -75,7 +77,7 @@ Deno.serve(async (req) => {
           notFound++;
           await sb
             .from("episode_youtube_links")
-            .update({ youtube_view_count: 0, updated_at: new Date().toISOString() })
+            .update({ youtube_view_count: 0, metadata_refreshed_at: new Date().toISOString() })
             .eq("id", byVid.get(vid)!);
         }
       }

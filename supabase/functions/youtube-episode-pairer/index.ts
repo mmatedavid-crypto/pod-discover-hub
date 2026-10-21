@@ -486,8 +486,9 @@ Deno.serve(async (req) => {
       return json({ ok: true, no_candidates: true, adaptive: plan });
     }
 
-    let auto = 0, ai_paired = 0, no_match = 0, errors = 0, videos_fetched = 0, candidates_written = 0;
-    let ai_calls = 0, skipped_ai_budget = 0, stopped_for_time_budget = false;
+    let auto = 0, ai_paired = 0, no_match = 0, errors = 0, videos_fetched = 0, candidates_written = 0, candidates_evaluated = 0;
+    let ai_calls = 0, skipped_ai_budget = 0, stopped_for_time_budget = false, ai_reused_prior = 0, ai_skipped_prior_no = 0;
+    const writeStats: Record<string, number> = {};
     const results: any[] = [];
     const processedPodcastIds = new Set<string>();
 
@@ -537,8 +538,22 @@ Deno.serve(async (req) => {
           }
         }
 
+        // Existing pairer decisions for this podcast (prior confirmation / AI "no"),
+        // so a rescan neither re-asks the AI nor flips a verified link.
+        const priorLinks = new Map<string, any>();
+        {
+          const { data: prow, error: prErr } = await admin.from("episode_youtube_links")
+            .select("episode_id,youtube_video_id,status,confidence,validated_by,youtube_title,ai_decision:validation_reason->ai_decision")
+            .eq("podcast_id", pod.id)
+            .in("status", ["confirmed", "candidate"])
+            .limit(5000);
+          if (prErr) throw new Error(`prior links: ${prErr.message}`);
+          for (const p of prow || []) priorLinks.set(`${(p as any).episode_id}|${(p as any).youtube_video_id}`, p);
+        }
+
         let podAuto = 0, podAi = 0, podNo = 0;
         const candidatesToInsert: any[] = [];
+        const winners: Array<{ episode_id: string; youtube_video_id: string }> = [];
 
         for (const rawEp of eps || []) {
           if (Date.now() - startedAt > timeBudgetMs - 12000) {
@@ -556,6 +571,9 @@ Deno.serve(async (req) => {
           const best = evaluated[0];
           let winner: any = null;
           let confidence = "candidate";
+          let aiSaidNo = false;
+          const prior = best.videoId ? priorLinks.get(`${ep.id}|${best.videoId}`) : undefined;
+          const bestTitle = best.item.videoDetails?.snippet?.title || best.item.snippet?.title || "";
 
           if (
             best.finalScore >= strictAutoThr
@@ -570,10 +588,20 @@ Deno.serve(async (req) => {
             && !best.blockers.includes("episode_number_mismatch")
             && !best.blockers.includes("duration_mismatch")
           ) {
-            if (ai_calls < maxAiCallsPerRun) {
+            if (prior?.status === "confirmed") {
+              // Already verified pair: keep it, never pay for the same AI decision twice.
+              winner = best;
+              confidence = String(prior.validated_by || prior.confidence || "ai_validated");
+              ai_reused_prior++;
+            } else if (prior?.ai_decision === false && prior.youtube_title === bestTitle) {
+              // The same video was already rejected by AI with unchanged metadata.
+              aiSaidNo = true;
+              ai_skipped_prior_no++;
+            } else if (ai_calls < maxAiCallsPerRun) {
               ai_calls++;
               const yes = await aiValidatePair(aiModel, ep, best);
               if (yes) { winner = best; confidence = "ai_validated"; podAi++; }
+              else aiSaidNo = true;
             } else {
               skipped_ai_budget++;
             }
@@ -589,6 +617,8 @@ Deno.serve(async (req) => {
             const videoId = s.videoId;
             if (!videoId) continue;
             const isWinner = winner && winner.videoId === videoId;
+            const reason: Record<string, unknown> = { ...s.evidence, rank: i };
+            if (i === 0 && aiSaidNo) reason.ai_decision = false;
             candidatesToInsert.push({
               episode_id: ep.id,
               podcast_id: pod.id,
@@ -599,40 +629,37 @@ Deno.serve(async (req) => {
               youtube_published_at: s.item.videoDetails?.snippet?.publishedAt || s.item.snippet?.publishedAt,
               youtube_duration_seconds: s.ytDuration,
               youtube_caption_available: s.evidence.youtube_caption_available,
-              youtube_caption_checked_at: new Date().toISOString(),
               youtube_view_count: s.ytViews,
               match_score: s.finalScore,
               confidence: isWinner ? confidence : (s.blockers.length ? "rejected" : "candidate"),
               status: isWinner ? "confirmed" : (s.blockers.length ? "rejected" : "candidate"),
               found_by: "youtube-episode-pairer",
               validated_by: isWinner ? confidence : null,
-              validation_reason: { ...s.evidence, rank: i },
-              updated_at: new Date().toISOString(),
+              validation_reason: reason,
+              // A confirmed link is demoted only when this same scan chose another video.
+              demote_allowed: !!winner && winner.videoId !== videoId,
             });
           }
-          if (winner && !dry) {
-            const videoId = winner.videoId;
-            await admin.from("episodes").update({
-              youtube_video_id: videoId,
-              youtube_url: `https://www.youtube.com/watch?v=${videoId}`,
-              youtube_pairing_status: "paired",
-              youtube_paired_at: new Date().toISOString(),
-              youtube_match_score: winner.finalScore,
-            }).eq("id", ep.id);
-          }
+          if (winner) winners.push({ episode_id: ep.id, youtube_video_id: winner.videoId });
         }
 
-        if (!dry && candidatesToInsert.length) {
-          // Chunk to keep payload small
-          for (let i = 0; i < candidatesToInsert.length; i += 200) {
-            const chunk = candidatesToInsert.slice(i, i + 200);
-            const { error: insErr } = await admin
-              .from("episode_youtube_links")
-              .upsert(chunk, { onConflict: "episode_id,youtube_video_id" });
-            if (insErr) console.error("upsert eyl err", insErr);
+        // Race-safe, change-only writes (upsert_episode_youtube_links_v1): no-op
+        // rescans write nothing, view/caption refreshes never bump updated_at,
+        // episodes are touched only when the winner or its score changes.
+        const podWrite: Record<string, number> = {};
+        if (!dry && (candidatesToInsert.length || winners.length)) {
+          const calls: Array<{ rows: any[]; winners: any[] }> = [];
+          for (let i = 0; i < candidatesToInsert.length; i += 200) calls.push({ rows: candidatesToInsert.slice(i, i + 200), winners: [] });
+          calls.push({ rows: [], winners });
+          for (const c of calls) {
+            const { data: w, error: wErr } = await admin.rpc("upsert_episode_youtube_links_v1", { p_rows: c.rows, p_winners: c.winners });
+            if (wErr) throw new Error(`upsert_episode_youtube_links_v1: ${wErr.message}`);
+            for (const [k, v] of Object.entries((w || {}) as Record<string, number>)) podWrite[k] = (podWrite[k] || 0) + Number(v || 0);
           }
+          for (const [k, v] of Object.entries(podWrite)) writeStats[k] = (writeStats[k] || 0) + v;
         }
-        candidates_written += candidatesToInsert.length;
+        candidates_written += Number(podWrite.inserted || 0) + Number(podWrite.content_updated || 0) + Number(podWrite.meta_only_updated || 0);
+        candidates_evaluated += candidatesToInsert.length;
         auto += podAuto; ai_paired += podAi; no_match += podNo;
 
         if (!dry) {
@@ -671,8 +698,8 @@ Deno.serve(async (req) => {
       claim_path: claimPath,
       claim_error: claimError || null,
       auto, ai_paired, no_match, errors,
-      ai_calls, skipped_ai_budget, stopped_for_time_budget,
-      videos_fetched, candidates_written,
+      ai_calls, skipped_ai_budget, stopped_for_time_budget, ai_reused_prior, ai_skipped_prior_no,
+      videos_fetched, candidates_written, candidates_evaluated, write_stats: writeStats,
       elapsed_ms: Date.now() - startedAt,
       results,
     };

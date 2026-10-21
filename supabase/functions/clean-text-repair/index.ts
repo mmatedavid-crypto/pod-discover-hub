@@ -111,7 +111,7 @@ Deno.serve(async (req) => {
       const ctrl = await loadBestCtrl();
       const sel = await computeSelections(admin, ids, ctrl);
       const ytDecisions = sel.decisions.filter((d) => d.next_source === "youtube");
-      const plans = await planYoutubeReclean(admin, ytDecisions.map((d) => ({ episode_id: d.episode_id, podcast_id: d.podcast_id, raw_text: d.raw_text, source_fingerprint: d.source_fingerprint, evidence: d.evidence })));
+      const plans = await planYoutubeReclean(admin, ytDecisions.map((d) => ({ episode_id: d.episode_id, podcast_id: d.podcast_id, raw_text: d.raw_text, source_fingerprint: d.source_fingerprint, evidence: d.evidence })), { allowCleanerUpdate: body.allow_cleaner_update === true });
       const gain: Record<string, number> = {};
       const next: Record<string, number> = {};
       const outcomes: Record<string, number> = {};
@@ -158,7 +158,9 @@ Deno.serve(async (req) => {
         .select("episode_id,podcast_id,raw_text,source_fingerprint,evidence,source_type").in("episode_id", yt.map((d) => d.episode_id));
       if (rErr) throw rErr;
       const cands = ((rows || []) as any[]).filter((r) => r.source_type === "youtube");
-      const plans = await planYoutubeReclean(admin, cands);
+      // allow_cleaner_update: re-apply the current deterministic YouTube cleaner to
+      // earlier automatic (never reviewed-canary) YouTube re-cleans; still backed up + CAS.
+      const plans = await planYoutubeReclean(admin, cands, { allowCleanerUpdate: body.allow_cleaner_update === true });
       const batchId = crypto.randomUUID();
       const result = await applyYoutubeReclean(admin, plans, batchId);
       const outcomes: Record<string, number> = {};

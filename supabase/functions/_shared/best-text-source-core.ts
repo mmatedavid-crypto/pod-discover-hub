@@ -242,7 +242,7 @@ export function cleanYoutubeDescription(rawIn: string, v4In?: { text: string; re
 export type RecleanCandidate = { episode_id: string; podcast_id?: string | null; raw_text: string; source_fingerprint: string | null; evidence?: any };
 export type RecleanPlan = {
   episode_id: string;
-  outcome: "apply" | "noop_same" | "reject";
+  outcome: "apply" | "noop_same" | "reject" | "skip";
   reasons: string[];
   source_fingerprint: string | null;
   evidence?: any;
@@ -254,23 +254,63 @@ export type RecleanPlan = {
 };
 
 /** Deterministic, extract-only YouTube clean text + prior-preserving gate. No writes. */
-export async function planYoutubeReclean(admin: any, candidates: RecleanCandidate[], opts: { protectRepaired?: boolean; gate?: any } = {}): Promise<RecleanPlan[]> {
-  const ids = candidates.map((c) => c.episode_id);
+/**
+ * Owner-reviewed repair batches that automatic runs must never overwrite
+ * (43-row RSS canary and the 40-row reviewed YouTube canary, 2026-10-21).
+ */
+export const PROTECTED_REPAIR_BATCHES = [
+  "5f25cffd-e041-4f91-a60f-fd8a953a2009",
+  "8e365da4-f9db-4bbc-90f7-4fc6506fb358",
+];
+
+export type BackupClass = { protected: boolean; autoYoutube: boolean };
+
+/**
+ * Active (not rolled back) repair backups per episode. An episode is protected
+ * when any backup belongs to a reviewed batch or is not a verified-YouTube
+ * re-clean; automatic YouTube re-clean batches may be refreshed/reverted when
+ * the verified source itself changes (each write adds a new backup).
+ */
+export function classifyBackups(rows: Array<{ episode_id: string; batch_id?: string | null; new_cleaner_method?: string | null }>, protectedBatches: string[] = PROTECTED_REPAIR_BATCHES) {
+  const out = new Map<string, BackupClass>();
+  const prot = new Set(protectedBatches);
+  for (const r of rows) {
+    const id = String(r.episode_id);
+    const c = out.get(id) || { protected: false, autoYoutube: false };
+    const yt = String(r.new_cleaner_method || "").startsWith(YOUTUBE_RECLEAN_METHOD);
+    if (!yt || (r.batch_id && prot.has(String(r.batch_id)))) c.protected = true;
+    else c.autoYoutube = true;
+    out.set(id, c);
+  }
+  return out;
+}
+
+async function loadRecleanContext(admin: any, ids: string[], withDescription = false) {
   const cleanByEp = new Map<string, any>();
-  const statusByEp = new Map<string, string>();
-  const repaired = new Set<string>();
+  const epById = new Map<string, any>();
+  const backupRows: any[] = [];
   for (let i = 0; i < ids.length; i += CHUNK) {
     const slice = ids.slice(i, i + CHUNK);
     const [c, e, b] = await Promise.all([
       admin.from("episode_clean_text").select("episode_id,cleaned_text,source_hash,cleaner_method").in("episode_id", slice),
-      admin.from("episodes").select("id,clean_text_status").in("id", slice),
-      admin.from("episode_clean_text_repair_backups").select("episode_id").in("episode_id", slice).is("rolled_back_at", null),
+      admin.from("episodes").select(withDescription ? "id,clean_text_status,description,summary" : "id,clean_text_status").in("id", slice),
+      admin.from("episode_clean_text_repair_backups").select("episode_id,batch_id,new_cleaner_method").in("episode_id", slice).is("rolled_back_at", null),
     ]);
     for (const res of [c, e, b]) if (res.error) throw res.error;
     for (const r of c.data || []) cleanByEp.set(String(r.episode_id), r);
-    for (const r of e.data || []) statusByEp.set(String(r.id), String(r.clean_text_status || ""));
-    for (const r of b.data || []) repaired.add(String(r.episode_id));
+    for (const r of e.data || []) epById.set(String(r.id), r);
+    backupRows.push(...(b.data || []));
   }
+  return { cleanByEp, epById, backupRows };
+}
+
+export async function planYoutubeReclean(admin: any, candidates: RecleanCandidate[], opts: { protectRepaired?: boolean; gate?: any; protectedBatches?: string[]; allowCleanerUpdate?: boolean } = {}): Promise<RecleanPlan[]> {
+  const ids = candidates.map((c) => c.episode_id);
+  const ctx = await loadRecleanContext(admin, ids);
+  const cleanByEp = ctx.cleanByEp;
+  const statusByEp = new Map<string, string>();
+  for (const [id, r] of ctx.epById) statusByEp.set(id, String(r.clean_text_status || ""));
+  const backups = classifyBackups(ctx.backupRows, opts.protectedBatches);
   const recurringByPodcast = await loadRecurringByPodcast(admin, candidates.map((c) => String(c.podcast_id || "")));
   const plans: RecleanPlan[] = [];
   for (const cand of candidates) {
@@ -278,8 +318,16 @@ export async function planYoutubeReclean(admin: any, candidates: RecleanCandidat
     const cur = cleanByEp.get(cand.episode_id) || null;
     const base = { episode_id: cand.episode_id, source_fingerprint: cand.source_fingerprint, evidence: cand.evidence, prior_len: String(cur?.cleaned_text || "").length, prior_method: cur?.cleaner_method ?? null };
     const status = statusByEp.get(cand.episode_id) || "";
-    if (opts.protectRepaired !== false && repaired.has(cand.episode_id)) {
+    const bk = backups.get(cand.episode_id);
+    if (opts.protectRepaired !== false && bk?.protected) {
       plans.push({ ...base, outcome: "reject", reasons: ["protected_prior_repair_batch"], next_len: 0, preview: "" });
+      continue;
+    }
+    // Earlier automatic YouTube re-clean: the verified source itself changed, so the
+    // live text is refreshed (no extra-gain requirement) unless it was edited since.
+    const refresh = !!bk?.autoYoutube;
+    if (refresh && !String(cur?.cleaner_method || "").startsWith(YOUTUBE_RECLEAN_METHOD)) {
+      plans.push({ ...base, outcome: "reject", reasons: ["protected_changed_after_auto_repair"], next_len: 0, preview: "" });
       continue;
     }
     if (status === "pending" || status === "error") {
@@ -295,11 +343,14 @@ export async function planYoutubeReclean(admin: any, candidates: RecleanCandidat
     const { text, verdict, method, removed } = yc;
     const extract = validateExtractOnlyTrim(htmlToPlain(raw), text, { minOverlap: 0.97, maxAddedTokenRatio: 0.03, minCompressionRatio: 0 });
     const source_hash = await sha256Hex(`${method}::${raw}`);
-    if (cur?.source_hash === source_hash) {
+    const cleanerUpdate = refresh && opts.allowCleanerUpdate === true && String(cur?.cleaned_text || "").trim() !== text.trim();
+    if (cur?.source_hash === source_hash && !cleanerUpdate) {
       plans.push({ ...base, outcome: "noop_same", reasons: ["already_applied_same_source_hash"], next_len: text.length, preview: text.slice(0, 280) });
       continue;
     }
-    const gate = youtubeRecleanGate(cur?.cleaned_text, text, { ...(opts.gate || {}), recurring });
+    const gate = refresh
+      ? { ok: true, reasons: /https?:\/\/|www\.[a-z0-9-]+\./i.test(text) ? ["residual_url"] : [], prior_info_len: infoLen(String(cur?.cleaned_text || "")), next_info_len: infoLen(text), prior_units_lost: 0 }
+      : youtubeRecleanGate(cur?.cleaned_text, text, { ...(opts.gate || {}), recurring });
     const reasons = [...gate.reasons];
     if (verdict.status !== "valid") reasons.push(`verdict_${verdict.status}`);
     if (!extract.ok) reasons.push(...extract.reasons.map((r: string) => `extract_${r}`));
@@ -311,7 +362,7 @@ export async function planYoutubeReclean(admin: any, candidates: RecleanCandidat
     plans.push({
       ...base,
       outcome: "apply",
-      reasons: [`info_gain_${gate.next_info_len - gate.prior_info_len}`],
+      reasons: [refresh ? (cleanerUpdate ? "youtube_cleaner_update" : "youtube_source_refresh") : `info_gain_${gate.next_info_len - gate.prior_info_len}`],
       next_len: text.length,
       preview: text.slice(0, 280),
       item: {
@@ -321,11 +372,67 @@ export async function planYoutubeReclean(admin: any, candidates: RecleanCandidat
         cleaner_method: method,
         removed_categories: Array.from(new Set([...removed, "source_youtube", "youtube_dangling_labels"])),
         quality_status: verdict.status,
-        quality_reasons: ["youtube_informative_gain", `prior_method_${cur?.cleaner_method ?? "none"}`],
+        quality_reasons: [refresh ? (cleanerUpdate ? "youtube_cleaner_update" : "youtube_source_refresh") : "youtube_informative_gain", `prior_method_${cur?.cleaner_method ?? "none"}`],
         quality_version: CLEAN_TEXT_QUALITY_VERSION,
         source_type: "youtube",
         expected_source_hash: cur ? (cur.source_hash ?? null) : null,
         expected_cleaned_sha256: cur ? await sha256Hex(String(cur.cleaned_text || "")) : null,
+      },
+    });
+  }
+  return plans;
+}
+
+/**
+ * A verified YouTube link stopped being the best source (demoted / no longer v3):
+ * live clean text that came from an automatic YouTube re-clean is rebuilt from the
+ * RSS description (same method + source-hash formula as the clean-text runner), so
+ * unverified text does not linger in search. Backed up + CAS like every re-clean.
+ * Episodes whose clean text is not YouTube-derived get outcome "skip" (untouched).
+ */
+export async function planRssRevert(admin: any, candidates: RecleanCandidate[], opts: { method?: string; protectedBatches?: string[] } = {}): Promise<RecleanPlan[]> {
+  const method = String(opts.method || "deterministic_v4");
+  const ctx = await loadRecleanContext(admin, candidates.map((c) => c.episode_id), true);
+  const backups = classifyBackups(ctx.backupRows, opts.protectedBatches);
+  const plans: RecleanPlan[] = [];
+  for (const cand of candidates) {
+    const cur = ctx.cleanByEp.get(cand.episode_id) || null;
+    const ep = ctx.epById.get(cand.episode_id) || null;
+    const base = { episode_id: cand.episode_id, source_fingerprint: cand.source_fingerprint, evidence: cand.evidence, prior_len: String(cur?.cleaned_text || "").length, prior_method: cur?.cleaner_method ?? null };
+    if (!cur || !String(cur.cleaner_method || "").startsWith(YOUTUBE_RECLEAN_METHOD)) {
+      plans.push({ ...base, outcome: "skip", reasons: ["clean_text_not_youtube_derived"], next_len: 0, preview: "" });
+      continue;
+    }
+    const reject = (reasons: string[], next_len = 0, preview = "") => plans.push({ ...base, outcome: "reject", reasons, next_len, preview });
+    if (backups.get(cand.episode_id)?.protected) { reject(["protected_prior_repair_batch"]); continue; }
+    const status = String(ep?.clean_text_status || "");
+    if (!ep || status === "pending" || status === "error") { reject([`clean_text_status_${status || "missing"}_runner_owns`]); continue; }
+    const raw = String(ep.description || ep.summary || "").trim();
+    if (!raw) { reject(["rss_revert_no_source"]); continue; }
+    const decision = decideCleanText({ raw, v4: heuristicClean(raw), priorCleanedText: null });
+    if (decision.action !== "write") { reject([`rss_revert_${decision.action}`, ...((decision as any).reasons || [])]); continue; }
+    const text = decision.text.trim();
+    const appliedMethod = decision.rescued ? `${method}+${RESCUE_METHOD_SUFFIX}` : method;
+    if (text.length < 40) { reject(["rss_revert_too_short"], text.length, text); continue; }
+    if (/https?:\/\//i.test(text)) { reject(["residual_url"], text.length, text.slice(0, 280)); continue; }
+    plans.push({
+      ...base,
+      outcome: "apply",
+      reasons: ["youtube_source_no_longer_verified_revert_to_rss"],
+      next_len: text.length,
+      preview: text.slice(0, 280),
+      item: {
+        episode_id: cand.episode_id,
+        cleaned_text: text,
+        source_hash: await sha256Hex(`${appliedMethod}::${raw}`),
+        cleaner_method: appliedMethod,
+        removed_categories: Array.from(new Set([...decision.removed, "source_rss_revert_from_youtube"])),
+        quality_status: decision.verdict.status,
+        quality_reasons: ["youtube_source_no_longer_verified_revert_to_rss", `prior_method_${cur.cleaner_method}`],
+        quality_version: CLEAN_TEXT_QUALITY_VERSION,
+        source_type: "rss",
+        expected_source_hash: cur.source_hash ?? null,
+        expected_cleaned_sha256: await sha256Hex(String(cur.cleaned_text || "")),
       },
     });
   }
@@ -346,7 +453,7 @@ export async function applyYoutubeReclean(admin: any, plans: RecleanPlan[], batc
   const now = new Date().toISOString();
   const maxAttempts = opts.maxConflictAttempts ?? 3;
   for (const p of plans) {
-    if (!p.source_fingerprint) continue;
+    if (!p.source_fingerprint || p.outcome === "skip") continue;
     const prevRe = p.evidence?.reclean || {};
     let status: string;
     if (p.outcome === "apply") status = conflicts.has(p.episode_id) ? ((Number(prevRe.attempts || 0) + 1) >= maxAttempts ? "conflict" : "pending") : "applied";
