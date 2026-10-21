@@ -53,3 +53,11 @@
 - [x] Automatic Spotify backfill/re-clean lane ON (owner OK 2026-10-21): 3 targets/run, 3 re-cleans/run, 20/day; legacy v5 selections re-checked; Spotify meta made server-only.
 - [ ] Indexing ~7,081 YouTube-caption transcripts: needs owner/legal decision on caption provenance.
 - [ ] Using transcript index in visitor search ranking and in person-link review: not wired; needs owner decision.
+
+## Phase 1 — clean-text restoration (2026-10-21 15:30 UTC)
+- [x] Read-only full HU audit with exclusive categories and do-not-fix markers (docs/clean-text-phase1-2026-10-21.md).
+- [x] Name/timecode-preserving cleaner + RSS repair planner, dry-run/canary actions, tests, deploy.
+- [x] Live dry run of all empty/overcut/missing (1,703 fixable); reviewed 38-episode canary (3 batches).
+- [x] 471 missing/skipped episodes with verified Spotify/YouTube text handed to the capped lanes.
+- [ ] Bounded background lane for the remaining ~1,665 RSS-fixable rows (waits on owner review of the canary).
+- [ ] 1,893 old YouTube-derived texts with RSS as best source (657 without a verified link): reviewed canary only on owner OK.
