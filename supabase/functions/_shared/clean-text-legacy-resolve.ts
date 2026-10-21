@@ -76,58 +76,77 @@ export type ResolvePlan = {
 const CHAPTER_RX = /^\s*[(\[]?\d{1,2}[:.]\d{2}(?:[:.]\d{2})?[)\]]?\s*[-–—|:]?\s*\p{L}/u;
 const TIMECODE_RX = /\b\d{1,2}:\d{2}(?::\d{2})?\b/g;
 const LINKISH_RX = /https?:\/\/|www\.|\b[a-z0-9-]+\.(?:hu|com|org|net|io|ly|me|tv|fm|eu)\b/i;
-const CTA_RX = /(iratkozz|feliratkoz|kövess|kovess|követhetsz|kövessetek|támogass|tamogass|támogatóink|patreon|csatlakozz|lájkol|like-?old|oszd meg|ossza meg|értesítés|harangot|hallgasd meg .{0,30}(spotify|apple|youtube|google)|elérhető .{0,40}(spotify|apple|youtube|google podcast)|szponzor|kuponkód|kedvezménykód|promóciós kód|hirdetés|reklám|subscribe|follow us|support us|írj nekünk|írjatok|e-?mail(?:ben)?:|nyereményjáték)/iu;
+const CTA_RX = /(tetszett|értékeld|értékelj|kérlek|értéket teremt|támogatónk|hetente új|iratkozz|feliratkoz|kövess|kovess|követhetsz|kövessetek|támogass|tamogass|támogatóink|patreon|csatlakozz|lájkol|like-?old|oszd meg|ossza meg|értesítés|harangot|hallgasd meg .{0,30}(spotify|apple|youtube|google)|elérhető .{0,40}(spotify|apple|youtube|google podcast)|szponzor|kuponkód|kedvezménykód|promóciós kód|hirdetés|reklám|subscribe|follow us|support us|írj nekünk|írjatok|e-?mail(?:ben)?:|nyereményjáték)/iu;
 const PLATFORM_TOKEN_RX = /^(facebook|instagram|youtube|spotify|tiktok|twitter|linkedin|patreon|discord|apple|google|podcast|podcasts|itunes|x)$/i;
 
 const ws = (s: string) => String(s || "").replace(/\s+/g, " ").trim();
 
-/**
- * Extract-only check: the unit's normalised token sequence occurs contiguously in
- * the RSS, or (cleaner removed an inline link/emoji) every token comes from the RSS.
- */
-function extractOnly(s: string, rawTokSeq: string, rawPool: Set<string>): boolean {
-  const toks = normalizeTokens(s);
-  if (!toks.length) return false;
-  if (` ${rawTokSeq} `.includes(` ${toks.join(" ")} `)) return true;
-  return toks.every((t) => rawPool.has(t));
+const URL_RX = /https?:\/\/\S+|www\.\S+/gi;
+/** Lead-in whose link was removed ("itt olvashattok:", "Facebook csoportunk:"), or a unit ending in a colon. */
+const LINK_LEAD_RX = /(?:\bitt|alább|lent|linkek?|linkje\w*|oldal\w*|elérhető\w*|megtalálsz\w*|megtalálod|találjátok|találod|olvashat\w*|megtekint\w*|csatorn\w*|blog\w*|weboldal\w*|honlap\w*|csoport\w*|hírlevél\w*|feliratkoz\w*|keresztül|kapcsolat\w*|elérhetőség\w*|webshop\w*|jegyek?)\s*:/iu;
+const SOCIAL_RX = /(?:facebook|instagram|insta\b|tik-?tok|twitter|discord|linkedin|patreon|telegram|threads\b|youtube-?(?:on|csatorn|ra\b)|spotify-?(?:on|ra\b)|apple podcast|google podcast|komment|kérdőív)/iu;
+const ABBREV_RX = /(?:\b(?:dr|Dr|prof|Prof|ifj|id|stb|pl|kb|ill|ún|St|Mr|Mrs|Ms|Jr|vs|No|Nr|sz|u|ny|ld|vö)|(?<![\p{L}])\p{Lu})\.$/u;
+
+/** Sentence units of one line: chapter lines whole, abbreviations ("Dr.") not split, missing spaces repaired. */
+function splitUnits(line: string): string[] {
+  const l = line.replace(/(?<=[.!?…)])\s*(?=\(?\d{1,2}:\d{2})/g, "\n").replace(/(?<=\p{Ll}[.!?…])(?=\p{Lu}\p{Ll})/gu, " ");
+  const out: string[] = [];
+  for (const sub of l.split("\n")) {
+    const t = sub.trim();
+    if (!t) continue;
+    if (CHAPTER_RX.test(t)) { out.push(t); continue; }
+    let buf = "";
+    for (const pc of t.split(/(?<=[.!?…])\s+/)) {
+      buf = buf ? `${buf} ${pc}` : pc;
+      if (ABBREV_RX.test(buf)) continue;
+      out.push(buf.trim());
+      buf = "";
+    }
+    if (buf.trim()) out.push(buf.trim());
+  }
+  return out;
 }
 
-function unitRejectReasons(s: string, raw: { seq: string; pool: Set<string> }, recurring?: Set<string> | null): string[] {
+/** Extract-only: the unit's normalised token sequence occurs contiguously in the link-stripped RSS. */
+function extractOnly(s: string, rawTokSeq: string): boolean {
+  const toks = normalizeTokens(s);
+  return toks.length > 0 && ` ${rawTokSeq} `.includes(` ${toks.join(" ")} `);
+}
+
+function unitRejectReasons(s: string, rawSeq: string, recurring?: Set<string> | null): string[] {
   const r: string[] = [];
   const chapterList = (s.match(TIMECODE_RX) || []).length >= 3;
+  const chapter = CHAPTER_RX.test(s) || chapterList;
   if (LINKISH_RX.test(s)) r.push("link");
   if (/(^|\s)@[A-Za-z0-9._-]{2,}/.test(s)) r.push("handle");
   r.push(...linkResidueReasons(s));
+  if (LINK_LEAD_RX.test(s) || /[:：]\s*[-–—]?\s*$/.test(s)) r.push("link_lead_in");
   if (isBoilerplateUnit(s)) r.push("boilerplate");
-  if (!chapterList && CTA_RX.test(s)) r.push("cta_social_sponsor");
+  if (!chapter && (CTA_RX.test(s) || SOCIAL_RX.test(s))) r.push("cta_social_sponsor");
   if (recurring && recurring.size && recurring.has(unitKey(s))) r.push("show_recurring");
   r.push(...autoApplySafetyReasons(s, [], { priorLen: 1 }).filter((x) =>
     (x !== "auto_gate_mostly_english" || normalizeTokens(s).length >= 12) && !(chapterList && x === "auto_gate_supporter_list")));
-  if (!extractOnly(s, raw.seq, raw.pool)) r.push("not_extract_only");
+  if (!extractOnly(s, rawSeq)) r.push("not_extract_only");
   return Array.from(new Set(r));
 }
 
 /**
- * RSS sentences not already covered by `prior` (token coverage <0.6), verbatim
- * from the RSS, in RSS order, line structure kept, each passing the unit gate.
+ * RSS sentences not already covered by `prior` (token coverage <0.6 and no
+ * missing name/timecode), extract-only from the RSS, in RSS order, line
+ * structure kept, each passing the unit gate.
  */
 export function rssOnlyAdditions(prior: string, rssText: string, rawRss: string, recurring?: Set<string> | null) {
   const priorPool = tokenPool(prior);
   const priorTc = timecodes(prior);
-  const rawToks = normalizeTokens(htmlToPlain(rawRss));
-  const raw = { seq: rawToks.join(" "), pool: new Set(rawToks) };
+  const rawSeq = normalizeTokens(htmlToPlain(rawRss).replace(URL_RX, " ")).join(" ");
   const seen = new Set<string>();
   const lines: string[] = [];
   const kept: string[] = [];
   const dropped: Array<{ text: string; reasons: string[] }> = [];
   for (const line of String(rssText || "").split(/\r?\n/)) {
-    const l = line.trim();
-    if (!l) continue;
-    const parts = CHAPTER_RX.test(l) ? [l] : l.split(/(?<=[.!?…])\s+/);
+    if (!line.trim()) continue;
     const keep: string[] = [];
-    for (const s0 of parts) {
-      const s = s0.trim();
-      if (!s) continue;
+    for (const s of splitUnits(line)) {
       const toks = normalizeTokens(s);
       // Covered by the stored text — unless it carries a name or timecode the stored text lacks.
       if (prior && cov(toks, priorPool) >= 0.6 && !missingNames(s, prior).length && [...timecodes(s)].every((t) => priorTc.has(t))) continue;
@@ -138,7 +157,7 @@ export function rssOnlyAdditions(prior: string, rssText: string, rawRss: string,
         if (missingNames(s, prior).length) dropped.push({ text: s, reasons: ["fragment_with_name"] });
         continue;
       }
-      const reasons = unitRejectReasons(s, raw, recurring);
+      const reasons = unitRejectReasons(s, rawSeq, recurring);
       if (reasons.length) { dropped.push({ text: s, reasons }); continue; }
       keep.push(s);
       kept.push(s);
