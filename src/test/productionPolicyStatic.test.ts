@@ -1508,7 +1508,7 @@ describe("production policy static guards", () => {
     expect(bestSource).toContain("function transcriptRank");
     expect(bestSource).toContain("transcript_rss_thin_fallback");
     expect(bestSource).not.toContain("loads all doneSet");
-    expect(bestSource).toContain("readFeed(admin, feed, cursors[feed], perFeed)");
+    expect(bestSource).toContain("readFeed(admin, feed, cursors[feed], quotas[feed])");
     expect(bestSource).toContain("content_hash: transcript.content_hash || null");
     expect(bestSource).toContain("has_segments: Array.isArray(transcript.segments)");
     expect(cleanTextRunner).toContain('best?.source_type === "transcript"');

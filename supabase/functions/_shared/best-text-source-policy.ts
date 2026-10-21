@@ -6,8 +6,9 @@
 // `transcript_available` evidence so a separate, rights-aware transcript index
 // can use it later. Transcripts are rss_public_index_only: never public display.
 import { conservativeRescueClean } from "./clean-text-validation.ts";
+import { compareYoutubeGain, type YoutubeGain } from "./youtube-source-gain.ts";
 
-export const BEST_SOURCE_POLICY_VERSION = "best_text_source_v4_incremental_rss_first_transcript_thin_only";
+export const BEST_SOURCE_POLICY_VERSION = "best_text_source_v5_youtube_informative_gain";
 export const TRANSCRIPT_ALLOWED_RIGHTS = new Set(["rss_public_index_only", "licensed", "owned"]);
 
 export type EpisodeRow = {
@@ -43,7 +44,7 @@ export function contentLength(text: string): number {
   return conservativeRescueClean(String(text || "")).text.length;
 }
 
-export function pickBest(ep: EpisodeRow, spotify: any | null, youtube: any | null, article: any | null, transcript: any | null, ctrl: any) {
+export function pickBest(ep: EpisodeRow, spotify: any | null, youtube: any | null, article: any | null, transcript: any | null, ctrl: any, ctx: { recurring?: Set<string> | null } = {}) {
   const gain = Number(ctrl.prefer_external_gain_chars ?? 150);
   const articleGain = Number(ctrl.article_prefer_gain_chars ?? 300);
   const ytMin = Number(ctrl.youtube_min_confidence ?? 0.78);
@@ -172,39 +173,45 @@ export function pickBest(ep: EpisodeRow, spotify: any | null, youtube: any | nul
   const ytText = String(youtube?.youtube_description || "").trim();
   const ytConfidence = Number(youtube?.match_score || 0);
   const ytQ = textQuality(ytText);
-  if (
-    ytText
+  // Only a verified (v3, confirmed, high-score) match is compared at all.
+  const ytVerified = !!ytText
     && youtube?.status === "confirmed"
     && youtube?.validation_reason?.policy === "youtube_episode_match_v3"
-    && ytConfidence >= ytMin
-    && (ytQ.len >= rssQ.len + gain || rssQ.len < 160)
-  ) {
+    && ytConfidence >= ytMin;
+  const ytGain: YoutubeGain | null = ytVerified ? compareYoutubeGain(rssText, ytText, { ...(ctrl.youtube_gain || {}), recurring: ctx.recurring || null }) : null;
+  if (ytGain && ytGain.decision === "youtube_better") {
     candidates.push({
       source_type: "youtube",
       source_ref_id: youtube.id,
       raw_text: ytText,
       source_confidence: Math.min(0.98, 0.62 + ytConfidence * 0.25 + ytQ.score * 0.13),
-      reasons: ["confirmed_youtube_longer_or_rss_short"],
+      reasons: ["confirmed_youtube_informative_gain", ...ytGain.reasons],
       quality: ytQ,
+      preferred_over_rss: true,
       evidence: {
         youtube_match_score: ytConfidence,
         youtube_confidence: youtube.confidence,
         youtube_status: youtube.status,
         youtube_len: ytQ.len,
         rss_len: rssQ.len,
+        youtube_gain: ytGain,
         validation_reason: youtube.validation_reason || {},
         dirty: ytQ.dirty,
         transcript_available: transcriptAvailable,
       },
     });
   }
+  // Log the YouTube decision on every candidate, so a kept RSS records why.
+  if (ytGain) for (const c of candidates) if (c.source_type !== "youtube") c.evidence = { ...c.evidence, youtube_gain: ytGain };
 
   if (!candidates.length) return null;
-  return candidates.sort((a, b) => {
-    const scoreA = a.source_confidence + Math.min(0.12, a.quality.len / 12000);
-    const scoreB = b.source_confidence + Math.min(0.12, b.quality.len / 12000);
-    return scoreB - scoreA;
-  })[0];
+  const score = (c: any) => c.source_confidence + Math.min(0.12, c.quality.len / 12000);
+  const sorted = candidates.sort((a, b) => score(b) - score(a));
+  // A verified informative YouTube gain beats RSS and a (thin-RSS) transcript;
+  // only a confirmed publisher article that scores higher may still win.
+  const yt = sorted.find((c) => c.preferred_over_rss);
+  if (yt && sorted[0] !== yt && sorted[0].source_type !== "article") return yt;
+  return sorted[0];
 }
 
 /** Stable identity of a selected source; unchanged fingerprint → no rewrite, no re-clean. */

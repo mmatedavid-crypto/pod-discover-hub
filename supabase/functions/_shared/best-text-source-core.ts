@@ -1,0 +1,372 @@
+// Shared I/O for best-text-source selection and verified YouTube re-clean.
+// Used by episode-best-text-source-runner (cron) and clean-text-repair (admin
+// dry run / canary). Deterministic, $0, no AI calls. Writes to clean text only
+// through apply_clean_text_repair_v1 (backup + compare-and-swap, ≤100/batch).
+import { heuristicClean, validateExtractOnlyTrim } from "./episode-text-cleaner.ts";
+import {
+  CLEAN_TEXT_QUALITY_VERSION,
+  RESCUE_METHOD_SUFFIX,
+  decideCleanText,
+  htmlToPlain,
+  validateCleanOutput,
+} from "./clean-text-validation.ts";
+import {
+  BEST_SOURCE_POLICY_VERSION,
+  needsReclean,
+  pickBest,
+  sourceFingerprint,
+  transcriptRank,
+  type EpisodeRow,
+} from "./best-text-source-policy.ts";
+import { informativeUnits, recurringFor, recurringUnitCounts, stripRecurringLines, stripSponsorSections, trimDanglingLabels, youtubeRecleanGate } from "./youtube-source-gain.ts";
+import { conservativeRescueClean } from "./clean-text-validation.ts";
+
+export const CHUNK = 50;
+const PREVIEW_INPUT_MAX = 12_000;
+export const YOUTUBE_RECLEAN_METHOD = "deterministic_v4+youtube";
+
+export async function sha256Hex(s: string): Promise<string> {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/**
+ * Per-podcast recurrence counts over up to 12 recent confirmed YouTube
+ * descriptions (idx_eyl_podcast). Sponsor/intro blocks shared by other episodes
+ * are not "new information". Podcasts with fewer than 4 descriptions get none.
+ */
+export async function loadRecurringByPodcast(admin: any, podcastIds: string[]): Promise<Map<string, Map<string, number>>> {
+  const out = new Map<string, Map<string, number>>();
+  const ids = Array.from(new Set(podcastIds.filter(Boolean))).slice(0, 40);
+  const res = await Promise.all(ids.map((pid) => admin.from("episode_youtube_links")
+    .select("episode_id,youtube_description")
+    .eq("podcast_id", pid)
+    .eq("status", "confirmed")
+    .order("updated_at", { ascending: false })
+    .limit(12)));
+  ids.forEach((pid, i) => {
+    const r = res[i];
+    if (r.error) throw r.error;
+    const descs = ((r.data || []) as any[]).map((x) => String(x.youtube_description || "")).filter((d) => d.length > 40);
+    if (descs.length >= 4) out.set(pid, recurringUnitCounts(descs));
+  });
+  return out;
+}
+
+/** Load HU episodes and all candidate sources for at most a few hundred ids (chunked `in` lookups). */
+export async function loadEpisodeSources(admin: any, targetIds: string[]) {
+  const episodes: EpisodeRow[] = [];
+  for (let i = 0; i < targetIds.length; i += CHUNK) {
+    const { data, error } = await admin
+      .from("episodes")
+      .select("id,podcast_id,title,description,updated_at,podcasts!inner(language_decision)")
+      .in("id", targetIds.slice(i, i + CHUNK))
+      .eq("podcasts.language_decision", "accept_hungarian");
+    if (error) throw error;
+    if (data) episodes.push(...(data as EpisodeRow[]));
+  }
+  const epIds = episodes.map((e) => e.id);
+  const spotifyByEp = new Map<string, any>();
+  const youtubeByEp = new Map<string, any>();
+  const articleByEp = new Map<string, any>();
+  const transcriptByEp = new Map<string, any>();
+  const prevByEp = new Map<string, any>();
+  for (let i = 0; i < epIds.length; i += CHUNK) {
+    const slice = epIds.slice(i, i + CHUNK);
+    const [sp, yt, art, tr, prev] = await Promise.all([
+      admin.from("episode_spotify_meta")
+        .select("id,episode_id,spotify_description,spotify_html_description,match_confidence,match_method")
+        .in("episode_id", slice),
+      admin.from("episode_youtube_links")
+        .select("id,episode_id,youtube_description,match_score,confidence,status,validation_reason")
+        .in("episode_id", slice)
+        .eq("status", "confirmed")
+        .contains("validation_reason", { policy: "youtube_episode_match_v3" })
+        .order("match_score", { ascending: false }),
+      admin.from("episode_article_candidates")
+        .select("id,episode_id,outlet,article_url,article_title,article_excerpt,article_text,match_score,status,match_reasons,evidence")
+        .in("episode_id", slice)
+        .eq("status", "confirmed")
+        .order("match_score", { ascending: false }),
+      admin.from("episode_transcripts")
+        // No `segments`: ~62 kB jsonb per row exhausted worker memory at limit=100.
+        .select("id,episode_id,model,source,language,transcript,content_hash,status,rights_status,public_display,updated_at")
+        .in("episode_id", slice)
+        .eq("status", "ok")
+        .order("updated_at", { ascending: false, nullsFirst: false }),
+      admin.from("episode_best_text_source")
+        .select("episode_id,source_type,raw_text,source_fingerprint,reclean_status")
+        .in("episode_id", slice),
+    ]);
+    for (const res of [sp, yt, art, tr, prev]) if (res.error) throw res.error;
+    for (const row of sp.data || []) {
+      const p = spotifyByEp.get(row.episode_id);
+      const len = String(row.spotify_description || row.spotify_html_description || "").length;
+      const pLen = String(p?.spotify_description || p?.spotify_html_description || "").length;
+      if (!p || len > pLen) spotifyByEp.set(row.episode_id, row);
+    }
+    for (const row of yt.data || []) {
+      const p = youtubeByEp.get(row.episode_id);
+      const s = Number(row.match_score || 0), ps = Number(p?.match_score || 0);
+      if (!p || s > ps || (s === ps && String(row.youtube_description || "").length > String(p?.youtube_description || "").length)) youtubeByEp.set(row.episode_id, row);
+    }
+    for (const row of art.data || []) {
+      const p = articleByEp.get(row.episode_id);
+      const s = Number(row.match_score || 0), ps = Number(p?.match_score || 0);
+      const len = String(row.article_text || row.article_excerpt || "").length;
+      const pLen = String(p?.article_text || p?.article_excerpt || "").length;
+      if (!p || s > ps || (s === ps && len > pLen)) articleByEp.set(row.episode_id, row);
+    }
+    for (const row of tr.data || []) {
+      const p = transcriptByEp.get(row.episode_id);
+      const r = transcriptRank(String(row.model || "")), pr = transcriptRank(String(p?.model || ""));
+      if (!p || r > pr || (r === pr && String(row.transcript || "").length > String(p?.transcript || "").length)) transcriptByEp.set(row.episode_id, row);
+    }
+    for (const row of prev.data || []) prevByEp.set(row.episode_id, row);
+  }
+  const ytPodcasts = episodes.filter((e) => youtubeByEp.has(e.id)).map((e) => e.podcast_id);
+  const recurringByPodcast = ytPodcasts.length ? await loadRecurringByPodcast(admin, ytPodcasts) : new Map();
+  return { episodes, spotifyByEp, youtubeByEp, articleByEp, transcriptByEp, prevByEp, recurringByPodcast };
+}
+
+export type SelectionStats = {
+  scanned: number;
+  unchanged: number;
+  rss_noop: number;
+  reclean_marked: number;
+  source_counts: Record<string, number>;
+  youtube_gain: Record<string, number>;
+};
+
+/** Pick the best source per episode; returns upsert-ready rows for changed selections only. */
+export async function computeSelections(admin: any, targetIds: string[], ctrl: any) {
+  const src = await loadEpisodeSources(admin, targetIds);
+  const now = new Date().toISOString();
+  const rows: any[] = [];
+  const decisions: any[] = [];
+  const stats: SelectionStats = { scanned: src.episodes.length, unchanged: 0, rss_noop: 0, reclean_marked: 0, source_counts: {}, youtube_gain: {} };
+  for (const ep of src.episodes) {
+    const ytRow = src.youtubeByEp.get(ep.id) || null;
+    const recurring = recurringFor(src.recurringByPodcast.get(ep.podcast_id), ytRow?.youtube_description ?? null);
+    const best = pickBest(ep, src.spotifyByEp.get(ep.id) || null, ytRow, src.articleByEp.get(ep.id) || null, src.transcriptByEp.get(ep.id) || null, ctrl, { recurring });
+    if (!best) continue;
+    const gain = best.evidence?.youtube_gain || null;
+    if (gain) stats.youtube_gain[gain.decision] = (stats.youtube_gain[gain.decision] || 0) + 1;
+    const prev = src.prevByEp.get(ep.id) || null;
+    const fingerprint = await sourceFingerprint(best);
+    decisions.push({ episode_id: ep.id, podcast_id: ep.podcast_id, prev_source: prev?.source_type || null, next_source: best.source_type, gain, raw_text: best.raw_text, source_fingerprint: fingerprint, evidence: { ...best.evidence, policy_version: BEST_SOURCE_POLICY_VERSION } });
+    if (prev?.source_fingerprint === fingerprint) { stats.unchanged++; continue; }
+    // RSS remains the default without a row; only record RSS when a row exists, a transcript or a YouTube decision is available.
+    if (!prev && best.source_type === "rss" && !best.evidence?.transcript_available && !gain) { stats.rss_noop++; continue; }
+    // A verified YouTube selection that was never re-clean-evaluated is evaluated once (gate decides).
+    const reclean = needsReclean(prev, best) || (best.source_type === "youtube" && !prev?.reclean_status);
+    if (reclean) stats.reclean_marked++;
+    // Preview only (4000 chars stored). deterministic_v4 can take >2 s CPU on some
+    // 50k+ transcripts, so long texts are previewed from their first 12k chars.
+    const previewTruncated = best.raw_text.length > PREVIEW_INPUT_MAX;
+    const cleaned = heuristicClean(previewTruncated ? best.raw_text.slice(0, PREVIEW_INPUT_MAX) : best.raw_text).text.trim();
+    const row: any = {
+      episode_id: ep.id,
+      podcast_id: ep.podcast_id,
+      source_type: best.source_type,
+      source_ref_id: best.source_ref_id,
+      source_confidence: Number(best.source_confidence.toFixed(4)),
+      source_reason: best.reasons,
+      raw_text: best.raw_text,
+      cleaned_preview: cleaned.slice(0, 4000),
+      raw_len: best.raw_text.length,
+      cleaned_len: cleaned.length,
+      evidence: { ...best.evidence, policy_version: BEST_SOURCE_POLICY_VERSION, ...(previewTruncated ? { preview_truncated: true } : {}) },
+      source_fingerprint: fingerprint,
+      reclean_status: reclean ? "pending" : (prev?.reclean_status ?? null),
+      selected_at: now,
+      updated_at: now,
+    };
+    if (reclean) row.reclean_marked_at = now;
+    rows.push(row);
+    stats.source_counts[best.source_type] = (stats.source_counts[best.source_type] || 0) + 1;
+  }
+  return { rows, decisions, stats };
+}
+
+export async function upsertSelections(admin: any, rows: any[]): Promise<number> {
+  let upserted = 0;
+  // Rows with and without reclean_marked_at must not share one upsert (missing keys become null).
+  const groups = [rows.filter((r) => "reclean_marked_at" in r), rows.filter((r) => !("reclean_marked_at" in r))];
+  for (const g of groups) {
+    for (let i = 0; i < g.length; i += CHUNK) {
+      const { error } = await admin.from("episode_best_text_source").upsert(g.slice(i, i + CHUNK), { onConflict: "episode_id" });
+      if (error) throw error;
+      upserted += Math.min(CHUNK, g.length - i);
+    }
+  }
+  return upserted;
+}
+
+
+const infoLen = (t: string) => informativeUnits(t).units.join(" ").length;
+
+/**
+ * Deterministic clean text for a verified YouTube description. deterministic_v4
+ * drops timestamp lines; when that loses chapter topics (≥30% of informative
+ * text) the extract-only rescue output is used instead. Same method names and
+ * source-hash formula in the clean-text runner and the re-clean planner.
+ */
+export function cleanYoutubeDescription(rawIn: string, v4In?: { text: string; removed: string[] }, recurring?: Set<string> | null) {
+  // Sponsor/ad sections and podcast-recurring blocks are removed before cleaning
+  // (removal only; still extract-only vs the raw text).
+  const plain = htmlToPlain(rawIn);
+  const raw = stripRecurringLines(stripSponsorSections(plain), recurring);
+  const sponsorStripped = raw !== plain;
+  const v4 = sponsorStripped || !v4In ? heuristicClean(raw) : v4In;
+  const decision = decideCleanText({ raw, v4, priorCleanedText: null });
+  if (decision.action !== "write") return { ok: false as const, decision };
+  let text = trimDanglingLabels(decision.text);
+  let rescued = decision.rescued;
+  let removed = [...decision.removed];
+  if (!rescued) {
+    const rescue = conservativeRescueClean(raw);
+    const rText = trimDanglingLabels(rescue.text);
+    const rv = validateCleanOutput(raw, rText);
+    const rx = validateExtractOnlyTrim(htmlToPlain(raw), rText, { minOverlap: 0.97, maxAddedTokenRatio: 0.03, minCompressionRatio: 0 });
+    if (rv.status === "valid" && rx.ok && infoLen(rText) >= infoLen(text) * 1.3 + 40) {
+      text = rText; rescued = true; removed = Array.from(new Set([...rescue.removed, "youtube_chapters_kept"]));
+    }
+  }
+  if (sponsorStripped) removed = Array.from(new Set([...removed, "youtube_sponsor_sections"]));
+  const verdict = validateCleanOutput(raw, text);
+  const method = rescued ? `${YOUTUBE_RECLEAN_METHOD}+${RESCUE_METHOD_SUFFIX}` : YOUTUBE_RECLEAN_METHOD;
+  return { ok: true as const, decision, text, rescued, removed, verdict, method };
+}
+
+export type RecleanCandidate = { episode_id: string; podcast_id?: string | null; raw_text: string; source_fingerprint: string | null; evidence?: any };
+export type RecleanPlan = {
+  episode_id: string;
+  outcome: "apply" | "noop_same" | "reject";
+  reasons: string[];
+  source_fingerprint: string | null;
+  evidence?: any;
+  prior_len: number;
+  next_len: number;
+  prior_method: string | null;
+  preview: string;
+  item?: any;
+};
+
+/** Deterministic, extract-only YouTube clean text + prior-preserving gate. No writes. */
+export async function planYoutubeReclean(admin: any, candidates: RecleanCandidate[], opts: { protectRepaired?: boolean; gate?: any } = {}): Promise<RecleanPlan[]> {
+  const ids = candidates.map((c) => c.episode_id);
+  const cleanByEp = new Map<string, any>();
+  const statusByEp = new Map<string, string>();
+  const repaired = new Set<string>();
+  for (let i = 0; i < ids.length; i += CHUNK) {
+    const slice = ids.slice(i, i + CHUNK);
+    const [c, e, b] = await Promise.all([
+      admin.from("episode_clean_text").select("episode_id,cleaned_text,source_hash,cleaner_method").in("episode_id", slice),
+      admin.from("episodes").select("id,clean_text_status").in("id", slice),
+      admin.from("episode_clean_text_repair_backups").select("episode_id").in("episode_id", slice).is("rolled_back_at", null),
+    ]);
+    for (const res of [c, e, b]) if (res.error) throw res.error;
+    for (const r of c.data || []) cleanByEp.set(String(r.episode_id), r);
+    for (const r of e.data || []) statusByEp.set(String(r.id), String(r.clean_text_status || ""));
+    for (const r of b.data || []) repaired.add(String(r.episode_id));
+  }
+  const recurringByPodcast = await loadRecurringByPodcast(admin, candidates.map((c) => String(c.podcast_id || "")));
+  const plans: RecleanPlan[] = [];
+  for (const cand of candidates) {
+    const raw = String(cand.raw_text || "").trim();
+    const cur = cleanByEp.get(cand.episode_id) || null;
+    const base = { episode_id: cand.episode_id, source_fingerprint: cand.source_fingerprint, evidence: cand.evidence, prior_len: String(cur?.cleaned_text || "").length, prior_method: cur?.cleaner_method ?? null };
+    const status = statusByEp.get(cand.episode_id) || "";
+    if (opts.protectRepaired !== false && repaired.has(cand.episode_id)) {
+      plans.push({ ...base, outcome: "reject", reasons: ["protected_prior_repair_batch"], next_len: 0, preview: "" });
+      continue;
+    }
+    if (status === "pending" || status === "error") {
+      plans.push({ ...base, outcome: "reject", reasons: [`clean_text_status_${status}_runner_owns`], next_len: 0, preview: "" });
+      continue;
+    }
+    const recurring = recurringFor(recurringByPodcast.get(String(cand.podcast_id || "")), raw);
+    const yc = cleanYoutubeDescription(raw, undefined, recurring);
+    if (!yc.ok) {
+      plans.push({ ...base, outcome: "reject", reasons: [`decision_${yc.decision.action}`, ...((yc.decision as any).reasons || [])], next_len: 0, preview: "" });
+      continue;
+    }
+    const { text, verdict, method, removed } = yc;
+    const extract = validateExtractOnlyTrim(htmlToPlain(raw), text, { minOverlap: 0.97, maxAddedTokenRatio: 0.03, minCompressionRatio: 0 });
+    const source_hash = await sha256Hex(`${method}::${raw}`);
+    if (cur?.source_hash === source_hash) {
+      plans.push({ ...base, outcome: "noop_same", reasons: ["already_applied_same_source_hash"], next_len: text.length, preview: text.slice(0, 280) });
+      continue;
+    }
+    const gate = youtubeRecleanGate(cur?.cleaned_text, text, { ...(opts.gate || {}), recurring });
+    const reasons = [...gate.reasons];
+    if (verdict.status !== "valid") reasons.push(`verdict_${verdict.status}`);
+    if (!extract.ok) reasons.push(...extract.reasons.map((r: string) => `extract_${r}`));
+    if (text.length < 80) reasons.push("too_short");
+    if (reasons.length) {
+      plans.push({ ...base, outcome: "reject", reasons, next_len: text.length, preview: text.slice(0, 280) });
+      continue;
+    }
+    plans.push({
+      ...base,
+      outcome: "apply",
+      reasons: [`info_gain_${gate.next_info_len - gate.prior_info_len}`],
+      next_len: text.length,
+      preview: text.slice(0, 280),
+      item: {
+        episode_id: cand.episode_id,
+        cleaned_text: text,
+        source_hash,
+        cleaner_method: method,
+        removed_categories: Array.from(new Set([...removed, "source_youtube", "youtube_dangling_labels"])),
+        quality_status: verdict.status,
+        quality_reasons: ["youtube_informative_gain", `prior_method_${cur?.cleaner_method ?? "none"}`],
+        quality_version: CLEAN_TEXT_QUALITY_VERSION,
+        source_type: "youtube",
+        expected_source_hash: cur ? (cur.source_hash ?? null) : null,
+        expected_cleaned_sha256: cur ? await sha256Hex(String(cur.cleaned_text || "")) : null,
+      },
+    });
+  }
+  return plans;
+}
+
+/** Apply planned items as one backed-up CAS batch, then record the outcome on each best-source row. */
+export async function applyYoutubeReclean(admin: any, plans: RecleanPlan[], batchId: string, opts: { markRows?: boolean; maxConflictAttempts?: number } = {}) {
+  const items = plans.filter((p) => p.outcome === "apply" && p.item).map((p) => p.item).slice(0, 100);
+  let result: any = { batch_id: batchId, applied: 0, conflicts: 0, invalid: 0, conflict_episode_ids: [] };
+  if (items.length) {
+    const { data, error } = await admin.rpc("apply_clean_text_repair_v1", { p_batch_id: batchId, p_items: items });
+    if (error) throw error;
+    result = data;
+  }
+  if (opts.markRows === false) return result;
+  const conflicts = new Set<string>((result?.conflict_episode_ids || []).map(String));
+  const now = new Date().toISOString();
+  const maxAttempts = opts.maxConflictAttempts ?? 3;
+  for (const p of plans) {
+    if (!p.source_fingerprint) continue;
+    const prevRe = p.evidence?.reclean || {};
+    let status: string;
+    if (p.outcome === "apply") status = conflicts.has(p.episode_id) ? ((Number(prevRe.attempts || 0) + 1) >= maxAttempts ? "conflict" : "pending") : "applied";
+    else if (p.outcome === "noop_same") status = "applied";
+    else status = "rejected_quality";
+    const reclean = {
+      at: now,
+      outcome: conflicts.has(p.episode_id) ? "conflict" : p.outcome,
+      reasons: p.reasons,
+      batch_id: p.outcome === "apply" && !conflicts.has(p.episode_id) ? batchId : null,
+      attempts: Number(prevRe.attempts || 0) + 1,
+      prior_len: p.prior_len,
+      next_len: p.next_len,
+      prior_method: p.prior_method,
+    };
+    // Compare-and-swap on the fingerprint: a newer selection is never overwritten.
+    await admin.from("episode_best_text_source")
+      .update({ reclean_status: status, evidence: { ...(p.evidence || {}), reclean } })
+      .eq("episode_id", p.episode_id)
+      .eq("source_fingerprint", p.source_fingerprint);
+  }
+  return result;
+}

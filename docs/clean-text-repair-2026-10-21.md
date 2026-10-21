@@ -34,3 +34,27 @@ Two batches ingested (953 + 1 requests, 954 items applied), actual cost ≈ $0.0
 ## Person GPT tick paused (2026-10-21 09:18 UTC, owner request)
 `person-relevance-openai-batch-tick` (jobid 189, `*/10`) set `active=false` until clean-text repair is finished (431 long empty descriptions remain). Unchanged: two ingested batches (954 items), controls (`enabled=true`, $10 daily/total cap), best-source cron 193. No open jobs.
 Resume: `SELECT cron.alter_job(189, active := true);`
+
+## Verified YouTube → best source → clean text → search (2026-10-21, owner-approved)
+Deterministic, $0 AI. Gemini trim OFF, legacy global autopilot OFF, person GPT cron 189 OFF (unchanged). Earlier 43-row canary untouched (rows with existing backups are protected by the planner).
+
+**Code**
+- `_shared/youtube-source-gain.ts` (`youtube_gain_v1`): compares informative content only — links, handles, hashtag walls, CTA/like/subscribe lines, giveaway/promo and sponsor sections, hosting/ad boilerplate (AdsWizz, Acast, Megaphone …) and blocks recurring across ≥2 other YouTube descriptions of the same podcast are not information. Decisions: `youtube_better` / `youtube_no_gain` / `youtube_spam_only` / `rss_has_unique_content` / `youtube_language_mismatch`; logged in `episode_best_text_source.evidence.youtube_gain`.
+- `_shared/best-text-source-policy.ts` → `best_text_source_v5_youtube_informative_gain`: only v3-confirmed links with score ≥0.78 are compared; a `youtube_better` source beats RSS and thin-RSS transcripts.
+- `_shared/best-text-source-core.ts`: shared loader/selection; `cleanYoutubeDescription` (v4, or extract-only rescue when v4 drops chapter topics; dangling labels trimmed); `planYoutubeReclean` (gate: valid, extract-only ≥0.97, no URL, ≥100 more informative chars, prior content not lost; skips `pending`/`error` episodes and rows with earlier repair backups); `applyYoutubeReclean` (one `apply_clean_text_repair_v1` batch, CAS on clean text and on the best-source fingerprint).
+- Runner fix: explicit ids were aliased to the feed list, so every cron run looked like an "ids" run and never saved cursors (same 39 episodes every 15 min). Fixed; per-feed quotas (YouTube 50 %), progress/caught-up per feed, `runs_ok`/`runs_failed`/`consecutive_errors`/`last_error` persisted even on failure.
+- Clean-text runner: new YouTube-sourced episodes use the same `cleanYoutubeDescription` (same method name and source hash, so re-clean is idempotent).
+- Migrations 0066/0067: `episode_best_source_youtube_queue` (2,790 staged targets, admin read only), `best_source_youtube_gain_targets_v1`, `youtube_source_quality_metrics_v1`, and `get_episode_public_clean_description_v1` (public reader, returns nothing unless an owner allowlists sources in `app_settings.public_clean_text_display.allowed_sources`; transcript and AI-trimmed text never returned; no table grants).
+- Admin actions in `clean-text-repair`: `youtube_metrics`, `youtube_dry_run` (paged, read-only, optional `episode_ids`/`full_text`), `youtube_canary` (≤50, `confirm=apply_youtube_canary`); rollback via existing `rollback` action with the batch id.
+
+**Dry run (all 2,790 targets, read-only)**: youtube_better 1,076 · no_gain 1,335 · spam_only 198 · rss_has_unique_content 126 · language_mismatch 32 (23 not evaluable). Re-clean plan for the 1,076: 865 pass the gate, 211 rejected (169 insufficient gain, 60 would lose prior content, 5 quarantine). Max page time 2.8 s at 30/page.
+
+**Canary**: 40 episodes / 29 podcasts (incl. Della–László Csaba `a16809ca`), each reviewed in full before apply. Batch `8e365da4-f9db-4bbc-90f7-4fc6506fb358`: 40 applied, 0 conflicts, 0 invalid; all valid, done, no URL; average clean length 700 → 1,324 chars. Exact-phrase search: 24/24 search-visible canary episodes now found by a YouTube-only phrase that was absent from their RSS and old clean text (~130–600 ms). 12 canary episodes belong to podcasts with `rss_status=failed`, which search intentionally hides.
+
+**Enabled (controls `episode_best_text_source_controls`)**: `youtube_backfill_enabled` (20/run over the staged queue), `youtube_reclean_enabled` (10/run, 150/day), `auto_requeue_clean_text=false`. Cron 193 unchanged (`*/15`). Each automatic batch id is listed in `episode_best_text_source_state.youtube_reclean.batches`.
+Stop: set `youtube_reclean_enabled=false` (and/or `youtube_backfill_enabled=false`). Rollback: `clean-text-repair {"action":"rollback","batch_id":"<id>"}`.
+
+**Not done / owner decisions**
+- Public episode pages still show RSS. YouTube description reuse on public pages depends on YouTube API terms (attribution, refresh); `get_episode_public_clean_description_v1` stays off until the owner allowlists sources and the frontend is wired and published.
+- Chunk embeddings for changed clean text are not re-run (paid embeddings); backups carry `downstream_invalidation='pending'`.
+- Rows switching YouTube → RSS (link no longer verified/useful) are marked `reclean_status=pending` but not rewritten (prior text kept).

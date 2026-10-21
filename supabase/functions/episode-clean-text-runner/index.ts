@@ -19,6 +19,8 @@ import {
   decideCleanText,
   validateCleanOutput,
 } from "../_shared/clean-text-validation.ts";
+import { cleanYoutubeDescription, loadRecurringByPodcast } from "../_shared/best-text-source-core.ts";
+import { recurringFor } from "../_shared/youtube-source-gain.ts";
 import { detectAiTrimBucket, runAiTrim, AI_TRIM_TARGET_BUCKETS, type AiTrimBucket } from "../_shared/clean-text-ai-trim.ts";
 
 const cors = {
@@ -118,7 +120,7 @@ Deno.serve(async (req) => {
 
       const { data: eps, error: selErr } = await admin
         .from("episodes")
-        .select("id, description, summary, podcasts!inner(language_decision)")
+        .select("id, podcast_id, description, summary, podcasts!inner(language_decision)")
         .eq("clean_text_status", "pending")
         .eq("podcasts.language_decision", "accept_hungarian")
         .limit(batchLimit);
@@ -159,6 +161,10 @@ Deno.serve(async (req) => {
         if (qErr) throw qErr;
         for (const row of qRows || []) quarantineByEp.set(String((row as any).episode_id), { attempts: Number((row as any).attempts || 0), source_hash: (row as any).source_hash ?? null, first_seen_at: String((row as any).first_seen_at) });
       }
+
+      // Podcast-recurring sponsor/intro blocks for verified-YouTube sources (same as the re-clean planner).
+      const ytPodcasts = eps.filter((e: any) => bestByEp.get(String(e.id))?.source_type === "youtube").map((e: any) => String(e.podcast_id || ""));
+      const recurringByPodcast = ytPodcasts.length ? await loadRecurringByPodcast(admin, ytPodcasts) : new Map();
 
       passes++;
       const upsertRows: any[] = [];
@@ -230,6 +236,14 @@ Deno.serve(async (req) => {
           let cleaned = decision.text;
           let appliedMethod = decision.rescued ? `${usedMethod}+${RESCUE_METHOD_SUFFIX}` : usedMethod;
           let verdict = decision.verdict;
+          // Verified YouTube source: same deterministic clean (chapters kept, empty labels dropped)
+          // and method/hash formula as the re-clean planner, so later runs are idempotent.
+          if (best?.source_type === "youtube") {
+            const yc = cleanYoutubeDescription(raw, v4, recurringFor(recurringByPodcast.get(String((ep as any).podcast_id || "")), raw));
+            if (yc.ok && (yc.verdict.status === "valid" || yc.verdict.status === "valid_short")) {
+              cleaned = yc.text; verdict = yc.verdict; appliedMethod = yc.method;
+            }
+          }
           const removedCats = Array.from(new Set([...decision.removed, ...(best?.source_type ? [`source_${best.source_type}`] : [])]));
           if (best?.source_type === "transcript") removedCats.push("rights_index_only_not_public_display");
           if (decision.rescued) totalRescued++;

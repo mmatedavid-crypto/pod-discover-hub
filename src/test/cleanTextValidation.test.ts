@@ -116,9 +116,12 @@ describe("runner safety (static)", () => {
   });
   it("best-source runner uses bounded keyset feeds and no full-table scans", () => {
     const runner = read("supabase/functions/episode-best-text-source-runner/index.ts");
-    expect(runner).toContain("Math.min(200,");
+    expect(runner).toContain("Math.min(MAX_TARGETS,");
+    expect(runner).toContain("const MAX_TARGETS = 60;");
     expect(runner).not.toMatch(/offset < 500000/);
-    expect(runner).toContain('ctrl.auto_requeue_clean_text === true && requeueCap > 0');
+    // No blind "flip to pending" requeue; only the backed-up, capped YouTube re-clean.
+    expect(runner).not.toContain('clean_text_status: "pending"');
+    expect(runner).toContain("ctrl.youtube_reclean_enabled === true");
   });
   it("repair apply is capped at 100 items with backup and CAS", () => {
     const sql = read("drizzle/migrations/0065_clean_text_quality_repair.sql");
