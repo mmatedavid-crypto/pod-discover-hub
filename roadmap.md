@@ -73,4 +73,5 @@
 - [x] Legacy lane fully evaluated 2026-10-21 20:40 UTC (0 open).
 - [x] Waiting verified YouTube/Spotify re-cleans drained to the code maximums (YouTube 500/day, Spotify 300/day) on 2026-10-21.
 - [ ] 9 YouTube + 38 Spotify re-cleans left; they go through on the normal daily caps (runs on its own).
-- [ ] 648 rows marked needs_review (≈494 legacy, ≈150 gated RSS) + 10 quarantined wait for a human decision (blocked: owner review).
+- [x] Legacy review rows (499): 3-step resolution 2026-10-21 (merge 59, RSS replace 10, attribution 129, safe-internal/kept 251, protected 16, quarantine 3; one-off AI $0.41, switched off).
+- [ ] 31 legacy rows still need_review (19 texts with URL fragments need a YouTube re-clean, 9 AI-uncertain, 2 unverified names, 1 low-info) + ≈150 gated RSS rows + quarantine (blocked: owner review).
