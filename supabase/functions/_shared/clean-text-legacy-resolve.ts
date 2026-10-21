@@ -121,6 +121,7 @@ function unitRejectReasons(s: string, rawSeq: string, recurring?: Set<string> | 
   if (/(^|\s)@[A-Za-z0-9._-]{2,}/.test(s)) r.push("handle");
   r.push(...linkResidueReasons(s));
   if (LINK_LEAD_RX.test(s) || /[:：]\s*[-–—]?\s*$/.test(s) || /[:：]\s*(?:\.{2,}|…)/.test(s) || /\b(?:rss|feed)\s*:/i.test(s)) r.push("link_lead_in");
+  if (/[\u2060\u200B\u200C\u200D\uFEFF]/.test(s)) r.push("removed_link_marker");
   if (isBoilerplateUnit(s)) r.push("boilerplate");
   if (!chapter && (CTA_RX.test(s) || SOCIAL_RX.test(s))) r.push("cta_social_sponsor");
   if (recurring && recurring.size && recurring.has(unitKey(s))) r.push("show_recurring");
