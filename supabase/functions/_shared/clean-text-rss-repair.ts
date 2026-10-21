@@ -39,8 +39,9 @@ export function addedNamedEvidence(prior: string, next: string): string[] {
     const tok = m[0];
     if (p.includes(tok) || NON_EVIDENCE_RX.test(tok)) continue;
     if (!/^\d/.test(tok)) {
-      const before = text.slice(Math.max(0, (m.index ?? 0) - 3), m.index ?? 0).replace(/\s+$/, "");
-      const prev = Array.from(before).pop() || "";
+      const rawBefore = text.slice(Math.max(0, (m.index ?? 0) - 4), m.index ?? 0);
+      if (/\n\s*$/.test(rawBefore)) continue; // line start
+      const prev = Array.from(rawBefore.replace(/\s+$/, "")).pop() || "";
       if (!prev || /[.!?…\n"„“»«(\[\p{Extended_Pictographic}•·|-]/u.test(prev)) continue;
     }
     out.add(tok);
