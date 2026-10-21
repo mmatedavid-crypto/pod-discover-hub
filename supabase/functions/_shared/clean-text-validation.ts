@@ -287,7 +287,8 @@ export function decideCleanText(input: {
 }): CleanDecision {
   const d = decideCleanTextCore(input);
   if (d.action !== "write") return d;
-  let stripped = stripHashtagWalls(d.text);
+  // Separator rules ("——————", "-----") become line breaks (removal-only).
+  let stripped = stripHashtagWalls(d.text.replace(/[ \t]*[—–\-_=~*]{4,}[ \t]*/g, "\n").replace(/\n{3,}/g, "\n\n").trim());
   if (/https?:\/\//i.test(String(input.raw || ""))) stripped = stripTrailingLinkLabels(stripped);
   if (stripped === d.text || stripped.length < 40) return d;
   return { ...d, text: stripped, removed: Array.from(new Set([...d.removed, "hashtag_wall"])) };

@@ -143,3 +143,10 @@ describe("cleaning stays fast on separator-heavy notes", async () => {
     expect(performance.now() - t).toBeLessThan(300);
   });
 });
+
+describe("replacing existing text with link-label leftovers", () => {
+  it("waits for review when the new text carries platform labels", () => {
+    expect(autoApplySafetyReasons("Hosszabb magyar leírás a témáról. Csatlakozz: YouTube: KSD Akadémia: Instagram: valami", [], { priorLen: 300 })).toContain("auto_gate_link_label_residue");
+    expect(autoApplySafetyReasons("Hosszabb magyar leírás a témáról. Csatlakozz: YouTube: KSD Akadémia: Instagram: valami", [], { priorLen: 0 })).not.toContain("auto_gate_link_label_residue");
+  });
+});

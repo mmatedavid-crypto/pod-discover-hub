@@ -209,7 +209,7 @@ Deno.serve(async (req) => {
             item.removed_categories = Array.from(new Set([...(item.removed_categories || []), "show_recurring_boilerplate"]));
           }
         }
-        const gate = autoApplySafetyReasons(String(item.cleaned_text || ""), plan.lost_from_source);
+        const gate = autoApplySafetyReasons(String(item.cleaned_text || ""), plan.lost_from_source, { priorLen: plan.prior_len });
         if (gate.length) {
           results.push({ episode_id: t.episode_id, status: "needs_review", outcome: "auto_gate", reasons: gate });
           tally("needs_review:auto_gate");

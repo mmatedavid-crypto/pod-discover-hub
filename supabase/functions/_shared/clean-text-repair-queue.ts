@@ -59,9 +59,13 @@ const AD_RX = /\b(?:kuponk[oó]d\p{L}*|kedvezm[eé]ny\p{L}*|promo(?:ci[oó]s)?\s
 const SUPPORTER_RX = /\b(?:t[aá]mogat[oó]ink|t[aá]mogat[oó]i(?:nk)?|patrons?|k[oö]sz[oö]nj[uü]k\s+t[aá]mogat[oó])\b/iu;
 
 /** Extra gate for unattended writes. Returns reasons; empty means safe. */
-export function autoApplySafetyReasons(text: string, lostFromSource: string[] = []): string[] {
+const PLATFORM_LABEL_RX = /(?:facebook|instagram|youtube|spotify|tiktok|apple\s*podcasts?|google\s*podcasts?|podcast\s*szolgáltató|linkedin|twitter|discord|patreon|telegram|threads|weboldal|honlap)\p{L}*\s*:/giu;
+
+export function autoApplySafetyReasons(text: string, lostFromSource: string[] = [], opts: { priorLen?: number } = {}): string[] {
   const t = String(text || "");
   const reasons: string[] = [];
+  // Replacing existing text: link-label leftovers ("YouTube: … Instagram:") are not an improvement.
+  if (Number(opts.priorLen || 0) > 0 && (t.match(PLATFORM_LABEL_RX) || []).length >= 2) reasons.push("auto_gate_link_label_residue");
   // Chapter timecodes present in the RSS but not in the output: a human decides.
   if (lostFromSource.some((x) => /^\d{1,2}:\d{2}/.test(x))) reasons.push("auto_gate_lost_timecodes");
   const words = (t.match(/[\p{L}]+/gu) || []).length;
