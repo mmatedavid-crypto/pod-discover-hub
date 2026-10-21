@@ -45,3 +45,11 @@
 - [x] 17 early automatic texts re-checked; 3 with leftover promo/hashtags corrected (batch e65d674c-158c-4871-9c82-d359392c5d41).
 - [x] Best-source cron 193 moved to :07/:22/:37/:52 (off the top-of-hour peak; runs right after pairing).
 - [ ] First naturally arriving youtube_better new pair through the fast lane (waits on a real new pair; verified with fast-lane runs so far only for RSS-preferred pairs).
+
+## Spotify descriptions + internal transcript use (2026-10-21 14:00 UTC)
+- [x] Spotify sync verified with real API telemetry; 25 duplicate shows recorded instead of failing every run; 11 shows removed from Spotify (404) backed off; episode sync incremental, no-op re-syncs no longer bump `updated_at`.
+- [x] Informative RSS–Spotify comparison (promo/CTA/sponsor/back-catalogue removed, RSS facts preserved), full read-only run over 1,058 candidates, 45-episode manual review, 30-episode backed-up canary (batches f8d5412b-ca9b-44d3-b3df-938bdc74c35c, 6af44eed-f0e3-453e-a58f-c4d099c11a1c).
+- [x] Server-only transcript word index (no text) + strict phrase lookup + read-only person-evidence check; 45 publisher-RSS transcripts indexed.
+- [ ] Automatic Spotify backfill/re-clean lane (built, OFF): needs owner OK after reviewing the canary and Spotify terms.
+- [ ] Indexing ~7,081 YouTube-caption transcripts: needs owner/legal decision on caption provenance.
+- [ ] Using transcript index in visitor search ranking and in person-link review: not wired; needs owner decision.

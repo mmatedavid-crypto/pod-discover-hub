@@ -80,3 +80,17 @@ Measured
 Open / not done
 - 2,002 clean texts made by an older pipeline from YouTube descriptions (`deterministic_v4+ytdesc`) while the selected source is RSS; not rewritten (would be a mass change; needs owner decision and a reviewed canary).
 - Public display of YouTube-derived clean text and re-embedding stay off (owner decisions).
+
+## Spotify descriptions and internal transcript use (2026-10-21 ~14:30 UTC)
+
+Live changes (HU backend only; `.com` untouched; new paid AI $0; job 189 off, Gemini trim off, `chunk_aug_enabled=false`):
+- Migration `0069_spotify_source_transcript_lexical_index`: Spotify meta `updated_at` moves only on content/match change; staged Spotify target table (1,058 rows); server-only `episode_transcript_lexical_chunks` (token vectors + char offsets, no text, no anon/authenticated grants) with `index_transcript_lexical_v1` (≤50 eps/call, class + rights gate, idempotent by content hash), `transcript_lexical_index_targets_v1`, `search_transcript_lexical_v1` (exact phrase, optional suffix-tolerant last word), `transcript_person_evidence_dry_run_v1` (read-only).
+- `spotify-show-enricher`: unique-conflict → `duplicate_show` (25), 404 → backoff (11, removed from Spotify), merged telemetry in `spotify_enricher_state.last_show_run`.
+- `spotify-episode-matcher`: stops after two already-paired pages, counts duplicate Spotify ids, telemetry `last_episode_run`. Test run: 10 shows, 21 API pages all HTTP 200, 763 re-synced, 9 genuinely new rows changed `updated_at`.
+- Best-source policy v6: Spotify only with episode+show match ≥0.8 and an informative superset of RSS (or empty RSS); below article/YouTube. Automatic Spotify backfill and re-clean lanes exist but are OFF (`spotify_backfill_enabled`, `spotify_reclean_enabled` unset).
+
+Spotify dry run (all 1,058): 564 `spotify_better`, 406 no gain, 64 RSS-unique, 12 language mismatch, 6 spam-only; planner 544 apply / 18 reject. 45-episode balanced review (44 shows sampled) found leftover listening CTAs, back-catalogue lists, sponsor thanks and registration promos; rules fixed (incl. JS ASCII-only `\b` bug on accented words), re-review clean. Canary: 30 episodes / 19 shows, batches `f8d5412b-ca9b-44d3-b3df-938bdc74c35c` + `6af44eed-f0e3-453e-a58f-c4d099c11a1c`, 30/30 applied, 0 conflicts; 10 were empty before; average clean text 1,043 → 2,700 chars; no URLs. Search: "Matthias Rust", "Bollobás Béla" now rank 1 (not in RSS), "Kiss Norbival" rank 3.
+
+Transcripts: 7,250 HU transcripts ≥900 chars — 151 publisher RSS transcripts, 7,081 YouTube captions, 17 other. Indexed 45 publisher-RSS episodes (1,009 chunks); YouTube captions not indexed (provenance decision). Phrase lookups return only episode ids. Person evidence dry run on those 45 episodes: 35 pending links (17 full name spoken), 23 accepted (11), 4 rejected (1, stays rejected), nothing written.
+
+Rollback: Spotify canary via the existing backed-up CAS rollback for the two batch ids; transcript index is additive (truncate the table).
