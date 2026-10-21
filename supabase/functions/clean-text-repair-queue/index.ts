@@ -17,6 +17,7 @@ import { autoApplySafetyReasons, backoffSeconds, recurringSentenceKeys, resolveR
 import { lostNamedTokens } from "../_shared/clean-text-validation.ts";
 import { unitKey } from "../_shared/youtube-source-gain.ts";
 import { LEGACY_PROTECTED_BATCHES, LEGACY_YTDESC_METHOD, planLegacyYtdesc, type LegacyPlan } from "../_shared/clean-text-legacy-ytdesc.ts";
+import { LEGACY_AI_CONFIRM, LEGACY_RESOLVE_CONFIRM, legacyAiReview, legacyResolveApply, legacyResolveDryRun } from "./legacy-resolve.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -256,6 +257,25 @@ Deno.serve(async (req) => {
       await patchSetting(admin, STATE_KEY, (f) => ({ ...f, legacy_batch_ids: [...(f.legacy_batch_ids || []), ...batchIds].slice(-300), legacy_canary_batch_ids: [...(f.legacy_canary_batch_ids || []), ...batchIds] }));
       return json({ ok: true, action, claimed: attempts.size, summary: legacySummary(plans), batch_ids: batchIds, stop,
         results: results.map((r) => ({ episode_id: r.episode_id, status: r.status, outcome: r.outcome, batch_id: r.batch_id })) });
+    }
+    if (action === "legacy_resolve_dry_run" || action === "legacy_resolve_apply" || action === "legacy_ai_review") {
+      if (!adminCall) return json({ ok: false, error: "admin only" }, 403);
+      const ids = Array.isArray(body.episode_ids) ? body.episode_ids.map(String).slice(0, 50) : [];
+      if (!ids.length) return json({ ok: false, error: "episode_ids required (≤50)" }, 400);
+      const ct = await readSetting(admin, "episode_clean_text_controls");
+      const method = String(ct.method_version || "deterministic_v4");
+      const deps = { loadLegacyInputs, loadRecurringRssByEpisode, applyLegacy, readSetting, patchSetting };
+      if (action === "legacy_resolve_dry_run") return json({ ok: true, action, ...(await legacyResolveDryRun(admin, deps, ids, method, body.previews === true)) });
+      const g = await checkBackgroundJobsAllowed(admin, "clean-text-repair-queue");
+      if (g.blocked) return json({ ok: true, skipped: true, reason: g.reason });
+      if (action === "legacy_ai_review") {
+        if (body.confirm !== LEGACY_AI_CONFIRM) return json({ ok: false, error: `confirm must be ${LEGACY_AI_CONFIRM}` }, 400);
+        return json({ action, ...(await legacyAiReview(admin, deps, ids, method)) });
+      }
+      if (body.confirm !== LEGACY_RESOLVE_CONFIRM) return json({ ok: false, error: `confirm must be ${LEGACY_RESOLVE_CONFIRM}` }, 400);
+      // ≤20 per apply call: larger backup batches hit the database statement timeout (2026-10-21).
+      const out = await legacyResolveApply(admin, deps, owner, ids.slice(0, 20), method, Number(ctrl.lease_seconds));
+      return json({ ok: true, action, ...out });
     }
     if (action !== "tick") return json({ ok: false, error: "unknown action" }, 400);
 

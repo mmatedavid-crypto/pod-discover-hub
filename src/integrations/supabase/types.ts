@@ -413,6 +413,114 @@ export type Database = {
         }
         Relationships: []
       }
+      clean_text_legacy_ai_reviews: {
+        Row: {
+          actual_usd: number | null
+          created_at: string
+          decision: Json | null
+          episode_id: string
+          error: string | null
+          fingerprint: string
+          id: string
+          input_tokens: number | null
+          model: string
+          output_tokens: number | null
+          prompt_version: string
+          reserved_usd: number
+          settled_at: string | null
+          status: string
+          validation: Json | null
+        }
+        Insert: {
+          actual_usd?: number | null
+          created_at?: string
+          decision?: Json | null
+          episode_id: string
+          error?: string | null
+          fingerprint: string
+          id?: string
+          input_tokens?: number | null
+          model: string
+          output_tokens?: number | null
+          prompt_version: string
+          reserved_usd: number
+          settled_at?: string | null
+          status?: string
+          validation?: Json | null
+        }
+        Update: {
+          actual_usd?: number | null
+          created_at?: string
+          decision?: Json | null
+          episode_id?: string
+          error?: string | null
+          fingerprint?: string
+          id?: string
+          input_tokens?: number | null
+          model?: string
+          output_tokens?: number | null
+          prompt_version?: string
+          reserved_usd?: number
+          settled_at?: string | null
+          status?: string
+          validation?: Json | null
+        }
+        Relationships: []
+      }
+      clean_text_legacy_resolutions: {
+        Row: {
+          batch_id: string | null
+          created_at: string
+          dropped_units: Json
+          episode_id: string
+          evidence: Json
+          fingerprint: string
+          outcome: string
+          parts: Json
+          policy_version: string
+          reasons: string[]
+          rss_only_units: Json
+          status: string
+          updated_at: string
+          verdict: string | null
+          write_kind: string
+        }
+        Insert: {
+          batch_id?: string | null
+          created_at?: string
+          dropped_units?: Json
+          episode_id: string
+          evidence?: Json
+          fingerprint: string
+          outcome: string
+          parts?: Json
+          policy_version: string
+          reasons?: string[]
+          rss_only_units?: Json
+          status: string
+          updated_at?: string
+          verdict?: string | null
+          write_kind?: string
+        }
+        Update: {
+          batch_id?: string | null
+          created_at?: string
+          dropped_units?: Json
+          episode_id?: string
+          evidence?: Json
+          fingerprint?: string
+          outcome?: string
+          parts?: Json
+          policy_version?: string
+          reasons?: string[]
+          rss_only_units?: Json
+          status?: string
+          updated_at?: string
+          verdict?: string | null
+          write_kind?: string
+        }
+        Relationships: []
+      }
       clean_text_repair_queue: {
         Row: {
           attempts: number
@@ -12078,6 +12186,10 @@ export type Database = {
         Args: { _limit?: number; _tiers?: string[] }
         Returns: Json
       }
+      reserve_clean_text_legacy_ai_review_v1: {
+        Args: { p_items: Json; p_model: string; p_prompt_version: string }
+        Returns: Json
+      }
       reserve_person_openai_batch_cost: {
         Args: { _amount: number; _job: string; _requests: number }
         Returns: Json
@@ -12303,6 +12415,19 @@ export type Database = {
       set_title_cleanup_schedule: {
         Args: { _schedule: string }
         Returns: undefined
+      }
+      settle_clean_text_legacy_ai_review_v1: {
+        Args: {
+          p_actual_usd: number
+          p_decision: Json
+          p_error: string
+          p_id: string
+          p_input_tokens: number
+          p_output_tokens: number
+          p_status: string
+          p_validation: Json
+        }
+        Returns: boolean
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }

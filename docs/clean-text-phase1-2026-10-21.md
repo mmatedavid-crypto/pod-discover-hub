@@ -144,3 +144,27 @@ Owner lifted the daily quotas for the rest of the day. Only daily caps were rais
 - Results: RSS queue open 0; legacy lane open 0. 1,146 episodes changed in 158 backed-up batches (316 were empty before; average length 565 → 1,078 chars; 0 texts with URLs). By source: RSS/rescue ≈ 330, legacy ≈ 150, verified YouTube 384, verified Spotify 280.
 - HU empty clean texts: 4,408 → 4,357 (the rest have no substantive source).
 - Left: 9 YouTube + 38 Spotify re-cleans (normal daily caps), 648 needs_review + 10 quarantine rows for human review.
+
+## Legacy review rows resolved (2026-10-21 21:10–21:45 UTC, policy `legacy_ytdesc_resolve_v2`)
+
+Owner-approved 3 steps on the 499 open legacy rows (498 needs_review + 1 quarantine). One-time admin actions in the existing `clean-text-repair-queue` function (`legacy_resolve_dry_run`, `legacy_resolve_apply` ≤20 ids, `legacy_ai_review` ≤50 ids); no new cron. Planner: `_shared/clean-text-legacy-resolve.ts`; log: `clean_text_legacy_resolutions` (per-part source attribution, kept RSS-only units, dropped units); AI ledger: `clean_text_legacy_ai_reviews` (migration 0077).
+
+- Step 1 (merge, v3-confirmed video only): stored text kept first byte-identical, RSS-only sentences appended extract-only (contiguous token match in the RSS with links as barriers; no links, link lead-ins, social/CTA/support/sponsor, music credits, show boilerplate). Any RSS name or timecode that cannot be carried keeps the prior text → `safe_internal_multi_source`. Merged text: `source_type=multi_source`, method `deterministic_v4+multisrc_v1`, source hash = fingerprint of RSS + YouTube + prior + Spotify inputs.
+- Step 2 (identity): title (HU-normalised exact + fuzzy), channel dominance, episode number, dates (later archive uploads not treated as wrong), RSS content overlap, verified Spotify (≥0.8 show+episode, name/date method) as corroboration only. Correct → attribution only (`source_type=youtube_corroborated`, same text); incorrect → RSS (strict or link-free filtered) or quarantine. No YouTube link was written.
+- Step 3 (AI, one-off): 93 ambiguous rows, `gpt-6-sol`, store:false, strict JSON schema; every cited quote verified verbatim, "yes" needs cross-source evidence, confidence ≥0.85. Reserved atomically before calls; **actual $0.409514** (cap $2 total / $1 per day); control switched off after the run.
+
+| Result (499) | Rows | Text write |
+|---|---:|---|
+| Merged RSS + verified YouTube (internal) | 59 | yes |
+| Wrong video → RSS (1 deterministic, 6 AI "different episode") | 7 | yes |
+| Unverified, prior ⊂ RSS → RSS | 3 | yes |
+| Identity confirmed → attribution only (60 deterministic, 69 AI) | 129 | attribution |
+| safe_internal_multi_source (prior kept) | 222 | no |
+| RSS already covered / verified kept | 29 | no |
+| Protected (other lanes / backups since) | 16 | no |
+| Quarantine (no safe source) | 3 | no |
+| Still needs_review (text with URL fragments 19, AI uncertain 9, unverified names 2, low info 1) | 31 | no |
+
+Batches (all active, backup + CAS): canary `a40ac81a-f7c4-4041-b3af-047debb91681` (19 rows; rollback test on `499bffd7-86fe-4103-a998-298fb6c15a13` restored 17/17 byte-exact, re-apply OK, repeat run 19/19 unchanged); deterministic `063f85fa…`, `70993aff…`, `3d51a761…`, `8b736744…`, `1d449fa7…`, `3fa33a94…`, `c6d36637…`, `e93ee2b5…`, `be7e9c21…`, `6d82e28d…`; AI-based `a946fa13…`, `0fe9a798…`, `a78099fb…`, `ea55eeb1…`, `6f934cd7…`, `c14573bb…`, `0667280c…`, `356bcaa9…`, `d83b9845…`, `1e0fe1ad…` (full ids in `clean_text_repair_queue_state.legacy_resolve_batch_ids`).
+
+Checks: 198 written rows, 0 URLs, 0 hash drift, prior text is the prefix in all 188 merged/attributed rows; 12/12 RSS-only names found by the clean-text phrase index; 10/10 replaced rows no longer contain the wrong video's phrases. Public gate: merged/corroborated text never public; legacy YouTube-derived text is public as "YouTube" only with v1-verified attribution (162 rows) — 2,021 unverified legacy texts that became visible at 20:54 are internal again. Anonymous reads of the new tables return nothing.

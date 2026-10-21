@@ -540,6 +540,13 @@
       "when": 1792616042006,
       "tag": "0076_public_clean_description_with_source",
       "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1792617922699,
+      "tag": "0077_legacy_ytdesc_resolve_v2",
+      "breakpoints": true
     }
   ]
 }

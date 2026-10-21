@@ -105,13 +105,13 @@ export type Identity = {
   mismatch: boolean;
 };
 
-const TITLE_STOP = new Set([
+export const TITLE_STOP = new Set([
   "podcast", "adas", "resz", "epizod", "episode", "ep", "the", "and", "with", "feat", "interju", "beszelgetes",
   "egy", "hogy", "nem", "van", "volt", "meg", "mint", "csak", "vagy", "arrol", "rola", "vele", "miert", "hogyan", "milyen",
   "kozott", "utan", "elott", "alatt", "mert", "majd", "lesz", "ezt", "azt", "akik", "aki", "ami", "amit", "mit", "mikor",
 ]);
 
-function titleTokens(title: string, exclude: Set<string>): string[] {
+export function titleTokens(title: string, exclude: Set<string>): string[] {
   return Array.from(new Set(normalizeTokens(title).filter((t) => t.length >= 3 && !/^\d+$/.test(t) && !TITLE_STOP.has(t) && !exclude.has(t))));
 }
 
@@ -155,8 +155,8 @@ export function lostPersonNames(from: string, to: string): string[] {
   return Array.from(out);
 }
 
-function tokenPool(s: string): Set<string> { return new Set(normalizeTokens(s)); }
-function cov(tokens: string[], pool: Set<string>): number {
+export function tokenPool(s: string): Set<string> { return new Set(normalizeTokens(s)); }
+export function cov(tokens: string[], pool: Set<string>): number {
   if (!tokens.length) return 1;
   let hit = 0;
   for (const t of tokens) if (pool.has(t)) hit++;
@@ -185,7 +185,7 @@ export function identityCheck(ep: LegacyInput, link: LegacyLink): Identity {
   return { title_cov, date_days, number_conflict, channel_ok, strong, mismatch };
 }
 
-function v3Verified(l: LegacyLink): boolean {
+export function v3Verified(l: LegacyLink): boolean {
   const vr = l.vr || {};
   const fs = Number(vr.final_score ?? NaN);
   return l.status === "confirmed" && vr.policy === "youtube_episode_match_v3" && Number.isFinite(fs) && fs >= LEGACY_MIN_FINAL_SCORE
@@ -193,25 +193,25 @@ function v3Verified(l: LegacyLink): boolean {
 }
 
 /** Share of the stored text's tokens found in a description (content provenance). */
-function containment(text: string, desc: string): number {
+export function containment(text: string, desc: string): number {
   const toks = normalizeTokens(text);
   if (toks.length < 8) return 0;
   return cov(toks, tokenPool(desc));
 }
 
-async function sha256Hex(s: string): Promise<string> {
+export async function sha256Hex(s: string): Promise<string> {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
   return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-function infoUnitsOf(text: string): string[] { return informativeUnits(text).units; }
-function novelChars(units: string[], pool: Set<string>): number {
+export function infoUnitsOf(text: string): string[] { return informativeUnits(text).units; }
+export function novelChars(units: string[], pool: Set<string>): number {
   return units.filter((u) => cov(normalizeTokens(u), pool) < 0.6).join(" ").length;
 }
 
-type RssCandidate = { ok: boolean; substantive: boolean; text: string; method: string; raw: string; reasons: string[]; removed: string[]; verdict: string; lost: string[] };
+export type RssCandidate = { ok: boolean; substantive: boolean; text: string; method: string; raw: string; reasons: string[]; removed: string[]; verdict: string; lost: string[] };
 
-function rssCandidate(ep: LegacyInput, baseMethod: string): RssCandidate {
+export function rssCandidate(ep: LegacyInput, baseMethod: string): RssCandidate {
   const raw = String(ep.description || ep.summary || "").trim();
   const none = (reasons: string[]): RssCandidate => ({ ok: false, substantive: false, text: "", method: baseMethod, raw, reasons, removed: [], verdict: "none", lost: [] });
   if (!raw) return none(["no_rss_source"]);
