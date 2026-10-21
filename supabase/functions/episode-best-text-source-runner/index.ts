@@ -127,7 +127,8 @@ Deno.serve(async (req) => {
           .eq("status", "confirmed")
           .order("match_score", { ascending: false }),
         admin.from("episode_transcripts")
-          .select("id,episode_id,model,source,language,transcript,segments,content_hash,status,rights_status,public_display,updated_at")
+          // No `segments`: ~62 kB jsonb per row exhausted worker memory at limit=100.
+          .select("id,episode_id,model,source,language,transcript,content_hash,status,rights_status,public_display,updated_at")
           .in("episode_id", slice)
           .eq("status", "ok")
           .order("updated_at", { ascending: false, nullsFirst: false }),
