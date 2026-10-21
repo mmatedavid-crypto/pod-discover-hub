@@ -8,7 +8,8 @@ const YT_TEXT = "A videóban részletesen bemutatjuk a reformkori Pest utcáit, 
   + "Megnézzük a régi metszeteket, a városfal maradványait és azt, hogyan alakult át a belváros a nagy árvíz után, rengeteg érdekes részlettel.";
 const RSS = "Vendégünk Kovács Péter történész és Tóth Anna levéltáros, a beszélgetést Nagy Gábor vezeti. "
   + "Szó esik a reformkori Pest utcáiról és a korabeli kávéházakról is.\n"
-  + "Kövess minket Facebookon és Instagramon is!";
+  + "Kövess minket Facebookon és Instagramon is!\n"
+  + "Ha szeretnéd támogatni a podcast készítését, akkor patronáld a műsort.";
 const vr = { policy: "youtube_episode_match_v3", final_score: 0.93, blockers: [] };
 const link = (over: any = {}) => ({
   id: "L1", video_id: "v1", channel_id: "ch1", status: "confirmed", title: "Reformkori Pest utcái",
@@ -28,7 +29,7 @@ describe("legacy ytdesc resolve v2: merge only verified same-episode text, extra
     expect(it.cleaned_text.startsWith(YT_TEXT)).toBe(true);
     expect(it.cleaned_text).toContain("Kovács Péter");
     expect(it.cleaned_text).toContain("Tóth Anna");
-    expect(it.cleaned_text).not.toMatch(/Facebook|Instagram|Kövess/);
+    expect(it.cleaned_text).not.toMatch(/Facebook|Instagram|Kövess|patronáld/);
     expect(it.source_type).toBe(MULTISRC_SOURCE_TYPE);
     expect(it.cleaner_method).toBe("deterministic_v4+multisrc_v1");
     expect(it.cleaner_method).not.toMatch(/youtube|ytdesc/);
