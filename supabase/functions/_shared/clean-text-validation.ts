@@ -266,7 +266,7 @@ export function stripHashtagWalls(text: string): string {
 export function stripTrailingLinkLabels(text: string): string {
   let t = String(text || "").trimEnd();
   // Leftover link punctuation after the last label ("Ezt ittuk : :(", "… : -").
-  const core = t.replace(/(?:\s*[:\-–—(),;]+)+$/u, "");
+  const core = t.replace(/[\s:\-–—(),;]+$/u, ""); // single class: no nested quantifiers (backtracking)
   if (core !== t && /:/.test(t.slice(core.length))) t = `${core}:`;
   let n = 0;
   while (n < 20 && t.endsWith(":")) {
