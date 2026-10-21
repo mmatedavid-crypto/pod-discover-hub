@@ -74,6 +74,10 @@ describe("RSS repair planner", () => {
     expect(addedNamedEvidence(prior, next).length).toBeLessThan(2);
     expect(addedNamedEvidence(prior, `${prior} A vendég Kovács Anna volt, 12:30 a turné.`)).toEqual(expect.arrayContaining(["Kovács", "Anna", "12:30"]));
   });
+  it("a channel blurb repeated on many episodes of the show is never used as episode text", async () => {
+    expect((await planRssRepair(target({ same_description_in_show: 64 }))).reasons).toContain("show_level_boilerplate_description");
+    expect((await planRssRepair(target({ same_description_in_show: 1 }))).outcome).toBe("apply");
+  });
   it("link-only RSS is never written", async () => {
     const p = await planRssRepair(target({ description: "Facebook: https://facebook.com/a Instagram: https://instagram.com/b Kövess minket!", current_cleaned_text: "", has_clean_row: true }));
     expect(p.outcome).toBe("reject");

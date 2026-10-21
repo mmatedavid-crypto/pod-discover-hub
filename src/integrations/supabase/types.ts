@@ -11135,6 +11135,7 @@ export type Database = {
           description: string
           episode_id: string
           has_clean_row: boolean
+          same_description_in_show: number
           summary: string
         }[]
       }

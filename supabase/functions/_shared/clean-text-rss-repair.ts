@@ -22,6 +22,8 @@ export const RSS_REPAIR_KINDS = ["empty_substantive", "empty_any", "overcut", "m
 export const RSS_REPAIR_MAX_CANARY = 50;
 /** A non-empty prior is replaced only when the new text adds at least this many names/timecodes. */
 export const MIN_ADDED_NAMED_EVIDENCE = 2;
+/** The same description on this many episodes of one show is a channel blurb, not episode content. */
+export const SHOW_BOILERPLATE_MIN_REPEATS = 3;
 const ALT_SOURCE_METHOD_RX = /youtube|ytdesc|spotify|transcript|article/i;
 const EVIDENCE_TOKEN_RX = /\d{1,2}:\d{2}(?::\d{2})?|\p{Lu}[\p{L}'’-]{2,}/gu;
 const NON_EVIDENCE_RX = /^(?:(?:facebook|instagram|insta|tiktok|youtube|spotify|apple|google|patreon|discord|telegram|linkedin|threads|twitter|twitch|soundcloud|deezer|itunes)\p{L}*|weboldal|honlap|hírlevél|web|e-?mail|podcast\p{L}*|adószám|számlaszám|bankszámla|paypal|donably|revolut|visit|learn|ön\p{L}*)$/iu;
@@ -60,6 +62,8 @@ export type RssRepairTarget = {
   current_cleaner_method?: string | null;
   has_clean_row?: boolean | null;
   active_backups?: number | null;
+  /** Episodes of the same show with this exact description (show-level boilerplate when ≥3). */
+  same_description_in_show?: number | null;
 };
 
 export type RssRepairPlan = {
@@ -91,6 +95,7 @@ export async function planRssRepair(t: RssRepairTarget, opts: { method?: string 
   if (Number(t.active_backups || 0) > 0) return reject(["protected_prior_repair"]);
   if (prior && ALT_SOURCE_METHOD_RX.test(String(priorMethod || ""))) return reject(["prior_alt_source_kept"]);
   if (t.best_source_type && t.best_source_type !== "rss") return reject([`best_source_${t.best_source_type}_own_lane`]);
+  if (Number(t.same_description_in_show || 0) >= SHOW_BOILERPLATE_MIN_REPEATS) return reject(["show_level_boilerplate_description"]);
 
   const raw = String(t.description || t.summary || "").trim();
   if (!raw) return reject(["no_rss_source"]);
