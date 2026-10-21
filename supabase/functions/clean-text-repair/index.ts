@@ -11,6 +11,7 @@ import {
   htmlToPlain,
 } from "../_shared/clean-text-validation.ts";
 import { applyYoutubeReclean, computeSelections, planSpotifyReclean, planYoutubeReclean, upsertSelections } from "../_shared/best-text-source-core.ts";
+import { RSS_REPAIR_KINDS, RSS_REPAIR_MAX_CANARY, planRssRepair, type RssRepairPlan } from "../_shared/clean-text-rss-repair.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -239,6 +240,54 @@ Deno.serve(async (req) => {
         spotify_selected: sp.length, outcomes, result,
         applied_ids: plans.filter((p) => p.outcome === "apply" && !(result?.conflict_episode_ids || []).includes(p.episode_id)).map((p) => p.episode_id),
         rejected: plans.filter((p) => p.outcome === "reject").map((p) => ({ episode_id: p.episode_id, reasons: p.reasons })),
+        elapsed_ms: Date.now() - startedAt,
+      });
+    }
+
+    // RSS repair (empty / overcut / missing): read-only dry run, or a canary of
+    // explicitly reviewed episode ids (≤50), backed up + CAS, rollback per batch.
+    if (action === "rss_dry_run" || action === "rss_canary") {
+      const rkind = String(body.kind || "");
+      if (!(RSS_REPAIR_KINDS as readonly string[]).includes(rkind)) return json({ ok: false, error: "unknown kind" }, 400);
+      const isCanary = action === "rss_canary";
+      if (isCanary && body.confirm !== "apply_rss_canary") return json({ ok: false, error: "confirm=apply_rss_canary required" }, 400);
+      const ids: string[] | null = Array.isArray(body.episode_ids)
+        ? body.episode_ids.map(String).filter((x: string) => /^[0-9a-f-]{36}$/i.test(x)).slice(0, isCanary ? RSS_REPAIR_MAX_CANARY : 200)
+        : null;
+      if (isCanary && !ids?.length) return json({ ok: false, error: "explicit reviewed episode_ids required" }, 400);
+      const pageLimit = ids ? Math.min(200, ids.length) : Math.max(1, Math.min(100, Number(body.limit || 50)));
+      const offset = ids ? 0 : Math.max(0, Number(body.offset || 0));
+      const { data: targets, error } = await admin.rpc("clean_text_repair_targets_v2", { p_kind: rkind, p_limit: pageLimit, p_offset: offset, p_episode_ids: ids });
+      if (error) throw error;
+      const { data: ctRow } = await admin.from("app_settings").select("value").eq("key", "episode_clean_text_controls").maybeSingle();
+      const method = String((ctRow?.value as any)?.method_version || "deterministic_v4");
+      const plans: RssRepairPlan[] = [];
+      for (const t of (targets || []) as any[]) plans.push(await planRssRepair(t, { method }));
+      const outcomes: Record<string, number> = {}, reasons: Record<string, number> = {};
+      for (const p of plans) {
+        outcomes[p.outcome] = (outcomes[p.outcome] || 0) + 1;
+        if (p.outcome !== "apply") for (const r of p.reasons) reasons[r] = (reasons[r] || 0) + 1;
+      }
+      if (!isCanary) {
+        const sampleN = Math.max(0, Math.min(50, Number(body.samples ?? 0)));
+        return json({
+          ok: true, action, kind: rkind, dry_run: true, offset, targets: (targets || []).length,
+          next_offset: offset + (targets || []).length, done: (targets || []).length < pageLimit,
+          outcomes, reject_reasons: reasons,
+          apply_ids: plans.filter((p) => p.outcome === "apply").map((p) => p.episode_id),
+          samples: plans.slice(0, sampleN).map((p) => ({ episode_id: p.episode_id, outcome: p.outcome, reasons: p.reasons, prior_len: p.prior_len, prior_method: p.prior_method, next_len: p.next_len, lost_from_source: p.lost_from_source, preview: p.preview })),
+          elapsed_ms: Date.now() - startedAt,
+        });
+      }
+      const items = plans.filter((p) => p.outcome === "apply" && p.item).map((p) => p.item!);
+      if (!items.length) return json({ ok: true, action, applied: 0, reason: "no_eligible_rows", outcomes, reject_reasons: reasons });
+      const batchId = crypto.randomUUID();
+      const { data: res, error: applyErr } = await admin.rpc("apply_clean_text_repair_v1", { p_batch_id: batchId, p_items: items });
+      if (applyErr) throw applyErr;
+      return json({
+        ok: true, action, kind: rkind, batch_id: batchId, result: res, outcomes, reject_reasons: reasons,
+        applied_ids: items.map((i: any) => i.episode_id).filter((id: string) => !((res as any)?.conflict_episode_ids || []).includes(id)),
+        rejected: plans.filter((p) => p.outcome !== "apply").map((p) => ({ episode_id: p.episode_id, reasons: p.reasons })),
         elapsed_ms: Date.now() - startedAt,
       });
     }
