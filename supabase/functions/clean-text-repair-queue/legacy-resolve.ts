@@ -76,7 +76,15 @@ export async function legacyResolveDryRun(admin: any, deps: Deps, ids: string[],
 
 export async function legacyResolveApply(admin: any, deps: Deps, owner: string, ids: string[], method: string, leaseSeconds: number) {
   // Idempotence: skip rows already resolved under this policy with an unchanged fingerprint.
-  const { data: prior } = await admin.from("clean_text_legacy_resolutions").select("episode_id,fingerprint,outcome").in("episode_id", ids).eq("policy_version", LEGACY_RESOLVE_POLICY);
+  const { data: prior } = await admin.from("clean_text_legacy_resolutions").select("episode_id,fingerprint,outcome,batch_id").in("episode_id", ids).eq("policy_version", LEGACY_RESOLVE_POLICY);
+  // A resolution whose write is still live (backup not rolled back) is final; a rolled-back one is re-planned.
+  const priorBatches = Array.from(new Set(((prior || []) as any[]).map((r) => r.batch_id).filter(Boolean)));
+  const live = new Set<string>();
+  if (priorBatches.length) {
+    const { data: bk, error: bkErr } = await admin.from("episode_clean_text_repair_backups").select("episode_id,batch_id").in("batch_id", priorBatches).is("rolled_back_at", null);
+    if (bkErr) throw bkErr;
+    for (const r of (bk || []) as any[]) live.add(`${r.episode_id}|${r.batch_id}`);
+  }
   const { data: cl, error: clErr } = await admin.rpc("claim_clean_text_repair_queue_ids_v1", { p_owner: owner, p_ids: ids, p_lease_seconds: leaseSeconds });
   if (clErr) throw clErr;
   const claimed = ((cl || []) as any[]).map((c) => String(c.episode_id));
@@ -85,12 +93,17 @@ export async function legacyResolveApply(admin: any, deps: Deps, owner: string, 
   const priorById = new Map(((prior || []) as any[]).map((r) => [String(r.episode_id), r]));
   const unchanged = plans.filter((p) => {
     const r = priorById.get(p.episode_id);
-    return r && r.fingerprint === p.fingerprint && r.outcome === p.outcome;
+    if (!r) return false;
+    if (r.batch_id) return live.has(`${p.episode_id}|${r.batch_id}`);
+    return r.fingerprint === p.fingerprint && r.outcome === p.outcome && p.write === "none";
   });
   const unchangedIds = new Set(unchanged.map((p) => p.episode_id));
   const todo = plans.filter((p) => !unchangedIds.has(p.episode_id));
   const { results, batchIds, stop } = await deps.applyLegacy(admin, todo as any, attempts);
-  for (const p of unchanged) results.push({ episode_id: p.episode_id, status: p.status, outcome: p.outcome, reasons: [...p.reasons.slice(0, 13), "unchanged_skip"] });
+  for (const p of unchanged) {
+    const r = priorById.get(p.episode_id);
+    results.push({ episode_id: p.episode_id, status: "done", outcome: r.batch_id ? r.outcome : p.outcome, reasons: ["unchanged_skip", `fp:${String(r.fingerprint).slice(0, 16)}`], ...(r.batch_id ? { batch_id: r.batch_id } : {}) });
+  }
   for (const id of foreign) results.push({ episode_id: id, status: "done", outcome: "not_hungarian", reasons: [] });
   const { error: compErr } = await admin.rpc("complete_clean_text_repair_queue_v1", { p_owner: owner, p_results: results });
   if (compErr) throw new Error(`complete: ${compErr.message}`);
