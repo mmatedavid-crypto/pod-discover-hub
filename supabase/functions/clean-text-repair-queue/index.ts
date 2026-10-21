@@ -273,7 +273,8 @@ Deno.serve(async (req) => {
         return json({ action, ...(await legacyAiReview(admin, deps, ids, method)) });
       }
       if (body.confirm !== LEGACY_RESOLVE_CONFIRM) return json({ ok: false, error: `confirm must be ${LEGACY_RESOLVE_CONFIRM}` }, 400);
-      const out = await legacyResolveApply(admin, deps, owner, ids, method, Number(ctrl.lease_seconds));
+      // ≤20 per apply call: larger backup batches hit the database statement timeout (2026-10-21).
+      const out = await legacyResolveApply(admin, deps, owner, ids.slice(0, 20), method, Number(ctrl.lease_seconds));
       return json({ ok: true, action, ...out });
     }
     if (action !== "tick") return json({ ok: false, error: "unknown action" }, 400);
