@@ -56,7 +56,8 @@ describe("smart player recommendation policy", () => {
     expect(related).toContain("related_reason?: string | null");
     expect(related).toContain("sanitizeHungarianPublicText(r.related_reason)");
     expect(related).toContain("function hasSafeRelatedReason");
-    expect(related).toContain("(rpcData as Row[]).filter(hasSafeRelatedReason).map(rowToCandidate)");
+    expect(related).toContain("const rpcRows = rpcData as Row[];");
+    expect(related).toContain(".filter(hasSafeRelatedReason)\n            .map(rowToCandidate)");
     expect(related).toContain("function fallbackRelatedReason");
     expect(related).toContain("Kapcsolódó személy:");
     expect(related).toContain("Kapcsolódó szervezet:");
