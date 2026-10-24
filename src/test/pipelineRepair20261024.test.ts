@@ -205,3 +205,29 @@ describe("crawler HTML never carries transcript text", () => {
     expect(src).not.toContain("transcriptText");
   });
 });
+
+describe("crawler description keeps every word of the visitor description", async () => {
+  const { bodyParagraphs } = await import("../../supabase/functions/_shared/body-paragraphs");
+  it("never drops a short leading fragment such as 'Dr.'", () => {
+    const t = "Dr. Király István urológussal arról beszélgettünk, milyen panaszokkal érdemes urológushoz fordulni.\nMásodik bekezdés.";
+    const out = bodyParagraphs(t);
+    expect(out.join(" ")).toBe(t.replace(/\n/g, " "));
+    expect(out[0].startsWith("Dr. Király István")).toBe(true);
+  });
+  it("splits only over-long paragraphs and still loses nothing", () => {
+    const long = Array.from({ length: 60 }, (_, i) => `Mondat ${i} itt van. Dr. Kiss.`).join(" ");
+    const out = bodyParagraphs(long);
+    expect(out.length).toBeGreaterThan(1);
+    expect(out.join(" ").replace(/\s+/g, " ")).toBe(long);
+  });
+});
+
+describe("pipeline health display", async () => {
+  const { healthBadgeVariant, healthLabel } = await import("../lib/pipelineHealth");
+  it("an intentional pause is neither an error nor healthy", () => {
+    expect(healthBadgeVariant("paused")).not.toBe("destructive");
+    expect(healthBadgeVariant("paused")).not.toBe(healthBadgeVariant("green"));
+    expect(healthLabel("paused")).toBe("szándékosan szünetel");
+    expect(healthBadgeVariant("red")).toBe("destructive");
+  });
+});
