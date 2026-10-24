@@ -145,7 +145,8 @@ assert.equal((await state(id(4))).topic_status, 'stale');
 
 // 5) Attribution/timestamp-only update: no dispatch. Dispatch is bounded and a second pass is a no-op.
 const before5 = await state(id(5));
-await A`UPDATE public.episode_clean_text SET source_type = 'youtube', cleaner_method = 'deterministic_v4+youtube' WHERE episode_id = ${id(5)}`;
+// Attribution + whitespace-only rewrite of the same text (same normalized fingerprint).
+await A`UPDATE public.episode_clean_text SET source_type = 'youtube', cleaner_method = 'deterministic_v4+youtube', cleaned_text = ${'  ' + textA.replace(/ /g, '  ') + '\n'} WHERE episode_id = ${id(5)}`;
 const after5 = await state(id(5));
 assert.equal(after5.clean_change_count, before5.clean_change_count, 'same content => not a change');
 assert.deepEqual([after5.entity_status, after5.topic_status, after5.seo_status], [before5.entity_status, before5.topic_status, before5.seo_status]);
