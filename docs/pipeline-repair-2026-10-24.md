@@ -180,3 +180,11 @@ hash-verified (3.5 s for 60 under the same load). The caller keeps an adaptive e
 in `app_settings.derivation_dispatch_tuning` (10..60; halve + one retry on timeout, +10 when
 < 3 s, −10 when > 5 s), bounded by the stored per_run/daily cap; no timeout was raised.
 
+
+SEO failure bookkeeping (16:20): `persistSeoJobFailure` (`_shared/derivation-state.ts`) writes the
+failed/pending job row first and requires an error-free single-row update; only then, on
+terminal failure, marks the matching clean-text version blocked via a strict RPC call whose
+error is returned. A failed job write never marks the stage; any bookkeeping failure counts in
+`failure_bookkeeping_errors` and logs the runner run as `error`. Not atomic across the two
+writes: if the stage mark fails after the job is `failed`, the stage stays `queued` (honest,
+retryable) and the run is logged as an error.
