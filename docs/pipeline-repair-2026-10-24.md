@@ -187,3 +187,16 @@ SEO failure bookkeeping (16:20, `0092`/`0093`): terminal SEO failures go through
 injection: a raising stage write left the job `pending` and the stage `queued`; the normal path
 gave job `failed` + stage `blocked`. Retryable failures must update exactly one job row. Any
 bookkeeping failure counts in `failure_bookkeeping_errors` and logs the runner run as `error`.
+
+ACL correction (16:25, `0094`): EXECUTE revoked from `readonly_codex` on every SECURITY DEFINER
+job/derivation mutator added in this repair (`fail_seo_job_terminal_v1`,
+`retry_failed_seo_derivations_v1`, `mark_episode_derivation_v1`, `dispatch_stale_derivations_v1`,
+`derivation_lock_decide_v1`, `derivation_apply_outcome_v1`, `apply_episode_{seo_result,entities,topics}_v1`);
+`has_function_privilege` is false for anon / authenticated / readonly_codex on all of them and on
+the catch-up start/end/tick/restore RPCs; service_role true. `fail_seo_job_terminal_v1` now also
+has the catch-up caller guard (`retry_failed_seo_derivations_v1` already had it); rolled-back
+check: service_role JWT passes the guard, a non-admin authenticated JWT gets 42501. Read-only
+helpers `pipeline_catchup_plan_v1` / `pipeline_catchup_caller_allowed_v1` stay executable.
+Open: `readonly_codex` inherits EXECUTE on new public functions by default privileges, so every
+future mutator needs an explicit revoke. Note: the best-effort `markDerivation` export still
+exists for its other callers; only the terminal SEO path stopped using it.
