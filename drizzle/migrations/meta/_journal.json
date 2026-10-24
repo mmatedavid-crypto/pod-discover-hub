@@ -631,6 +631,13 @@
       "when": 1792857047926,
       "tag": "0089_pipeline_catchup_revoke_readonly",
       "breakpoints": true
+    },
+    {
+      "idx": 90,
+      "version": "7",
+      "when": 1792857187548,
+      "tag": "0090_seo_terminal_failure_retry_rpc",
+      "breakpoints": true
     }
   ]
 }

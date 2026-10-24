@@ -89,3 +89,21 @@ export function seoPrimary(prov: SeoInputProvenance | null | undefined): string 
 export function derivationSeoJobKey(cleanHash: string): string {
   return `derivation:clean:${cleanHash}`;
 }
+
+/**
+ * Derivation mark for an SEO job that exhausted its attempts: "blocked" for exactly the
+ * clean-text version the job was built for (its recorded provenance, or the version key of a
+ * stale-derivation job). Null when the version is unknown — then nothing is marked.
+ */
+export function terminalSeoFailureMark(
+  job: { kind?: string; target_id?: string; input_hash?: string | null },
+  prov: SeoInputProvenance | null,
+  error: string,
+): DerivationMark | null {
+  if (job?.kind !== "seo_episode" || !job.target_id) return null;
+  const key = String(job.input_hash || "");
+  const used = seoUsedCleanHash(prov) || (key.startsWith("derivation:clean:") ? key.slice("derivation:clean:".length) : null);
+  if (!used) return null;
+  return { episode_id: job.target_id, used_hash: used, result: "blocked", reason: `seo_job_failed:${String(error || "error")}`.slice(0, 120) };
+}
+

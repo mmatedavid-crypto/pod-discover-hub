@@ -266,3 +266,22 @@ describe("catch-up caller guard (security fix)", () => {
   });
 });
 
+
+describe("terminal SEO job failures are reported truthfully", () => {
+  it("marks exactly the job's clean-text version blocked, never current", async () => {
+    const { terminalSeoFailureMark } = await import("../../supabase/functions/_shared/derivation-state");
+    const h = "484382e29316ef32c4aaab9d24e5b3c928cb8067a7bfd3631d348787720ad5f5";
+    expect(terminalSeoFailureMark({ kind: "seo_episode", target_id: "ep1", input_hash: `derivation:clean:${h}` }, null, "hu_language_guard_failed:seo_title"))
+      .toEqual({ episode_id: "ep1", used_hash: h, result: "blocked", reason: "seo_job_failed:hu_language_guard_failed:seo_title" });
+    expect(terminalSeoFailureMark({ kind: "seo_episode", target_id: "ep1", input_hash: "legacy:abc" }, null, "x")).toBeNull();
+    expect(terminalSeoFailureMark({ kind: "seo_podcast", target_id: "p1", input_hash: `derivation:clean:${h}` }, null, "x")).toBeNull();
+  });
+  it("runner marks only on exhausted attempts and keeps the rejected candidate internally", () => {
+    const src = readFileSync("supabase/functions/seo-enrich-runner/index.ts", "utf8");
+    expect(src).toContain("if (giveUp) {\n          const mark = terminalSeoFailureMark(");
+    expect(src).toContain('msg.startsWith("hu_language_guard_failed") && candidate');
+    const sql = readFileSync("drizzle/migrations/0090_seo_terminal_failure_retry_rpc.sql", "utf8");
+    expect(sql).toContain("(coalesce(p_episode_ids, '{}'::uuid[]))[1:50]");
+    expect(sql).toContain("d.seo_hash = d.clean_hash");
+  });
+});
