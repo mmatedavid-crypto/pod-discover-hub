@@ -26,6 +26,16 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const AGENT_SEARCH_KEY = Deno.env.get("AGENT_SEARCH_KEY") || "";
+
+// Constant-time comparison of the internal agent-search key header.
+function isTrustedAgentSearch(req: Request): boolean {
+  const got = req.headers.get("x-podiverzum-agent-key") || "";
+  if (!AGENT_SEARCH_KEY || AGENT_SEARCH_KEY.length < 32 || got.length !== AGENT_SEARCH_KEY.length) return false;
+  let diff = 0;
+  for (let i = 0; i < got.length; i++) diff |= got.charCodeAt(i) ^ AGENT_SEARCH_KEY.charCodeAt(i);
+  return diff === 0;
+}
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 
 const EPISODE_SELECT =
@@ -1037,9 +1047,14 @@ Deno.serve(async (req) => {
     // monitoring agents get a lexical-only path. No LLM understanding, no
     // embedding call, no HyDE expansion, no Cohere rerank, no AI rerank.
     // Real users keep the full v13 quality-first pipeline.
+    // Owner decision 2026-10-24: AI assistants recommending podcasts (served via
+    // the prerendered /kereses page and the MCP search tool) get the same
+    // quality as people. Those internal callers prove it with AGENT_SEARCH_KEY.
     const botCheck = detectBot(req);
-    const isBot = botCheck.isBot;
-    if (isBot) console.log("search-hybrid bot path", { reason: botCheck.reason, ua: botCheck.ua.slice(0, 80) });
+    const trustedAgent = isTrustedAgentSearch(req);
+    const isBot = botCheck.isBot && !trustedAgent;
+    if (trustedAgent) console.log("search-hybrid trusted agent path", { agent: String(req.headers.get("x-podiverzum-agent") || "").slice(0, 40) });
+    else if (isBot) console.log("search-hybrid bot path", { reason: botCheck.reason, ua: botCheck.ua.slice(0, 80) });
 
     const wantRerank = !isBot && body.rerank !== false;
 
