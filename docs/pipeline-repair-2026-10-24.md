@@ -200,3 +200,45 @@ helpers `pipeline_catchup_plan_v1` / `pipeline_catchup_caller_allowed_v1` stay e
 Open: `readonly_codex` inherits EXECUTE on new public functions by default privileges, so every
 future mutator needs an explicit revoke. Note: the best-effort `markDerivation` export still
 exists for its other callers; only the terminal SEO path stopped using it.
+
+## Throughput raise 2026-10-24 17:00–17:30 UTC (owner order, inside the active catch-up)
+
+Owner: raise actual speed now (2 618 stale, adaptive dispatch had shrunk to 10 per 5 min).
+Daily caps (derivation 5000, YT 1000/15, Spotify 500/10) and money budgets unchanged
+(stored: SEO `ai_seo_controls` $20/day, entity $40, topic $30); cron 189/74 stay inactive.
+
+Root causes of the slow dispatch (measured in rolled-back transactions):
+- The two set-based UPDATEs joined `episodes` to the freshly filled temp table without
+  statistics; the planner could scan the wide, 30-index episodes table: 60 rows took 4.7 s
+  while every individual step summed to ~0.3 s. `0096`: both UPDATEs driven by the id array
+  (primary-key lookups) + `ANALYZE` of the temp table → 60 rows in 0.9 s.
+- Candidate selection walked episodes newest-first (17 200 episode rows read to find 120;
+  worse as the backlog moves to older episodes). `0095`: driven from a partial index of
+  dispatchable derivation rows (44 ms for 180 candidates). Eligibility/actions/ceilings unchanged.
+- No overlap: `pg_try_advisory_xact_lock` → a concurrent dispatch fails fast with `dispatch_busy`
+  (caller skips, tuning untouched) instead of queueing behind the running one.
+
+Catch-up extension (`extend_pipeline_catchup_v1`, service-only; EXECUTE false for
+anon/authenticated/readonly_codex, guard `pipeline_catchup_caller_allowed_v1`). Same old/new
+bookkeeping as the start: an existing entry keeps its original `old` (restore goes back to the
+pre-catch-up value) and a value changed by someone after the start is skipped and kept.
+Applied 17:06 UTC:
+- enqueue cron `*/5` → `* * * * *` (pre-catch-up `*/15` restored at the end); full podcast /
+  episode / transcript passes still only on 5-minute marks, dispatch every minute;
+- topic extractor cron `*/20` → `*/5` (derivation group); best-source cron `7,22,37,52` → `*/5`
+  (best_source group, batch 40 unchanged);
+- runner cadence `seo_enrich` / `entity_backfill` `*/3` — honoured by queue-health-controller only
+  while the derivation part is active (no idle pause between refills; ladder returns after);
+  seo-enrich-runner does not self-reschedule while it is set (single cron writer);
+- dispatch tuning: start 30 (once per tuning version), +10 when < 5 s, −10 when > 6.5 s
+  (bounded ≤ 6 s / ≤ 7 s under the 8 s API timeout), halve + one retry on timeout kept.
+Expiry unchanged: 2026-10-25 15:32 UTC (cron 203), derivation part earlier when nothing is
+eligible or queued.
+
+Measured (scheduled runs only): effective batch 30 → 40 → 50 → 60; at 17:10 a 60 batch hit the
+timeout under the :10 cron burst, rolled back, the retry dispatched 30, then 40/50 again
+(oscillates 40–60). Dispatched today 750 (17:06) → 1 230 (17:17).
+Episode derivation state 17:06 → 17:17: SEO current 681 → 1 068, entity current 703 → 1 091,
+topic current 567 → 847 (+58 topic `blocked` = tiers outside the topic policy), any-stale
+2 578 → 2 140, queued 31 → 122. Runner runs 17:09–17:15: SEO 151 + 238, entity 149 + 120 + 120,
+topic 141 + 148, all `ok`; spend today SEO $0.37, entity $0.68, topic $0.03.
