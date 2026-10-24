@@ -58,7 +58,8 @@ const seo = (e, h, title, primary = 'clean_text') => A`SELECT public.apply_episo
 
 await A.unsafe(`INSERT INTO public.podcasts VALUES ('${POD}','accept_hungarian','B');
   INSERT INTO public.app_settings(key, value) VALUES ('derivation_dispatch_controls','{"enabled":true,"per_run":20,"daily_cap":300}'),
-    ('episode_topic_extractor_controls','{"tier_filter":["S","A","B","C"],"min_clean_chars":100}');`);
+    ('episode_topic_extractor_controls','{"tier_filter":["S","A","B","C"],"min_clean_chars":100}')
+    ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;`);
 for (let n = 1; n <= 8; n++) {
   await A`INSERT INTO public.episodes(id, podcast_id, ai_enriched_at, topic_extraction_status, ai_entities_version) VALUES (${id(n)}, ${POD}, now(), 'done', 5)`;
   await A`INSERT INTO public.episode_clean_text VALUES (${id(n)}, ${textA}, 'deterministic_v4', 'rss', 'ok')`;
