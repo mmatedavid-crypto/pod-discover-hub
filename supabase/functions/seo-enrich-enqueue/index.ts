@@ -15,7 +15,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 import { inputHash, podcastUserPrompt, episodeUserPrompt } from "../_shared/seo-prompt.ts";
-import { derivationSeoJobKey } from "../_shared/derivation-state.ts";
+import { derivationSeoJobKey, loadDerivationInputs, seoInputProvenance } from "../_shared/derivation-state.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -139,19 +139,10 @@ Deno.serve(async (req) => {
 
       // Batch-fetch cleaned RSS text for all collected episodes (sponsor/CTA noise removed).
       // Used in the prompt instead of the raw description when length is sufficient.
-      const cleanById = new Map<string, string>();
+      // Text + fingerprint come from one consistent read, so the recorded provenance is
+      // exactly the clean-text version that goes into the prompt.
       const collectedIds = collected.map((e) => e.id);
-      for (let i = 0; i < collectedIds.length; i += 500) {
-        const slice = collectedIds.slice(i, i + 500);
-        const { data: cts } = await admin
-          .from("episode_clean_text")
-          .select("episode_id, cleaned_text")
-          .in("episode_id", slice);
-        for (const r of cts || []) {
-          const t = String((r as any).cleaned_text || "");
-          if (t.length >= 80) cleanById.set((r as any).episode_id, t);
-        }
-      }
+      const cleanById = await loadDerivationInputs(admin, collectedIds);
 
       const rows: any[] = [];
       // Strip control chars (Postgres JSONB rejects \u0000) and lone surrogates.
@@ -161,7 +152,8 @@ Deno.serve(async (req) => {
         .replace(/(^|[^\uD800-\uDBFF])[\uDC00-\uDFFF]/g, "$1");
       for (const e of collected) {
         const podName = sanitize(podNameById.get(e.podcast_id) || "");
-        (e as any).clean_text = cleanById.get(e.id) || null;
+        const ci = cleanById.get(e.id);
+        (e as any).clean_text = ci?.text || null;
         const podMeta: any = epPods.find((p: any) => p.id === e.podcast_id) || {};
         if (podMeta.language_decision === "accept_hungarian") {
           (e as any).output_language_code = "hu";
@@ -177,7 +169,7 @@ Deno.serve(async (req) => {
           input_hash: hash,
           priority: podPriById.get(e.podcast_id) ?? 1,
           status: "pending",
-          result: { prompt, pod_name: podName },
+          result: { prompt, pod_name: podName, input_provenance: seoInputProvenance({ cleanText: ci?.text, cleanHash: ci?.hash, cleanMethod: ci?.method, description: e.description }) },
         });
       }
       for (let i = 0; i < rows.length; i += 500) {
@@ -256,7 +248,7 @@ Deno.serve(async (req) => {
               input_hash: hash,
               priority: podPriority(pod),
               status: "pending",
-              result: { prompt, pod_name: podName, source: "transcript" },
+              result: { prompt, pod_name: podName, source: "transcript", input_provenance: seoInputProvenance({ transcript, cleanText: (ep as any).clean_text, description: (ep as any).description }) },
             });
           }
         }
