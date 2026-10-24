@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
 import { useNoindex } from "@/lib/useNoindex";
+import { AiReferralPanel } from "@/components/admin/AiReferralPanel";
 
 type Row = {
   id: string;
@@ -245,6 +246,8 @@ export default function AdminAnalyticsPage() {
           <Stat label="Avg dwell" value={`${stats.avgDwellSec}s (median ${stats.medianDwellSec}s)`} />
           <Stat label="Bot traffic" value={`${stats.botCount} (${stats.botShare}%)`} />
         </div>
+
+        <AiReferralPanel />
 
         <section>
           <h2 className="font-semibold mb-1">Belépési pontok és bounce (humán sessionök)</h2>
