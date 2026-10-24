@@ -233,7 +233,7 @@ describe("pipeline health display", async () => {
 });
 
 describe("catch-up follow-up 2026-10-24", () => {
-  const read = (p: string) => require("node:fs").readFileSync(p, "utf8") as string;
+  const read = (p: string) => readFileSync(p, "utf8");
   it("topic runner treats a promoted but empty clean text as final, not as waiting", () => {
     const src = read("supabase/functions/episode-topic-extractor/index.ts");
     expect(src).toContain("if (!ctMap.has(ep.id)) { waitingCleanTextIds.push(ep.id); continue; }");
