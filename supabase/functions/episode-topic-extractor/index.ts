@@ -178,7 +178,7 @@ Deno.serve(async (req) => {
       const waitIds = (waiting || []).map((r: any) => r.id);
       if (waitIds.length) {
         const { data: ready } = await admin.from("episode_clean_text").select("episode_id")
-          .in("episode_id", waitIds).like("cleaner_method", "deterministic_v4%");
+          .in("episode_id", waitIds).like("cleaner_method", "deterministic_v4%").neq("cleaned_text", "");
         const readyIds = (ready || []).map((r: any) => r.episode_id);
         if (readyIds.length) {
           await admin.from("episodes").update({ topic_extraction_status: "pending" }).in("id", readyIds).eq("topic_extraction_status", "waiting_clean_text");
@@ -226,8 +226,11 @@ Deno.serve(async (req) => {
       const waitingCleanTextIds: string[] = [];
       const work: any[] = [];
       for (const ep of epsRaw as any[]) {
+        // Wait only while no promoted deterministic_v4 row exists. A promoted but empty or
+        // short clean text is final (below topic minimum): re-queueing it every run churned
+        // ~140 episodes per run between waiting_clean_text and pending.
+        if (!ctMap.has(ep.id)) { waitingCleanTextIds.push(ep.id); continue; }
         const text = String(ctMap.get(ep.id) || "").trim();
-        if (!text) { waitingCleanTextIds.push(ep.id); continue; }
         if (text.length < minChars) { skipIds.push(ep.id); continue; }
         work.push({ ep, text });
       }

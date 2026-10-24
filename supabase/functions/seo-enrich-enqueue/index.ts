@@ -273,7 +273,8 @@ Deno.serve(async (req) => {
     let derivationErr: string | null = null;
     if (body.skip_derivation !== true) {
       const { data: stale, error: dErr } = await admin.rpc("dispatch_stale_derivations_v1", {
-        p_limit: Math.max(0, Math.min(60, Number(body.derivation_limit ?? 20))),
+        // Upper bound only: the stored per_run / daily_cap in derivation_dispatch_controls decide.
+        p_limit: Math.max(0, Math.min(60, Number(body.derivation_limit ?? 60))),
         p_dry_run: body.derivation_dry_run === true,
       });
       if (dErr) derivationErr = dErr.message;

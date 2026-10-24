@@ -11620,6 +11620,10 @@ export type Database = {
         }
         Returns: string
       }
+      derivation_dispatch_eligible_count_v1: {
+        Args: { p_cap?: number }
+        Returns: number
+      }
       derivation_health_item_v1: { Args: never; Returns: Json }
       derivation_lock_decide_v1: {
         Args: { p_episode_id: string; p_stage: string; p_used_hash: string }
@@ -11659,6 +11663,7 @@ export type Database = {
       }
       embed_chunks_candidate_stats: { Args: { _model: string }; Returns: Json }
       embed_episode_candidate_stats: { Args: { _model: string }; Returns: Json }
+      end_pipeline_catchup_v1: { Args: never; Returns: Json }
       enqueue_email: {
         Args: { payload: Json; queue_name: string }
         Returns: number
@@ -12339,6 +12344,15 @@ export type Database = {
         }[]
       }
       person_review_tick_active: { Args: never; Returns: boolean }
+      pipeline_catchup_plan_v1: { Args: never; Returns: Json }
+      pipeline_catchup_restore_group_v1: {
+        Args: { p_group: string; p_reason: string; p_state: Json }
+        Returns: Json
+      }
+      pipeline_catchup_tick_v1: {
+        Args: { p_force_end?: boolean }
+        Returns: Json
+      }
       pipeline_health_item_v1: {
         Args: {
           p_backlog?: number
@@ -12826,6 +12840,10 @@ export type Database = {
           title: string
           why_label: string
         }[]
+      }
+      start_pipeline_catchup_v1: {
+        Args: { p_hours?: number; p_reason?: string }
+        Returns: Json
       }
       suggest_token_corrections: {
         Args: { p_tokens: string[] }

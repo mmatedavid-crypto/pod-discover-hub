@@ -176,6 +176,8 @@ describe("Spotify lanes and caps", () => {
     expect(spotifyRecleanAllowance(ctrl, 0).allowed).toBe(5);
     expect(spotifyRecleanAllowance(ctrl, 58).allowed).toBe(2);
     expect(spotifyRecleanAllowance(ctrl, 60).allowed).toBe(0);
+    expect(spotifyRecleanAllowance({ spotify_reclean_enabled: true, spotify_reclean_daily_cap: 500, spotify_reclean_per_run: 10 }, 0)).toMatchObject({ cap: 500, perRun: 10, allowed: 10 });
+    expect(spotifyRecleanAllowance({ spotify_reclean_enabled: true, spotify_reclean_daily_cap: 9999, spotify_reclean_per_run: 99 }, 495)).toMatchObject({ cap: 500, perRun: 20, allowed: 5 });
   });
 });
 
