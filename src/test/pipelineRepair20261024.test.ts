@@ -285,3 +285,19 @@ describe("terminal SEO job failures are reported truthfully", () => {
     expect(sql).toContain("d.seo_hash = d.clean_hash");
   });
 });
+
+describe("adaptive stale-derivation dispatch batch", () => {
+  it("stays within 10..60, grows when fast, shrinks when slow", async () => {
+    const { dispatchBatchClamp, nextDispatchBatch } = await import("../../supabase/functions/_shared/derivation-state");
+    expect(dispatchBatchClamp(5)).toBe(10);
+    expect(dispatchBatchClamp(500)).toBe(60);
+    expect(nextDispatchBatch(20, 1200)).toBe(30);
+    expect(nextDispatchBatch(60, 1200)).toBe(60);
+    expect(nextDispatchBatch(40, 4000)).toBe(40);
+    expect(nextDispatchBatch(40, 7000)).toBe(30);
+    expect(nextDispatchBatch(10, 7000)).toBe(10);
+    const src = readFileSync("supabase/functions/seo-enrich-enqueue/index.ts", "utf8");
+    expect(src).toContain("eff = dispatchBatchClamp(Math.floor(eff / 2));");
+    expect(src).not.toMatch(/statement_timeout/);
+  });
+});

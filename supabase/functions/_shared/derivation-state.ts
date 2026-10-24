@@ -107,3 +107,15 @@ export function terminalSeoFailureMark(
   return { episode_id: job.target_id, used_hash: used, result: "blocked", reason: `seo_job_failed:${String(error || "error")}`.slice(0, 120) };
 }
 
+/** Effective stale-derivation dispatch batch: 10..60 (stored per_run / daily cap still bound it in SQL). */
+export function dispatchBatchClamp(n: number): number {
+  return Math.max(10, Math.min(60, Math.floor(Number.isFinite(n) ? n : 20)));
+}
+
+/** Next batch after a successful dispatch: grow when fast (<3 s), shrink when slow (>5 s). */
+export function nextDispatchBatch(current: number, ms: number): number {
+  if (ms < 3000) return dispatchBatchClamp(current + 10);
+  if (ms > 5000) return dispatchBatchClamp(current - 10);
+  return dispatchBatchClamp(current);
+}
+

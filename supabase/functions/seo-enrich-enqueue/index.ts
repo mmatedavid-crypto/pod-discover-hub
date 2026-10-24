@@ -15,7 +15,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 import { inputHash, podcastUserPrompt, episodeUserPrompt } from "../_shared/seo-prompt.ts";
-import { derivationSeoJobKey, loadDerivationInputs, seoInputProvenance } from "../_shared/derivation-state.ts";
+import { derivationSeoJobKey, dispatchBatchClamp, loadDerivationInputs, nextDispatchBatch, seoInputProvenance } from "../_shared/derivation-state.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -272,11 +272,42 @@ Deno.serve(async (req) => {
     let derivationDispatched = 0, derivationSeoJobs = 0;
     let derivationErr: string | null = null;
     if (body.skip_derivation !== true) {
-      const { data: stale, error: dErr } = await admin.rpc("dispatch_stale_derivations_v1", {
-        // Upper bound only: the stored per_run / daily_cap in derivation_dispatch_controls decide.
-        p_limit: Math.max(0, Math.min(60, Number(body.derivation_limit ?? 60))),
-        p_dry_run: body.derivation_dry_run === true,
-      });
+      // Adaptive effective batch (app_settings.derivation_dispatch_tuning, owned by this caller):
+      // the stored per_run / daily_cap in derivation_dispatch_controls stay the upper bounds.
+      // A statement timeout rolls the whole dispatch back (nothing half-written); the batch is
+      // halved and retried once, and the smaller size is kept for the next run. Fast runs grow
+      // it again in steps of 10 (10..60). Never raises any timeout.
+      const { data: tuneRow } = await admin.from("app_settings").select("value").eq("key", "derivation_dispatch_tuning").maybeSingle();
+      const tune = (tuneRow?.value || {}) as any;
+      const explicit = body.derivation_limit != null;
+      let eff = explicit
+        ? Math.max(0, Math.min(60, Number(body.derivation_limit)))
+        : dispatchBatchClamp(Number(tune.effective_limit ?? 20));
+      const attempt = async (limit: number) => {
+        const t0 = Date.now();
+        const r = await admin.rpc("dispatch_stale_derivations_v1", { p_limit: limit, p_dry_run: body.derivation_dry_run === true });
+        return { ...r, ms: Date.now() - t0, limit };
+      };
+      let res = await attempt(eff);
+      const attempts: any[] = [{ limit: res.limit, ms: res.ms, error: res.error?.message || null }];
+      if (res.error && /statement timeout|canceling statement/i.test(res.error.message) && eff > 10) {
+        eff = dispatchBatchClamp(Math.floor(eff / 2));
+        res = await attempt(eff);
+        attempts.push({ limit: res.limit, ms: res.ms, error: res.error?.message || null });
+      }
+      const stale = res.data;
+      const dErr = res.error;
+      if (dErr) console.warn("dispatch_stale_derivations_v1 failed", attempts);
+      if (!explicit && body.derivation_dry_run !== true) {
+        const next = dErr ? dispatchBatchClamp(Math.floor(eff / 2)) : nextDispatchBatch(eff, res.ms);
+        await admin.from("app_settings").upsert({
+          key: "derivation_dispatch_tuning",
+          value: { effective_limit: next, last_limit: eff, last_ms: res.ms, last_outcome: dErr ? "error" : "ok",
+                   last_error: dErr?.message || null, attempts, at: new Date().toISOString(),
+                   note: "Adaptive dispatch batch (10..60) kept by seo-enrich-enqueue; bounds from derivation_dispatch_controls." },
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "key" });
+      }
       if (dErr) derivationErr = dErr.message;
       const list = (stale || []) as any[];
       derivationDispatched = list.length;
