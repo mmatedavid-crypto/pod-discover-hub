@@ -12243,6 +12243,7 @@ export type Database = {
           published_at: string
         }[]
       }
+      person_review_tick_active: { Args: never; Returns: boolean }
       pipeline_health_item_v1: {
         Args: {
           p_backlog?: number
