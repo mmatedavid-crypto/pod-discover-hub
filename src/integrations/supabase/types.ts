@@ -2514,6 +2514,96 @@ export type Database = {
         }
         Relationships: []
       }
+      episode_derivation_state: {
+        Row: {
+          baseline: string | null
+          clean_change_count: number
+          clean_changed_at: string | null
+          clean_hash: string | null
+          clean_method: string | null
+          clean_source_type: string | null
+          clean_usable: boolean
+          created_at: string
+          dispatch_attempts: number
+          entity_at: string | null
+          entity_block_reason: string | null
+          entity_hash: string | null
+          entity_status: string
+          episode_id: string
+          last_dispatched_at: string | null
+          last_error: string | null
+          person_review_block_reason: string | null
+          person_review_status: string | null
+          seo_at: string | null
+          seo_block_reason: string | null
+          seo_hash: string | null
+          seo_status: string
+          topic_at: string | null
+          topic_block_reason: string | null
+          topic_hash: string | null
+          topic_status: string
+          updated_at: string
+        }
+        Insert: {
+          baseline?: string | null
+          clean_change_count?: number
+          clean_changed_at?: string | null
+          clean_hash?: string | null
+          clean_method?: string | null
+          clean_source_type?: string | null
+          clean_usable?: boolean
+          created_at?: string
+          dispatch_attempts?: number
+          entity_at?: string | null
+          entity_block_reason?: string | null
+          entity_hash?: string | null
+          entity_status?: string
+          episode_id: string
+          last_dispatched_at?: string | null
+          last_error?: string | null
+          person_review_block_reason?: string | null
+          person_review_status?: string | null
+          seo_at?: string | null
+          seo_block_reason?: string | null
+          seo_hash?: string | null
+          seo_status?: string
+          topic_at?: string | null
+          topic_block_reason?: string | null
+          topic_hash?: string | null
+          topic_status?: string
+          updated_at?: string
+        }
+        Update: {
+          baseline?: string | null
+          clean_change_count?: number
+          clean_changed_at?: string | null
+          clean_hash?: string | null
+          clean_method?: string | null
+          clean_source_type?: string | null
+          clean_usable?: boolean
+          created_at?: string
+          dispatch_attempts?: number
+          entity_at?: string | null
+          entity_block_reason?: string | null
+          entity_hash?: string | null
+          entity_status?: string
+          episode_id?: string
+          last_dispatched_at?: string | null
+          last_error?: string | null
+          person_review_block_reason?: string | null
+          person_review_status?: string | null
+          seo_at?: string | null
+          seo_block_reason?: string | null
+          seo_hash?: string | null
+          seo_status?: string
+          topic_at?: string | null
+          topic_block_reason?: string | null
+          topic_hash?: string | null
+          topic_status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       episode_embeddings: {
         Row: {
           content_hash: string
@@ -7264,6 +7354,87 @@ export type Database = {
           },
         ]
       }
+      pipeline_item_blocks: {
+        Row: {
+          cleared_at: string | null
+          created_at: string
+          id: string
+          item_id: string
+          item_kind: string
+          reason: string
+          run_id: string | null
+          runner: string
+          stage: string | null
+        }
+        Insert: {
+          cleared_at?: string | null
+          created_at?: string
+          id?: string
+          item_id: string
+          item_kind: string
+          reason: string
+          run_id?: string | null
+          runner: string
+          stage?: string | null
+        }
+        Update: {
+          cleared_at?: string | null
+          created_at?: string
+          id?: string
+          item_id?: string
+          item_kind?: string
+          reason?: string
+          run_id?: string | null
+          runner?: string
+          stage?: string | null
+        }
+        Relationships: []
+      }
+      pipeline_runner_runs: {
+        Row: {
+          effective_limit: number | null
+          error: string | null
+          finished_at: string | null
+          heartbeat_at: string
+          id: string
+          meta: Json
+          outcome: string
+          runner: string
+          stage: string | null
+          stage_ms: Json
+          started_at: string
+          target_ids: string[] | null
+        }
+        Insert: {
+          effective_limit?: number | null
+          error?: string | null
+          finished_at?: string | null
+          heartbeat_at?: string
+          id?: string
+          meta?: Json
+          outcome?: string
+          runner: string
+          stage?: string | null
+          stage_ms?: Json
+          started_at?: string
+          target_ids?: string[] | null
+        }
+        Update: {
+          effective_limit?: number | null
+          error?: string | null
+          finished_at?: string | null
+          heartbeat_at?: string
+          id?: string
+          meta?: Json
+          outcome?: string
+          runner?: string
+          stage?: string | null
+          stage_ms?: Json
+          started_at?: string
+          target_ids?: string[] | null
+        }
+        Relationships: []
+      }
       playback_progress: {
         Row: {
           completed: boolean
@@ -11302,6 +11473,7 @@ export type Database = {
         Returns: Json[]
       }
       clean_slug: { Args: { fallback: string; input: string }; Returns: string }
+      clean_text_content_hash: { Args: { p_text: string }; Returns: string }
       clean_text_quality_audit_v1: { Args: never; Returns: Json }
       clean_text_repair_fingerprint_v1: {
         Args: { p_description: string }
@@ -11389,6 +11561,27 @@ export type Database = {
           demoted_count: number
         }[]
       }
+      derivation_stage_after_change: {
+        Args: {
+          p_has_output: boolean
+          p_new_hash: string
+          p_prev_hash: string
+          p_prev_status: string
+          p_usable: boolean
+        }
+        Returns: string
+      }
+      dispatch_stale_derivations_v1: {
+        Args: { p_dry_run?: boolean; p_limit?: number }
+        Returns: {
+          clean_hash: string
+          entity_action: string
+          episode_id: string
+          podcast_id: string
+          seo_dispatch: boolean
+          topic_action: string
+        }[]
+      }
       email_queue_dispatch: { Args: never; Returns: undefined }
       embed_candidate_stats: {
         Args: { _model: string; _tiers: string[] }
@@ -11447,6 +11640,16 @@ export type Database = {
       get_entity_quality_snapshot_v1: {
         Args: { _limit?: number }
         Returns: Json
+      }
+      get_episode_derivation_inputs_v1: {
+        Args: { p_ids: string[] }
+        Returns: {
+          clean_hash: string
+          cleaned_text: string
+          cleaner_method: string
+          episode_id: string
+          quality_status: string
+        }[]
       }
       get_episode_index_text: {
         Args: { p_episode_id: string; p_max_chars?: number }
@@ -11803,6 +12006,10 @@ export type Database = {
           wikipedia_match_confidence: number
           wikipedia_match_status: string
         }[]
+      }
+      mark_episode_derivation_v1: {
+        Args: { p_items: Json; p_stage: string }
+        Returns: Json
       }
       match_episodes_by_centroid: {
         Args: { p_disliked?: string[]; p_liked: string[]; p_limit?: number }
@@ -12178,6 +12385,10 @@ export type Database = {
         Returns: Json
       }
       refresh_user_taste_vec: { Args: { p_user: string }; Returns: undefined }
+      release_episode_source_changes_v1: {
+        Args: { p_items: Json; p_lease_token: string }
+        Returns: number
+      }
       release_person_openai_batch_job: {
         Args: { _job: string }
         Returns: number
