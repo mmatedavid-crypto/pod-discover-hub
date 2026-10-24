@@ -101,6 +101,7 @@ Deno.serve(async (req) => {
     const batch = Math.max(1, Math.min(150, Number(body.batch) || 100));
     // Keep concurrency high, but model policy below keeps this on flash-lite for batch cost control.
     const concurrency = Math.max(1, Math.min(28, Number(body.concurrency) || 20));
+    const maxJobsPerRun = Math.max(1, Math.min(250, Number(body.max_jobs_per_run) || 150));
 
     // Reap stale processing locks before claiming. Best-effort.
     let reaped_stale_locks = 0;
@@ -478,7 +479,12 @@ Deno.serve(async (req) => {
       if (Date.now() - startedAt > TIME_BUDGET_MS - TAIL_RESERVE_MS) break;
       if (spend >= dailyBudget) break;
 
-      const { data: claimed, error: cErr } = await admin.rpc("claim_ai_jobs", { _limit: batch, _lock_seconds: 120 });
+      // Per-run job cap: a 2026-10-24 17:21 catch-up run that kept draining a refilled queue hit
+      // the edge CPU limit (killed: claimed jobs lose an attempt, spend merge never runs).
+      // 238 jobs/run completed fine; 150 keeps margin. More throughput = more frequent runs.
+      const capLeft = maxJobsPerRun - total_claimed;
+      if (capLeft <= 0) break;
+      const { data: claimed, error: cErr } = await admin.rpc("claim_ai_jobs", { _limit: Math.min(batch, capLeft), _lock_seconds: 120 });
       if (cErr) throw cErr;
       const jobs = (claimed || []) as any[];
       if (!jobs.length) break;

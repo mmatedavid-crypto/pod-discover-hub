@@ -412,3 +412,12 @@ describe("SEO job failure bookkeeping (failure injection, no paid AI)", () => {
     expect(src).toContain('failure_bookkeeping_errors === 0 ? "ok" : "error"');
   });
 });
+
+describe("seo-enrich-runner per-run job cap (CPU kill 2026-10-24 17:21)", () => {
+  it("claims at most 150 jobs per run by default (hard max 250)", () => {
+    const src = readFileSync("supabase/functions/seo-enrich-runner/index.ts", "utf8");
+    expect(src).toContain("Math.max(1, Math.min(250, Number(body.max_jobs_per_run) || 150))");
+    expect(src).toContain('_limit: Math.min(batch, capLeft)');
+    expect(src).toContain("if (capLeft <= 0) break;");
+  });
+});
