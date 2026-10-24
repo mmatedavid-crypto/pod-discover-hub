@@ -7,6 +7,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 import { filterHosts } from "../_shared/seo-prompt.ts";
 import { loadDerivationInputs, markDerivation } from "../_shared/derivation-state.ts";
+import { runLog } from "../_shared/runner-run-log.ts";
 import { canonicalizeHungarianPersonName } from "../_shared/hu-person-name.ts";
 import {
   callGeminiOpenAI,
@@ -268,10 +269,30 @@ Deno.serve(async (req) => {
       if (!page || page.length < 1000) break;
     }
 
+    const log = runLog(admin, "entity-backfill-runner");
+    await log.start({ model, daily_budget_usd: dailyBudget, spend_before_usd: mySpend });
+    let isolatedSkipped = 0;
     let processed = 0, succeeded = 0, failed = 0, rate_limited = 0;
     let stop = false;
     let total_seen = 0;
     let drain_loops = 0;
+
+    // Result write + org-map reset + derivation state in one transaction. A failed write
+    // throws (never counted as done) and isolates the episode for this runner, so a bad
+    // record is not re-sent to the paid model every run.
+    let persistFailures = 0, superseded = 0;
+    const persistEntities = async (ep: any, fields: Record<string, unknown>, result: "done" | "not_applicable", reason?: string) => {
+      const { data, error } = await admin.rpc("apply_episode_entities_v1", {
+        p_episode_id: ep.id, p_used_hash: ep.__clean_hash || null, p_fields: fields, p_result: result, p_reason: reason ?? null,
+      });
+      if (error) {
+        persistFailures++;
+        await admin.from("pipeline_item_blocks").insert({ runner: "entity-backfill-runner", item_kind: "episode", item_id: ep.id, reason: `persist_failed:${error.message}`.slice(0, 300), stage: "apply", run_id: log.id });
+        await markDerivation(admin, "entity", [{ episode_id: ep.id, used_hash: null, result: "error", reason: `persist_failed:${error.message}` }]);
+        throw new Error(`persist_failed:${error.message}`);
+      }
+      if (data === "superseded") superseded++;
+    };
 
     const runOne = async (ep: any) => {
       if (stop) return;
@@ -293,18 +314,18 @@ Deno.serve(async (req) => {
             job_type: "entity_backfill", reason: skipReason, model,
             target_type: "episode", target_id: ep.id,
           });
-          // Mark as v5 so we don't keep retrying garbage descriptions.
-          await admin.from("episodes").update({
-            ai_entities_version: 5,
+          // Mark as v5 so we don't keep retrying garbage descriptions (atomic with the
+          // derivation state; an older-version skip never overrides a newer invalidation).
+          await persistEntities(ep, {
             entity_extraction_evidence: {
               version: 5,
               skipped: true,
               skip_reason: skipReason,
               source: "entity_backfill",
               extracted_at: new Date().toISOString(),
+              clean_hash: ep.__clean_hash || null,
             },
-          }).eq("id", ep.id);
-          if (ep.__clean_hash) await markDerivation(admin, "entity", [{ episode_id: ep.id, used_hash: ep.__clean_hash, result: "not_applicable", reason: `input_${skipReason}` }]);
+          }, "not_applicable", `input_${skipReason}`);
           succeeded++;
           return;
         }
@@ -420,7 +441,7 @@ Deno.serve(async (req) => {
         const tickers = cleanArr(parsed.tickers).map((t) => t.replace(/[^a-zA-Z0-9.]+/g, "").toUpperCase()).filter(Boolean);
         const topics = cleanArr(parsed.topics).map((t) => t.toLowerCase());
 
-        await admin.from("episodes").update({
+        await persistEntities(ep, {
           people, mentioned, companies, organizations, tickers, topics,
           entity_extraction_evidence: {
             version: 5,
@@ -433,14 +454,9 @@ Deno.serve(async (req) => {
             input: cleanedText ? "clean_text" : "fallback_summary_or_description",
             clean_hash: ep.__clean_hash || null,
           },
-          ai_entities_version: 5,
-        }).eq("id", ep.id);
-
-        // Drop stale machine-built episode_organization_map rows for this episode —
-        // the organizations-backfill-runner rebuilds them from the fresh
-        // `organizations` jsonb. Reclassification decisions are kept.
-        await admin.from("episode_organization_map").delete().eq("episode_id", ep.id).neq("source", "reclassified_from_person");
-        if (ep.__clean_hash) await markDerivation(admin, "entity", [{ episode_id: ep.id, used_hash: ep.__clean_hash, result: "done" }]);
+        }, "done");
+        // (apply_episode_entities_v1 also drops stale machine-built episode_organization_map
+        // rows — the organizations-backfill-runner rebuilds them — keeping reclassifications.)
 
         succeeded++;
         mySpend += cost; runIncrement += cost; runCalls++;
@@ -471,7 +487,17 @@ Deno.serve(async (req) => {
       const list = (rows || []) as any[];
       if (!list.length) break;
 
-      const ids = list.map((r) => r.id).filter(Boolean);
+      let ids = list.map((r) => r.id).filter(Boolean);
+      {
+        const { data: blk } = await admin.from("pipeline_item_blocks").select("item_id")
+          .eq("runner", "entity-backfill-runner").is("cleared_at", null).in("item_id", ids);
+        const blocked = new Set((blk || []).map((b: any) => String(b.item_id)));
+        if (blocked.size) {
+          for (let k = list.length - 1; k >= 0; k--) if (blocked.has(String(list[k].id))) list.splice(k, 1);
+          ids = ids.filter((x) => !blocked.has(String(x)));
+          isolatedSkipped += blocked.size;
+        }
+      }
       // Clean text + its content fingerprint in one consistent read; the hash is
       // recorded so a later clean-text change marks this result stale.
       const inputs = await loadDerivationInputs(admin, ids);
@@ -516,7 +542,9 @@ Deno.serve(async (req) => {
       await admin.from("app_settings").upsert({ key: "entity_backfill_controls", value: newCtrl, updated_at: new Date().toISOString() });
     }
 
-    return json({ ok: true, drain_loops, total_seen, processed, succeeded, failed, rate_limited, spend_usd: mySpend, run_increment_usd: runIncrement, elapsed_ms: Date.now() - startedAt });
+    const summary = { ok: true, drain_loops, total_seen, processed, succeeded, failed, rate_limited, superseded, persist_failures: persistFailures, isolated_skipped: isolatedSkipped, spend_usd: mySpend, run_increment_usd: runIncrement, elapsed_ms: Date.now() - startedAt };
+    await log.finish("ok", summary);
+    return json(summary);
   } catch (e: any) {
     return json({ error: e?.message || "error" }, 500);
   }
