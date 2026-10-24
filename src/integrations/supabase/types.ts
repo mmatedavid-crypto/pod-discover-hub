@@ -11800,6 +11800,7 @@ export type Database = {
         }[]
       }
       get_pipeline_health_snapshot_v1: { Args: never; Returns: Json }
+      get_pipeline_runner_health_v1: { Args: never; Returns: Json }
       get_related_episodes_by_embedding: {
         Args: {
           p_downweight_same_podcast?: boolean

@@ -36,7 +36,7 @@
 - [x] Bounded automatic backfill (20/run) and backed-up YouTube re-clean (10/run, 150/day) enabled.
 - [x] Public display of cleaned YouTube/Spotify text with source link (owner decision 2026-10-21; crawler HTML live).
 - [ ] Frontend publish so visitors see it (waits on user publish).
-- [ ] Crawler HTML shows transcript excerpts (`get_episode_index_text`) — conflicts with the no-public-transcript rule; needs owner decision.
+- [x] Crawler HTML no longer shows transcript excerpts (2026-10-24; owner no-public-transcript rule).
 - [ ] Re-embed changed clean text for semantic search (blocked: paid embeddings need owner budget).
 
 ## YouTube pairing → best source fast lane (2026-10-21 12:00 UTC)
@@ -76,10 +76,15 @@
 - [x] Legacy review rows (499): 3-step resolution 2026-10-21 (merge 59, RSS replace 10, attribution 129, safe-internal/kept 251, protected 16, quarantine 3; one-off AI $0.41, switched off).
 - [ ] 31 legacy rows still need_review (19 texts with URL fragments need a YouTube re-clean, 9 AI-uncertain, 2 unverified names, 1 low-info) + ≈150 gated RSS rows + quarantine (blocked: owner review).
 
-## Pipeline repair (2026-10-24, owner "Rendbe tudod hozni?")
-- [ ] A: best-source CPU root cause fixed, run heartbeat/stages, isolation + finite retry, 36 dead re-queued once, ≥2 real successful runs.
-- [ ] B: clean-text content fingerprint → per-episode derivation state (entity/topic/SEO/public), bounded stale dispatch in existing runners.
-- [ ] C: 10–20 mixed real episodes through clean → entity/topic/SEO with hash; second run no-op.
-- [ ] D: bot HTML = visitor description (no transcript excerpt), snippet/schema consistent.
-- [ ] E: Google Indexing API safe no-op for unsupported pages; no indexed=true from submission.
-- [ ] Docs: docs/pipeline-repair-2026-10-24.md, AGENTS.md rules.
+## Pipeline repair (2026-10-24, owner "Rendbe tudod hozni?") — docs/pipeline-repair-2026-10-24.md
+- [x] A: best-source CPU root cause fixed, run log/stages, isolation + finite retry, 36 dead re-queued once, 12 ok / 0 killed runs.
+- [x] B: content fingerprint → per-episode derivation state, bounded dispatch in existing runners; exact provenance, serialized marking, atomic apply (review fixes).
+- [x] C: original 20 + 167 mixed episodes through clean → entity/topic/SEO with hash; second runs no-op.
+- [x] D: bot HTML = approved visitor description (no transcript, no dropped words).
+- [x] E: Google Indexing API safe no-op; nothing marked indexed.
+- [x] Health: real completions vs dispatch, freshness, intentional pauses (admin panel + snapshot).
+- [x] Person extractor: unchanged inputs skipped, judged mentions protected.
+- [ ] Publish the frontend (admin health panel) (waits on user publish).
+- [ ] ~3 000 stale derived results drain at 300/day within existing budgets (runs on its own).
+- [ ] Paid person review (cron 189) stays paused (blocked: owner decision); D/E-tier topics excluded by policy (blocked: owner decision).
+- [ ] Older topic extraction errors (~8 800) not re-run (blocked: would be a broad AI backfill; owner decision).
