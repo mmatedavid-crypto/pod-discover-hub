@@ -645,6 +645,20 @@
       "when": 1792857662110,
       "tag": "0091_dispatch_stale_derivations_hash_on_candidates",
       "breakpoints": true
+    },
+    {
+      "idx": 92,
+      "version": "7",
+      "when": 1792858557039,
+      "tag": "0092_seo_job_terminal_failure_atomic",
+      "breakpoints": true
+    },
+    {
+      "idx": 93,
+      "version": "7",
+      "when": 1792858572134,
+      "tag": "0093_seo_job_terminal_failure_atomic_fix_columns",
+      "breakpoints": true
     }
   ]
 }

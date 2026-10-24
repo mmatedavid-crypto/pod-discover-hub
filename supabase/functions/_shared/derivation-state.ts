@@ -119,26 +119,19 @@ export function nextDispatchBatch(current: number, ms: number): number {
   return dispatchBatchClamp(current);
 }
 
-/** Like markDerivation, but reports the first RPC error instead of only logging it. */
-export async function markDerivationStrict(admin: any, stage: DerivationStage, items: DerivationMark[]): Promise<string | null> {
-  const list = items.filter((i) => i.episode_id && (i.used_hash || i.result === "not_applicable" || i.result === "blocked" || i.result === "error"));
-  for (let i = 0; i < list.length; i += 200) {
-    const { error } = await admin.rpc("mark_episode_derivation_v1", { p_stage: stage, p_items: list.slice(i, i + 200) });
-    if (error) return error.message || "mark_failed";
-  }
-  return null;
-}
-
 export type SeoJobFailureOutcome =
   | { ok: true; terminal: boolean; stage_marked: boolean }
-  | { ok: false; step: "job_update" | "stage_mark"; error: string };
+  | { ok: false; step: "job_update" | "terminal_atomic"; error: string };
 
 /**
- * Persists a failed SEO job attempt. The job row is written first and must be confirmed
- * (error-free and exactly that row updated); only then is the matching clean-text version's
- * stage marked blocked on terminal failure. A failed job write never marks the stage, so a
- * stage can't read "blocked" while its job is still pending / in_progress and invisible to the
- * bounded retry RPC. Failures are returned, never reported as successful bookkeeping.
+ * Persists a failed SEO job attempt.
+ * - Retryable (non-terminal): the job row goes back to pending; the write must be error-free and
+ *   hit exactly that row. The stage is not touched.
+ * - Terminal: one service-only RPC (`fail_seo_job_terminal_v1`) sets job=failed AND marks the
+ *   exact clean-text version blocked in the same transaction, via the version-guarded
+ *   mark_episode_derivation_v1. If either write fails, neither commits and the failure is
+ *   returned, so a stage can never stay "queued" next to a failed job (or "blocked" next to a
+ *   pending one). Failures are never reported as successful bookkeeping.
  */
 export async function persistSeoJobFailure(
   admin: any,
@@ -146,13 +139,18 @@ export async function persistSeoJobFailure(
   update: Record<string, unknown>,
   terminalMark: DerivationMark | null,
 ): Promise<SeoJobFailureOutcome> {
+  if (update.status === "failed") {
+    const { error } = await admin.rpc("fail_seo_job_terminal_v1", {
+      p_job_id: jobId,
+      p_last_error: String(update.last_error ?? "error"),
+      p_result: (update.result as any) ?? null,
+      p_mark: terminalMark ?? null,
+    });
+    if (error) return { ok: false, step: "terminal_atomic", error: error.message || "terminal_failed" };
+    return { ok: true, terminal: true, stage_marked: !!terminalMark };
+  }
   const { data, error } = await admin.from("ai_enrichment_jobs").update(update).eq("id", jobId).select("id");
   if (error) return { ok: false, step: "job_update", error: error.message || "job_update_failed" };
   if (!Array.isArray(data) || data.length !== 1) return { ok: false, step: "job_update", error: "job_row_not_updated" };
-  const terminal = update.status === "failed";
-  if (!terminal || !terminalMark) return { ok: true, terminal, stage_marked: false };
-  const markErr = await markDerivationStrict(admin, "seo", [terminalMark]);
-  if (markErr) return { ok: false, step: "stage_mark", error: markErr };
-  return { ok: true, terminal, stage_marked: true };
+  return { ok: true, terminal: false, stage_marked: false };
 }
-

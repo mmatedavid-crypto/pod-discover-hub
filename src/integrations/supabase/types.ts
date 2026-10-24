@@ -11672,6 +11672,15 @@ export type Database = {
       episode_classifier_stats: { Args: never; Returns: Json }
       episode_topic_slug_backfill_tick: { Args: never; Returns: number }
       etsm_published_backfill: { Args: { _batch?: number }; Returns: number }
+      fail_seo_job_terminal_v1: {
+        Args: {
+          p_job_id: string
+          p_last_error: string
+          p_mark?: Json
+          p_result?: Json
+        }
+        Returns: Json
+      }
       find_existing_podcast: {
         Args: { p_rss_url: string; p_title: string }
         Returns: string
