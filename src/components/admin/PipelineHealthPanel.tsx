@@ -27,7 +27,7 @@ type Snapshot = { generated_at: string; summary: Record<string, number>; items: 
 
 const fmt = (v?: string | null) => (v ? new Date(v).toLocaleString("hu-HU", { dateStyle: "short", timeStyle: "short" }) : "–");
 
-/** Admin view of get_pipeline_health_snapshot_v1: real completions vs cron dispatch, freshness, intentional pauses. */
+/** Admin view of get_pipeline_runner_health_v1 (light part of get_pipeline_health_snapshot_v1): real completions vs cron dispatch, freshness, intentional pauses. */
 export default function PipelineHealthPanel() {
   const [snap, setSnap] = useState<Snapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +35,7 @@ export default function PipelineHealthPanel() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data, error: err } = await supabase.rpc("get_pipeline_health_snapshot_v1");
+    const { data, error: err } = await supabase.rpc("get_pipeline_runner_health_v1");
     if (err) setError(err.message);
     else { setSnap(data as unknown as Snapshot); setError(null); }
     setLoading(false);
