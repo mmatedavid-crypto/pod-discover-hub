@@ -164,10 +164,13 @@ describe("pairer and runner wiring (no noisy writes, durable fast lane)", () => 
     const claim = runner.indexOf('rpc("claim_episode_source_changes_v1"');
     const backfill = runner.indexOf('rpc("best_source_youtube_gain_targets_v1"');
     const reclean = runner.indexOf("applyYoutubeReclean(admin, real");
-    const ack = runner.indexOf('rpc("ack_episode_source_changes_v1", { p_lease_token: lease.token, p_items: lease.items, p_error: null })');
+    // Deferred (CPU-budget) items are released without an attempt; processed ones are acked.
+    const release = runner.indexOf('rpc("release_episode_source_changes_v1", { p_lease_token: lease.token, p_items: deferredItems })');
+    const ack = runner.indexOf('rpc("ack_episode_source_changes_v1", { p_lease_token: lease.token, p_items: doneItems, p_error: null })');
     expect(claim).toBeGreaterThan(0);
     expect(claim).toBeLessThan(backfill);
-    expect(reclean).toBeLessThan(ack);
+    expect(reclean).toBeLessThan(release);
+    expect(release).toBeLessThan(ack);
     expect(runner).toContain("p_error: msg.slice(0, 500)");
   });
   it("keeps view-count refreshes off updated_at", () => {
