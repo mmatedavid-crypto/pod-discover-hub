@@ -15,7 +15,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 import { inputHash, podcastUserPrompt, episodeUserPrompt } from "../_shared/seo-prompt.ts";
-import { derivationSeoJobKey, dispatchBatchClamp, loadDerivationInputs, nextDispatchBatch, seoInputProvenance } from "../_shared/derivation-state.ts";
+import { activeDerivationCatchup, derivationSeoJobKey, dispatchBatchClamp, loadDerivationInputs, nextDispatchBatch, runFullEnqueuePass, seoInputProvenance, startDispatchBatch } from "../_shared/derivation-state.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -82,7 +82,7 @@ Deno.serve(async (req) => {
       .order("podiverzum_rank", { ascending: false })
       .limit(maxPods);
     if (requireBackfill) pq = pq.not("full_backfill_completed_at", "is", null);
-    const { data: podsRaw, error: pErr } = await pq;
+    const { data: podsRaw, error: pErr } = fullPass ? await pq : { data: [] as any[], error: null };
     if (pErr) throw pErr;
     const pods = (podsRaw || []).filter(isHealthy);
 
@@ -116,7 +116,7 @@ Deno.serve(async (req) => {
       .order("podiverzum_rank", { ascending: false })
       .limit(2000);
     if (requireBackfill) epPq = epPq.not("full_backfill_completed_at", "is", null);
-    const { data: epPodsRaw, error: epPErr } = await epPq;
+    const { data: epPodsRaw, error: epPErr } = fullPass ? await epPq : { data: [] as any[], error: null };
     if (epPErr) throw epPErr;
     const epPods = (epPodsRaw || []).filter(isHealthy);
     const epPodIds = epPods.map((p) => p.id);
@@ -193,7 +193,7 @@ Deno.serve(async (req) => {
     // (or would be) generated from the short description only. These get a new
     // job with a distinct input_hash so they don't conflict with the older
     // description-based job for the same episode.
-    const transcriptRegenLimit = Number(body.max_transcript_regen ?? ctrl.max_transcript_regen_per_run ?? 200);
+    const transcriptRegenLimit = fullPass ? Number(body.max_transcript_regen ?? ctrl.max_transcript_regen_per_run ?? 200) : 0;
     let transcriptJobs = 0;
     let transcriptCandidates = 0;
     let transcriptUpsertErr: string | null = null;
@@ -277,6 +277,7 @@ Deno.serve(async (req) => {
     // version (input_hash), so a second pass over the same version is a no-op.
     let derivationDispatched = 0, derivationSeoJobs = 0;
     let derivationErr: string | null = null;
+    let eff_report: number | null = null;
     if (body.skip_derivation !== true) {
       // Adaptive effective batch (app_settings.derivation_dispatch_tuning, owned by this caller):
       // the stored per_run / daily_cap in derivation_dispatch_controls stay the upper bounds.
@@ -286,9 +287,12 @@ Deno.serve(async (req) => {
       const { data: tuneRow } = await admin.from("app_settings").select("value").eq("key", "derivation_dispatch_tuning").maybeSingle();
       const tune = (tuneRow?.value || {}) as any;
       const explicit = body.derivation_limit != null;
+      // During an active catch-up its stored tuning (start 30, grow < 5 s, shrink > 6.5 s, all
+      // bounded under the 8 s timeout) replaces the conservative 3 s / 5 s defaults.
+      const start = startDispatchBatch(tune, catchup);
       let eff = explicit
         ? Math.max(0, Math.min(60, Number(body.derivation_limit)))
-        : dispatchBatchClamp(Number(tune.effective_limit ?? 20));
+        : start.limit;
       const attempt = async (limit: number) => {
         const t0 = Date.now();
         const r = await admin.rpc("dispatch_stale_derivations_v1", { p_limit: limit, p_dry_run: body.derivation_dry_run === true });
@@ -301,20 +305,24 @@ Deno.serve(async (req) => {
         res = await attempt(eff);
         attempts.push({ limit: res.limit, ms: res.ms, error: res.error?.message || null });
       }
+      eff_report = eff;
       const stale = res.data;
       const dErr = res.error;
-      if (dErr) console.warn("dispatch_stale_derivations_v1 failed", attempts);
-      if (!explicit && body.derivation_dry_run !== true) {
-        const next = dErr ? dispatchBatchClamp(Math.floor(eff / 2)) : nextDispatchBatch(eff, res.ms);
+      // Another dispatch is still running (no-overlap guard): skip, keep the tuning unchanged.
+      const busy = !!dErr && /dispatch_busy/i.test(dErr.message);
+      if (dErr && !busy) console.warn("dispatch_stale_derivations_v1 failed", attempts);
+      if (!explicit && body.derivation_dry_run !== true && !busy) {
+        const next = dErr ? dispatchBatchClamp(Math.floor(eff / 2)) : nextDispatchBatch(eff, res.ms, catchup?.tuning);
         await admin.from("app_settings").upsert({
           key: "derivation_dispatch_tuning",
           value: { effective_limit: next, last_limit: eff, last_ms: res.ms, last_outcome: dErr ? "error" : "ok",
                    last_error: dErr?.message || null, attempts, at: new Date().toISOString(),
+                   catchup_marker: start.marker, thresholds: catchup?.tuning || { grow_below_ms: 3000, shrink_above_ms: 5000 },
                    note: "Adaptive dispatch batch (10..60) kept by seo-enrich-enqueue; bounds from derivation_dispatch_controls." },
           updated_at: new Date().toISOString(),
         }, { onConflict: "key" });
       }
-      if (dErr) derivationErr = dErr.message;
+      if (dErr) derivationErr = busy ? "dispatch_busy_skipped" : dErr.message;
       const list = (stale || []) as any[];
       derivationDispatched = list.length;
       const seoRows = list.filter((r) => r.seo_dispatch && r.clean_hash).map((r) => ({
@@ -345,6 +353,9 @@ Deno.serve(async (req) => {
       derivation_dispatched: derivationDispatched,
       derivation_seo_jobs: derivationSeoJobs,
       derivation_err: derivationErr,
+      derivation_limit: eff_report,
+      full_pass: fullPass,
+      catchup_active: !!catchup,
       podcasts_considered: pods.length,
       ep_podcasts_considered: epPods.length,
       ep_episodes_collected: collectedCount,
