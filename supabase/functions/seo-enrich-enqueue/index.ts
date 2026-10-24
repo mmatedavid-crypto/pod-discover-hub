@@ -15,7 +15,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 import { inputHash, podcastUserPrompt, episodeUserPrompt } from "../_shared/seo-prompt.ts";
-import { derivationSeoJobKey, loadDerivationInputs, seoInputProvenance } from "../_shared/derivation-state.ts";
+import { derivationSeoJobKey, dispatchBatchClamp, loadDerivationInputs, nextDispatchBatch, seoInputProvenance } from "../_shared/derivation-state.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -308,6 +308,7 @@ Deno.serve(async (req) => {
           updated_at: new Date().toISOString(),
         }, { onConflict: "key" });
       }
+      if (dErr) derivationErr = dErr.message;
       const list = (stale || []) as any[];
       derivationDispatched = list.length;
       const seoRows = list.filter((r) => r.seo_dispatch && r.clean_hash).map((r) => ({
