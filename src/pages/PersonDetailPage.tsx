@@ -180,8 +180,9 @@ export default function PersonDetailPage() {
           if (exemplar === decodedSlug) exemplar = hit;
           fallbackEps.push({
             ...e,
-            mention_type: participantHit ? "participant" : "mention",
-            role_type: participantHit ? "participant" : "mention",
+            // Name-only match (no reviewed person link): never claimed as a participant.
+            mention_type: "mention",
+            role_type: "mention",
           });
           if (e.podcasts) podMap.set(e.podcast_id, e.podcasts);
         });
