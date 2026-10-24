@@ -164,39 +164,28 @@ export default function EpisodeDetail() {
       const origin = typeof window !== "undefined" ? window.location.origin : "https://podiverzum.hu";
       const isAcceptedHungarian = p.language_decision === "accept_hungarian";
 
-      // Person JSON-LD: look up the episode's people[] names in the canonical
-      // `people` table, apply the same safety gate as the prerender, and emit
-      // both a top-level Person node (with sameAs → Wikipedia/Wikidata) and a
-      // compact ref that goes into PodcastEpisode.about.
-      // This is the single biggest missing signal on "<person name>" queries.
-      const peopleNames = Array.isArray(e.people)
-        ? (e.people as string[]).filter((n) => typeof n === "string" && n.trim()).slice(0, 20)
-        : [];
+      // Person JSON-LD (Person node with sameAs + PodcastEpisode.about), same gate as the prerender.
+      // A matching display name is not an identity: people are resolved only from this
+      // episode's person links (never rejected/needs_review; an unreviewed namesake is
+      // never attached to an already verified person). Person JSON-LD / `about` only for
+      // accepted, reviewed links.
       let safePeople: any[] = [];
+      let verifiedPeople: any[] = [];
       if (isAcceptedHungarian) {
-        // Union of (a) raw people[] names matched on people.name and (b) canonical
-        // person_episode_mentions rows (alias-resolved), so every recognised person
-        // gets a real /szemelyek/<slug> link instead of a guessed slug.
-        const [byName, byMention] = await Promise.all([
-          peopleNames.length
-            ? supabase.from("people").select(PERSON_JSONLD_SELECT).in("name", peopleNames)
-            : Promise.resolve({ data: [] as any[] } as any),
-          supabase
-            .from("person_episode_mentions")
-            .select(`person_id, people!inner(${PERSON_JSONLD_SELECT})`)
-            .eq("episode_id", e.id)
-            .limit(40),
-        ]);
-        const merged = new Map<string, any>();
-        for (const row of ((byName as any)?.data || []) as any[]) if (row?.id) merged.set(row.id, row);
-        for (const row of ((byMention as any)?.data || []) as any[]) {
-          const pr = (row as any)?.people;
-          if (pr?.id && !merged.has(pr.id)) merged.set(pr.id, pr);
+        const { data: linkRows } = await (supabase as any).rpc("get_episode_person_links_v1", { p_episode_id: e.id });
+        const links = ((linkRows || []) as any[]).filter((r) => r?.person_id);
+        const verifiedIds = new Set(links.filter((r) => r.verified === true).map((r) => String(r.person_id)));
+        if (links.length) {
+          const { data: personRows } = await supabase
+            .from("people")
+            .select(PERSON_JSONLD_SELECT)
+            .in("id", links.map((r) => r.person_id).slice(0, 40));
+          safePeople = ((personRows || []) as any[]).filter(isSafeIndexablePerson).slice(0, 25);
+          verifiedPeople = safePeople.filter((row) => verifiedIds.has(String(row.id)));
         }
-        safePeople = [...merged.values()].filter(isSafeIndexablePerson).slice(0, 25);
       }
-      const personJsonLd = safePeople.map((row) => buildPersonJsonLd(row, origin));
-      const personMentions = safePeople.map((row) => personMentionRef(row, origin));
+      const personJsonLd = verifiedPeople.map((row) => buildPersonJsonLd(row, origin));
+      const personMentions = verifiedPeople.map((row) => personMentionRef(row, origin));
       setPersonLinks(
         safePeople
           .filter((row) => row.slug && row.name)
@@ -321,6 +310,15 @@ export default function EpisodeDetail() {
         <div className="flex flex-wrap gap-2">
           {items.map((v) => {
             const canonicalSlug = kind === "person" ? personSlugByName.get(String(v).trim().toLowerCase()) : undefined;
+            // A person name without a link on this episode stays plain text: guessing the
+            // page from the name would attach a namesake to someone else's identity.
+            if (kind === "person" && !canonicalSlug) {
+              return (
+                <span key={v} className="px-2.5 py-1 rounded-full bg-secondary text-sm">
+                  {v}
+                </span>
+              );
+            }
             return (
               <Link
                 key={v}
@@ -607,16 +605,27 @@ export default function EpisodeDetail() {
             <p className="text-base font-medium text-foreground">{understanding.headline}</p>
             {understanding.chips.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mt-3">
-                {understanding.chips.map((chip) => (
-                  <Link
-                    key={`${chip.kind}-${chip.label}`}
-                    to={entityHref(chip.kind, chip.label)} rel="nofollow"
-                    className="rounded-full border border-border bg-card px-2 py-0.5 text-[11px] text-foreground/85 transition-colors hover:border-primary/40 hover:text-primary"
-                    aria-label={`${ENTITY_LABEL[chip.kind]}: ${chip.label}`}
-                  >
-                    {chip.label}
-                  </Link>
-                ))}
+                {understanding.chips.map((chip) => {
+                  // Person chips link only through this episode's person links (never by name).
+                  const personSlug = chip.kind === "person" ? personSlugByName.get(chip.label.trim().toLowerCase()) : undefined;
+                  if (chip.kind === "person" && !personSlug) {
+                    return (
+                      <span key={`${chip.kind}-${chip.label}`} className="rounded-full border border-border bg-card px-2 py-0.5 text-[11px] text-foreground/85">
+                        {chip.label}
+                      </span>
+                    );
+                  }
+                  return (
+                    <Link
+                      key={`${chip.kind}-${chip.label}`}
+                      to={personSlug ? `/szemelyek/${personSlug}` : entityHref(chip.kind, chip.label)} rel="nofollow"
+                      className="rounded-full border border-border bg-card px-2 py-0.5 text-[11px] text-foreground/85 transition-colors hover:border-primary/40 hover:text-primary"
+                      aria-label={`${ENTITY_LABEL[chip.kind]}: ${chip.label}`}
+                    >
+                      {chip.label}
+                    </Link>
+                  );
+                })}
               </div>
             )}
           </section>

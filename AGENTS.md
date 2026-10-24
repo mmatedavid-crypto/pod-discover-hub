@@ -22,3 +22,5 @@
 - Background runners log start/finish through `_shared/runner-run-log.ts` into `pipeline_runner_runs`, and `get_pipeline_health_snapshot_v1` judges health from those completions, never from cron dispatch success, because a killed worker still shows a succeeded cron run.
 - `person-entity-extractor` skips episodes whose input fingerprint (`_shared/person-extractor-fingerprint.ts`) is unchanged and never rewrites mentions that carry a `validation_source`, because full-catalog re-writes every sweep churned the tables and overwrote reviewed decisions.
 - `google-indexing-submit` stays a no-op (Indexing API is only for JobPosting/BroadcastEvent pages); discovery is sitemaps + internal links + IndexNow, and indexing is never inferred from a submission, HTTP 200 or missing impressions.
+- Shared-person recommendation bridges, scores, explanations, episode person links and Person JSON-LD use only verified identities (`person_link_trusted_v1` / `get_shared_verified_people_v1` / `get_episode_person_links_v1`, client mirror `_shared/person-link-trust.ts`), never raw `people[]`/`mentioned[]` names, because homonyms were presented as the same person.
+

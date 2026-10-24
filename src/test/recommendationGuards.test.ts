@@ -274,13 +274,14 @@ describe("recommendationGuards", () => {
     expect(isSafeRelatedEpisode(source, candidate)).toBe(false);
   });
 
-  it("allows general episodes when there is an explicit shared person bridge", () => {
+  it("allows general episodes when there is a verified shared person bridge", () => {
     const source = {
       title: "Életútinterjú",
       podcastTitle: "Beszélgetések",
       category: "Society & Culture",
       topics: [],
       people: ["Schmied Andi"],
+      verifiedPersonIds: ["person-schmied"],
       companies: [],
     };
 
@@ -290,10 +291,18 @@ describe("recommendationGuards", () => {
       category: "Society & Culture",
       topics: [],
       people: ["Schmied Andi"],
+      verifiedPersonIds: ["person-schmied"],
       companies: [],
       similarity: 0.35,
     };
 
     expect(isSafeRelatedEpisode(source, candidate)).toBe(true);
+  });
+
+  it("does not treat a matching display name alone as a shared person", () => {
+    expect(isSafeRelatedEpisode(
+      { title: "Életútinterjú", podcastTitle: "Beszélgetések", category: "Society & Culture", topics: [], people: ["Schmied Andi"], companies: [] },
+      { title: "Egy másik beszélgetés", podcastTitle: "Portré", category: "Society & Culture", topics: [], people: ["Schmied Andi"], companies: [], similarity: 0.35 },
+    )).toBe(false);
   });
 });

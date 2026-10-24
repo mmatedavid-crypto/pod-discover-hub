@@ -84,7 +84,10 @@
 - [x] E: Google Indexing API safe no-op; nothing marked indexed.
 - [x] Health: real completions vs dispatch, freshness, intentional pauses (admin panel + snapshot).
 - [x] Person extractor: unchanged inputs skipped, judged mentions protected.
-- [ ] Publish the frontend (admin health panel) (waits on user publish).
 - [ ] ~3 000 stale derived results drain at 300/day within existing budgets (runs on its own).
 - [ ] Paid person review (cron 189) stays paused (blocked: owner decision); D/E-tier topics excluded by policy (blocked: owner decision).
 - [ ] Older topic extraction errors (~8 800) not re-run (blocked: would be a broad AI backfill; owner decision).
+- [x] Homonym person links: recommendations, episode person links/JSON-LD and person-page roles use only verified identities (2026-10-24 follow-up).
+- [x] smart_player_discover ambiguity error fixed (player discovery no longer falls back to unrelated episodes).
+- [ ] Episode card person chips are still linkable by name (get_linkable_entities is not per episode).
+- [ ] Publish the frontend (recommendation, person-link and admin panel changes) (waits on user publish).

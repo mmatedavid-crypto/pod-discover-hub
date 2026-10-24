@@ -11725,6 +11725,13 @@ export type Database = {
         Args: { p_episode_id: string; p_max_chars?: number }
         Returns: string
       }
+      get_episode_person_links_v1: {
+        Args: { p_episode_id: string }
+        Returns: {
+          person_id: string
+          verified: boolean
+        }[]
+      }
       get_episode_public_clean_description_v1: {
         Args: { p_episode_id: string }
         Returns: string
@@ -11830,6 +11837,19 @@ export type Database = {
           summary: string
           title: string
           topics: string[]
+        }[]
+      }
+      get_shared_verified_people_v1: {
+        Args: {
+          p_candidate_ids?: string[]
+          p_episode_id: string
+          p_limit?: number
+        }
+        Returns: {
+          episode_id: string
+          person_id: string
+          person_name: string
+          person_slug: string
         }[]
       }
       get_similar_podcasts_by_embedding: {
@@ -12299,6 +12319,10 @@ export type Database = {
         Returns: Json
       }
       person_judge_telemetry: { Args: { _patch: Json }; Returns: undefined }
+      person_link_trusted_v1: {
+        Args: { p_person_id: string; p_validation_source: string }
+        Returns: boolean
+      }
       person_openai_batch_candidates: {
         Args: {
           _limit: number
@@ -12516,6 +12540,7 @@ export type Database = {
         Args: { _job: string }
         Returns: Json
       }
+      runner_pause_reason_v1: { Args: { p_runner: string }; Returns: string }
       search_backfill_batch: {
         Args: { _batch?: number; _table: string }
         Returns: number
@@ -12931,6 +12956,14 @@ export type Database = {
           p_reason?: string
         }
         Returns: Json
+      }
+      verified_episode_person_ids_v1: {
+        Args: { p_episode_id: string }
+        Returns: string[]
+      }
+      verified_person_overlap_v1: {
+        Args: { p_episode_id: string; p_source_person_ids: string[] }
+        Returns: number
       }
       youtube_source_quality_metrics_v1: { Args: never; Returns: Json }
     }

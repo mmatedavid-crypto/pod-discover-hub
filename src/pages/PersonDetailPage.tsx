@@ -1,3 +1,4 @@
+import { isExcludedPersonMention, personPageMentionRows } from "../../supabase/functions/_shared/person-link-trust";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -179,8 +180,9 @@ export default function PersonDetailPage() {
           if (exemplar === decodedSlug) exemplar = hit;
           fallbackEps.push({
             ...e,
-            mention_type: participantHit ? "participant" : "mention",
-            role_type: participantHit ? "participant" : "mention",
+            // Name-only match (no reviewed person link): never claimed as a participant.
+            mention_type: "mention",
+            role_type: "mention",
           });
           if (e.podcasts) podMap.set(e.podcast_id, e.podcasts);
         });
@@ -313,15 +315,11 @@ export default function PersonDetailPage() {
         const legacyOk = (!m.relevance_status || m.relevance_status === "pending")
           && ["host","guest","subject","archival_source","interviewee","speaker"].includes(m.mention_type)
           && Number(m.confidence || 0) >= 0.80;
-        if (m.relevance_status === "rejected" || m.relevance_status === "needs_review") return;
+        if (isExcludedPersonMention(m)) return;
         if (!(accepted || strongAi || manual || legacyOk)) return;
-        // Derive role_type if missing (defensive — backfilled in DB but new rows might not have it yet)
-        let roleType = m.role_type as string | null;
-        if (!roleType) {
-          if (["host","guest","interviewee","speaker","archival_source"].includes(m.mention_type)) roleType = "participant";
-          else if (m.mention_type === "subject") roleType = "subject";
-          else roleType = "mention";
-        }
+        // A name match is not a verified identity: only reviewed accepted links keep their
+        // participant/subject role; unreviewed rows are shown as mentions only.
+        const roleType = personPageMentionRows([m])[0]?.role ?? "mention";
         epList.push({ ...m.episodes, mention_type: m.mention_type, role_type: roleType });
         if (m.episodes.podcasts) podMap.set(m.episodes.podcast_id, m.episodes.podcasts);
       });

@@ -59,3 +59,48 @@ All numbers below were measured on production on 2026-10-24 (UTC).
 - `get_pipeline_health_snapshot_v1` (verifier) still runs ~15–20 s because of catalog-wide counts; the browser uses the light read.
 - Not supported in this pass: web enrichment, new paid services, re-embedding changed clean text, transcript use in public pages.
 - Frontend (admin panel, earlier visitor description changes) needs a publish.
+
+## Follow-up 2026-10-24 15:15–15:35: homonym person links in recommendations
+
+Bug (verified live): the Aranyklinika urologist episode recommended a Hermann Zeneiskola
+music-director episode and a chamber-music episode with "Kapcsolódó személy: Király István".
+Person `kiraly-istvan`: accepted reviewed link only on the urology episode; the namesake
+links are `pending` (no review).
+
+Root causes: raw `people[]`/`mentioned[]` display names bridged, scored and explained
+recommendations in `similar_episodes`, `get_related_episodes_by_embedding`, the
+RelatedEpisodes fallback (name `overlaps` probe + reason), SimilarEpisodes and
+`recommendationGuards`; episode pages (SPA + crawler) linked/emitted Person JSON-LD by name
+match or any mention row (incl. rejected); person pages showed unreviewed rows as
+participants (crawler page also showed rejected rows); "A Podiverzum szerint" person chips
+linked by guessed slug. Separately `smart_player_discover` always failed ("episode_id is
+ambiguous"), so the player fell back to unrelated recent episodes.
+
+Fix (migrations `0083`, `0084`, prerender `a2de5367…`, frontend):
+- `person_link_trusted_v1` / `verified_episode_person_ids_v1` / `verified_person_overlap_v1`:
+  a shared person = same canonical id with accepted + reviewed (`validation_source`) links on
+  both episodes, trusted identity (not merged/split, not ambiguous unless manual, not hidden).
+- Recommendation RPCs use only verified overlap for bridge/score/reason; topics/companies/
+  category unchanged. `smart_player_discover` person hits require the same trust; ambiguity fixed.
+- `get_shared_verified_people_v1` feeds fallback probes/reasons and the client guard;
+  `recommendationGuards` ignores raw names (bridge, score and grouping).
+- `get_episode_person_links_v1`: episode person links never rejected/needs_review; an
+  unreviewed namesake is never attached to a person who has verified links elsewhere;
+  Person JSON-LD / `about` only for verified links; unlinked person names are plain text.
+- Person pages (`_shared/person-link-trust.ts`): rejected/needs_review hidden; unreviewed rows
+  only under "Említések", never participant/subject.
+- Health: `runner_pause_reason_v1` reports kill switch, controls pause (incl. queue-health
+  auto pause), quota cooldown and daily budget as `paused`; derivation freshness is `paused`
+  when the daily dispatch cap is reached with nothing queued; red stays for queued work not
+  completing or dispatch stopping below the cap (checked in a rolled-back transaction).
+
+Evidence: urology episode (preview) box now shows only shared-topic urology episodes, no
+person reason; music-director episode: 0 links to `/szemelyek/kiraly-istvan`, no Person
+JSON-LD (live crawler HTML too); person page: urology episode under participants, namesakes
+only under "Említések"; verified same-person case (Magyar Péter) still returns
+"Kapcsolódó személyek alapján." (RPCs 20–30 ms; discover 360 ms). No person split/merge and
+no review decision was changed.
+
+Still open: episode cards' person chips (`get_linkable_entities`) are linkable by name, not per
+episode; 154 893 unreviewed mentions on 12 945 people with verified links remain "Említések"
+until reviewed (paid review paused).
