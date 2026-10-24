@@ -677,11 +677,13 @@ export default {
 
     // Cache successful pages for 24h; confirmed missing content for only 60s.
     if (isSearch) {
-      // "Vary: User-Agent" stops the Cache API from storing the copy; the search
-      // cache key already separates the AI and basic tiers, so drop it here only.
+      // The upstream Set-Cookie (__cf_bm) and "Vary: User-Agent" stop the Cache
+      // API from storing the copy; the search cache key already separates the AI
+      // and basic tiers, so drop both here only (other pages unchanged).
       const cached = resp.clone();
       const ch = new Headers(cached.headers);
       ch.delete("Vary");
+      ch.delete("Set-Cookie");
       ctx.waitUntil(cache.put(cacheKey, new Response(cached.body, { status: cached.status, headers: ch })));
     } else {
       ctx.waitUntil(cache.put(cacheKey, resp.clone()));
