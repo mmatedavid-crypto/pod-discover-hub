@@ -10,6 +10,7 @@ import { SYSTEM_PROMPT, PODCAST_SEO_TOOL, EPISODE_SEO_TOOL, podcastUserPrompt, e
 import { chatTokenCostUsd } from "../_shared/ai-pricing.ts";
 import { assertHungarianPublicFields, isHungarianish } from "../_shared/hu-language-guard.ts";
 import { callLovableAI } from "../_shared/lovable-ai.ts";
+import { loadDerivationInputs, markDerivation, promptUsedCleanHash } from "../_shared/derivation-state.ts";
 
 const HU_REINFORCE = "KRITIKUS NYELVI SZABÁLY: A seo_title, seo_description ÉS ai_summary mezőket KIZÁRÓLAG MAGYARUL írd. A Podiverzum magyar oldal, angol publikus szöveg nem kerülhet ki. NE keverd a nyelveket. Ha az előző válaszod angol volt, ez hiba volt — most magyarul írj. TÉNYSZABÁLY: számot, évszámot, évfordulót, dátumot vagy statisztikát CSAK akkor írj, ha szó szerint szerepel a forrásszövegben; ne következtess és ne egészíts ki saját tudásból.";
 
@@ -368,6 +369,16 @@ Deno.serve(async (req) => {
             ai_summary_source: fromTranscript ? "transcript" : "description",
             ai_enriched_at: new Date().toISOString(),
           }).eq("id", job.target_id);
+          // Record the clean-text version this SEO result was built from. Pre-built
+          // (enqueue-time) prompts count only when they contain the live clean text.
+          {
+            let usedHash: string | null = (job as any).__clean_hash ?? null;
+            if (!usedHash && job.result?.prompt) {
+              const inp = (await loadDerivationInputs(admin, [job.target_id])).get(String(job.target_id));
+              usedHash = inp ? promptUsedCleanHash(String(job.result.prompt), inp.text, inp.hash) : null;
+            }
+            await markDerivation(admin, "seo", [{ episode_id: job.target_id, used_hash: usedHash, result: "done" }]);
+          }
           // If a real (non-mul) language is detected for the episode and it disagrees with
           // the parent podcast's tag, fix the parent. Handles both wrong-EN→other AND wrong-HU→EN.
           if (detectedLang && detectedLang !== "mul" && !isAcceptedHungarian(epPodcastMeta)) {
