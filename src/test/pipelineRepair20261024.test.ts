@@ -328,35 +328,31 @@ describe("SEO job failure bookkeeping (failure injection, no paid AI)", () => {
     };
     return { admin, calls };
   }
-  it("failed job write never marks the stage blocked", async () => {
+  it("terminal failure is one atomic RPC; its error is returned, nothing else is written", async () => {
     const { persistSeoJobFailure } = await import("../../supabase/functions/_shared/derivation-state");
-    const { admin, calls } = fakeAdmin({ updateError: "connection reset" });
-    const r = await persistSeoJobFailure(admin, "j1", { status: "failed" }, mark);
-    expect(r).toEqual({ ok: false, step: "job_update", error: "connection reset" });
-    expect(calls).toEqual(["job_update"]);
+    const { admin, calls } = fakeAdmin({ rpcError: "injected_stage_failure" });
+    const r = await persistSeoJobFailure(admin, "j1", { status: "failed", last_error: "x" }, mark);
+    expect(r).toEqual({ ok: false, step: "terminal_atomic", error: "injected_stage_failure" });
+    expect(calls).toEqual(["fail_seo_job_terminal_v1"]);
+    const ok = fakeAdmin({});
+    expect(await persistSeoJobFailure(ok.admin, "j1", { status: "failed", last_error: "x" }, mark)).toEqual({ ok: true, terminal: true, stage_marked: true });
+    expect(ok.calls).toEqual(["fail_seo_job_terminal_v1"]);
   });
-  it("zero rows updated is not success and does not mark", async () => {
+  it("retryable failure: failed or zero-row job write is reported; stage never touched", async () => {
     const { persistSeoJobFailure } = await import("../../supabase/functions/_shared/derivation-state");
-    const { admin, calls } = fakeAdmin({ rows: 0 });
-    const r = await persistSeoJobFailure(admin, "j1", { status: "failed" }, mark);
-    expect(r.ok).toBe(false);
-    expect(calls).toEqual(["job_update"]);
+    const a = fakeAdmin({ updateError: "connection reset" });
+    expect(await persistSeoJobFailure(a.admin, "j1", { status: "pending" }, null)).toEqual({ ok: false, step: "job_update", error: "connection reset" });
+    const b = fakeAdmin({ rows: 0 });
+    expect((await persistSeoJobFailure(b.admin, "j1", { status: "pending" }, null)).ok).toBe(false);
+    const c = fakeAdmin({});
+    expect(await persistSeoJobFailure(c.admin, "j1", { status: "pending" }, null)).toEqual({ ok: true, terminal: false, stage_marked: false });
+    expect([...a.calls, ...b.calls, ...c.calls]).toEqual(["job_update", "job_update", "job_update"]);
   });
-  it("stage-mark RPC error is reported, not swallowed", async () => {
-    const { persistSeoJobFailure } = await import("../../supabase/functions/_shared/derivation-state");
-    const { admin, calls } = fakeAdmin({ rpcError: "statement timeout" });
-    const r = await persistSeoJobFailure(admin, "j1", { status: "failed" }, mark);
-    expect(r).toEqual({ ok: false, step: "stage_mark", error: "statement timeout" });
-    expect(calls).toEqual(["job_update", "mark_episode_derivation_v1"]);
-  });
-  it("terminal success marks once; non-terminal retry never marks", async () => {
-    const { persistSeoJobFailure } = await import("../../supabase/functions/_shared/derivation-state");
-    const a = fakeAdmin({});
-    expect(await persistSeoJobFailure(a.admin, "j1", { status: "failed" }, mark)).toEqual({ ok: true, terminal: true, stage_marked: true });
-    expect(a.calls).toEqual(["job_update", "mark_episode_derivation_v1"]);
-    const b = fakeAdmin({});
-    expect(await persistSeoJobFailure(b.admin, "j1", { status: "pending" }, null)).toEqual({ ok: true, terminal: false, stage_marked: false });
-    expect(b.calls).toEqual(["job_update"]);
+  it("atomic RPC: one transaction, service-only, version-guarded mark", () => {
+    const sql = readFileSync("drizzle/migrations/0093_seo_job_terminal_failure_atomic_fix_columns.sql", "utf8");
+    expect(sql).toContain("public.mark_episode_derivation_v1('seo', jsonb_build_array(p_mark))");
+    expect(sql).toContain("FROM PUBLIC, anon, authenticated");
+    expect(sql).toContain("TO service_role");
   });
   it("runner logs a bookkeeping failure as an error run", () => {
     const src = readFileSync("supabase/functions/seo-enrich-runner/index.ts", "utf8");
