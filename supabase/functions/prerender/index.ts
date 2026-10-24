@@ -787,21 +787,15 @@ async function buildEpisode(
     : [];
   const [
     { data: cleanRow },
-    { data: transcriptRow },
     { data: siblingEps },
     { data: topicRows },
     { data: orgRows },
     { data: relatedRows },
   ] = await Promise.all([
     // Owner-approved public cleaned text (YouTube / Spotify show notes) with its source;
-    // the clean-text table itself stays admin-only.
+    // the clean-text table itself stays admin-only. No transcript excerpt: transcripts
+    // are never public (owner rule), so get_episode_index_text is not used here.
     (supabase as any).rpc("get_episode_public_clean_description_v2", { p_episode_id: ep.id }),
-    // Transcripts are not readable by anon (rights-gated table); a bounded,
-    // index-only excerpt is exposed through a dedicated read-only function.
-    (supabase as any).rpc("get_episode_index_text", {
-      p_episode_id: ep.id,
-      p_max_chars: 16000,
-    }),
     supabase
       .from("episode_cards")
       .select("title, display_title, slug, published_at, summary:card_summary")
