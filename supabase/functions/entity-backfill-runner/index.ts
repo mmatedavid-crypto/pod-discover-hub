@@ -303,6 +303,7 @@ Deno.serve(async (req) => {
               extracted_at: new Date().toISOString(),
             },
           }).eq("id", ep.id);
+          if (ep.__clean_hash) await markDerivation(admin, "entity", [{ episode_id: ep.id, used_hash: ep.__clean_hash, result: "not_applicable", reason: `input_${skipReason}` }]);
           succeeded++;
           return;
         }
@@ -428,15 +429,17 @@ Deno.serve(async (req) => {
             person_mentions: dedupedPeopleEvidence,
             organizations,
             rejected_policy: "literal_name_and_evidence_required",
+            input: cleanedText ? "clean_text" : "fallback_summary_or_description",
+            clean_hash: ep.__clean_hash || null,
           },
           ai_entities_version: 5,
         }).eq("id", ep.id);
 
-        // Drop stale episode_organization_map rows for this episode — the
-        // organizations-backfill-runner will rebuild them from the fresh
-        // `organizations` jsonb on its next pass. This guarantees orgs that
-        // disappeared after clean_text re-extraction stop being attributed.
-        await admin.from("episode_organization_map").delete().eq("episode_id", ep.id);
+        // Drop stale machine-built episode_organization_map rows for this episode —
+        // the organizations-backfill-runner rebuilds them from the fresh
+        // `organizations` jsonb. Reclassification decisions are kept.
+        await admin.from("episode_organization_map").delete().eq("episode_id", ep.id).neq("source", "reclassified_from_person");
+        if (ep.__clean_hash) await markDerivation(admin, "entity", [{ episode_id: ep.id, used_hash: ep.__clean_hash, result: "done" }]);
 
         succeeded++;
         mySpend += cost; runIncrement += cost; runCalls++;
@@ -468,15 +471,13 @@ Deno.serve(async (req) => {
       if (!list.length) break;
 
       const ids = list.map((r) => r.id).filter(Boolean);
-      const { data: cleanRows } = await admin
-        .from("episode_clean_text")
-        .select("episode_id, cleaned_text")
-        .in("episode_id", ids);
-      const cleanByEpisode = new Map<string, string>(
-        (cleanRows || []).map((r: any) => [String(r.episode_id), String(r.cleaned_text || "")]),
-      );
+      // Clean text + its content fingerprint in one consistent read; the hash is
+      // recorded so a later clean-text change marks this result stale.
+      const inputs = await loadDerivationInputs(admin, ids);
       for (const ep of list) {
-        ep.cleaned_text = cleanByEpisode.get(String(ep.id)) || "";
+        const inp = inputs.get(String(ep.id));
+        ep.cleaned_text = inp?.text || "";
+        ep.__clean_hash = ep.cleaned_text ? inp?.hash || null : null;
       }
 
       total_seen += list.length;
