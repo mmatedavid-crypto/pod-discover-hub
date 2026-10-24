@@ -143,7 +143,7 @@ Deno.serve(async (req) => {
     log = runLog(admin, "seo-enrich-runner");
     await log.start({ model, daily_budget_usd: dailyBudget, spend_before_usd: spend });
 
-    let processed = 0, succeeded = 0, failed = 0, skipped = 0, rate_limited = 0;
+    let processed = 0, succeeded = 0, failed = 0, skipped = 0, rate_limited = 0, failure_bookkeeping_errors = 0;
     let stop = false;
     let total_claimed = 0;
     let drain_loops = 0;
@@ -538,8 +538,10 @@ Deno.serve(async (req) => {
       try { await admin.rpc("set_seo_enrich_runner_schedule" as any, { _schedule: next_schedule }); } catch { /* ignore */ }
     } catch { /* ignore */ }
 
-    const summary = { ok: true, claimed: total_claimed, drain_loops, processed, succeeded, failed, skipped, rate_limited, concurrency, spend_usd: spend, run_increment_usd: runIncrement, reaped_stale_locks, next_schedule, elapsed_ms: Date.now() - startedAt };
-    await log?.finish("ok", summary);
+    const summary = { ok: failure_bookkeeping_errors === 0, claimed: total_claimed, drain_loops, processed, succeeded, failed, failure_bookkeeping_errors, skipped, rate_limited, concurrency, spend_usd: spend, run_increment_usd: runIncrement, reaped_stale_locks, next_schedule, elapsed_ms: Date.now() - startedAt };
+    // A failed job/stage write is not successful bookkeeping: the run is logged as an error.
+    await log?.finish(failure_bookkeeping_errors === 0 ? "ok" : "error", summary,
+      failure_bookkeeping_errors ? `failure_bookkeeping_errors:${failure_bookkeeping_errors}` : null);
     return json(summary);
   } catch (e: any) {
     await log?.finish("error", { elapsed_ms: Date.now() - startedAt }, e?.message || "error");
