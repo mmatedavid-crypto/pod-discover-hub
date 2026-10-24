@@ -91,6 +91,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const startedAt = Date.now();
   const TIME_BUDGET_MS = 80_000;
+  let log: ReturnType<typeof runLog> | null = null;
 
   try {
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
