@@ -139,6 +139,9 @@ Deno.serve(async (req) => {
       return json({ ok: true, budget_reached: true, spend });
     }
 
+    log = runLog(admin, "seo-enrich-runner");
+    await log.start({ model, daily_budget_usd: dailyBudget, spend_before_usd: spend });
+
     let processed = 0, succeeded = 0, failed = 0, skipped = 0, rate_limited = 0;
     let stop = false;
     let total_claimed = 0;
@@ -517,8 +520,11 @@ Deno.serve(async (req) => {
       try { await admin.rpc("set_seo_enrich_runner_schedule" as any, { _schedule: next_schedule }); } catch { /* ignore */ }
     } catch { /* ignore */ }
 
-    return json({ ok: true, claimed: total_claimed, drain_loops, processed, succeeded, failed, skipped, rate_limited, concurrency, spend_usd: spend, reaped_stale_locks, next_schedule, elapsed_ms: Date.now() - startedAt });
+    const summary = { ok: true, claimed: total_claimed, drain_loops, processed, succeeded, failed, skipped, rate_limited, concurrency, spend_usd: spend, run_increment_usd: runIncrement, reaped_stale_locks, next_schedule, elapsed_ms: Date.now() - startedAt };
+    await log?.finish("ok", summary);
+    return json(summary);
   } catch (e: any) {
+    await log?.finish("error", { elapsed_ms: Date.now() - startedAt }, e?.message || "error");
     return json({ error: e?.message || "error" }, 500);
   }
 });
