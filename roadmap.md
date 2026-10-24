@@ -96,3 +96,10 @@
 - [x] Owner throughput raise 17:06 UTC (enqueue every minute, batch 30–60 adaptive, SEO/entity every 3 min, topic/source every 5 min) inside the catch-up; dispatch query fixed (0095/0096).
 - [ ] Catch-up drains on its own until 2026-10-25 15:33 UTC (or earlier when nothing eligible or queued is left).
 
+
+## AI-asszisztensek podcast-almanachja (2026-10-24)
+- [x] (5) AI-forgalom mérése: admin analytics panel szerveroldali aggregálással (forrás, epizód/műsor-érkezés, lejátszás, heti trend, érkezési oldalak).
+- [x] (1) llms.txt átírva almanach-bemutatkozásra (szekciók, ajánlási szabályok, MCP, sitemap).
+- [x] (2) MCP élesben működik (6 eszköz, public read-only); find_mentions / get_episode_context névrokon-kapu a személyoldallal egyezően.
+- [ ] Publikálás szükséges (llms.txt, admin panel, MCP névrokon-javítás) — tulajdonosi publish.
+- [ ] Később: botoknak a /kereses oldal csak üres vázat ad; válaszra kész oldalak (3); gazdagabb háttéradatok (4); AI-crawler látogatások mérése a CF workerben.
