@@ -624,6 +624,13 @@
       "when": 1792857008354,
       "tag": "0088_pipeline_catchup_caller_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "7",
+      "when": 1792857047926,
+      "tag": "0089_pipeline_catchup_revoke_readonly",
+      "breakpoints": true
     }
   ]
 }
