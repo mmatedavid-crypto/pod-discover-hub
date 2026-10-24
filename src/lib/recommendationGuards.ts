@@ -3,13 +3,20 @@ export type RecommendationContext = {
   podcastTitle?: string | null;
   category?: string | null;
   topics?: string[] | null;
+  /**
+   * Raw extracted display names. A matching name is NOT a shared identity (homonyms), so
+   * these never bridge, score or explain a recommendation — kept only for callers' context.
+   */
   people?: string[] | null;
+  /** Canonical person ids with an accepted, reviewed link on this episode (trusted identity). */
+  verifiedPersonIds?: string[] | null;
   companies?: string[] | null;
 };
 
 export type RecommendationCandidate = RecommendationContext & {
   similarity?: number | null;
   sharedTopics?: string[] | null;
+  /** Names of people the server verified as the same identity on both episodes. */
   sharedPeople?: string[] | null;
   sharedCompanies?: string[] | null;
 };
@@ -43,7 +50,6 @@ function haystack(ctx: RecommendationContext): string {
       ctx.podcastTitle,
       ctx.category,
       ...(ctx.topics || []),
-      ...(ctx.people || []),
       ...(ctx.companies || []),
     ]
       .filter(Boolean)
@@ -71,14 +77,20 @@ function overlaps(a?: string[] | null, b?: string[] | null): boolean {
   return b.some((item) => left.has(normalizeText(item)));
 }
 
+/** Shared person identities: canonical ids verified on both sides, or server-verified names. */
+export function verifiedSharedPersonCount(source: RecommendationContext, candidate: RecommendationCandidate): number {
+  const left = new Set((source.verifiedPersonIds || []).filter(Boolean));
+  const byId = left.size ? (candidate.verifiedPersonIds || []).filter((id) => left.has(id)).length : 0;
+  return Math.max(byId, (candidate.sharedPeople || []).filter(Boolean).length);
+}
+
 function hasExplicitBridge(source: RecommendationContext, candidate: RecommendationCandidate): boolean {
   return (
     overlaps(source.topics, candidate.topics) ||
-    overlaps(source.people, candidate.people) ||
     overlaps(source.companies, candidate.companies) ||
     overlaps(source.topics, candidate.sharedTopics) ||
-    overlaps(source.people, candidate.sharedPeople) ||
-    overlaps(source.companies, candidate.sharedCompanies)
+    overlaps(source.companies, candidate.sharedCompanies) ||
+    verifiedSharedPersonCount(source, candidate) > 0
   );
 }
 
@@ -90,8 +102,7 @@ function overlapCount(a?: string[] | null, b?: string[] | null): number {
 
 function bridgeStrength(source: RecommendationContext, candidate: RecommendationCandidate): number {
   return (
-    overlapCount(source.people, candidate.people) * 4 +
-    overlapCount(source.people, candidate.sharedPeople) * 4 +
+    verifiedSharedPersonCount(source, candidate) * 4 +
     overlapCount(source.companies, candidate.companies) * 3 +
     overlapCount(source.companies, candidate.sharedCompanies) * 3 +
     overlapCount(source.topics, candidate.topics) * 2 +
