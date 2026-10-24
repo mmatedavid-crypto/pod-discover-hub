@@ -10,7 +10,8 @@ import { SYSTEM_PROMPT, PODCAST_SEO_TOOL, EPISODE_SEO_TOOL, podcastUserPrompt, e
 import { chatTokenCostUsd } from "../_shared/ai-pricing.ts";
 import { assertHungarianPublicFields, isHungarianish } from "../_shared/hu-language-guard.ts";
 import { callLovableAI } from "../_shared/lovable-ai.ts";
-import { loadDerivationInputs, markDerivation, promptUsedCleanHash } from "../_shared/derivation-state.ts";
+import { loadDerivationInputs, prebuiltPromptDecision, seoInputProvenance, seoPrimary, seoUsedCleanHash, type SeoInputProvenance } from "../_shared/derivation-state.ts";
+import { runLog } from "../_shared/runner-run-log.ts";
 
 const HU_REINFORCE = "KRITIKUS NYELVI SZABÁLY: A seo_title, seo_description ÉS ai_summary mezőket KIZÁRÓLAG MAGYARUL írd. A Podiverzum magyar oldal, angol publikus szöveg nem kerülhet ki. NE keverd a nyelveket. Ha az előző válaszod angol volt, ez hiba volt — most magyarul írj. TÉNYSZABÁLY: számot, évszámot, évfordulót, dátumot vagy statisztikát CSAK akkor írj, ha szó szerint szerepel a forrásszövegben; ne következtess és ne egészíts ki saját tudásból.";
 
@@ -259,6 +260,24 @@ Deno.serve(async (req) => {
             prompt = episodeUserPrompt(e as any, podName, podLanguage, podHosts, transcript);
           }
         }
+        // No paid call for a result that could not become current: a newer SEO result for
+        // the live clean-text version already exists (old/unknown-provenance jobs).
+        if (!isPodcast) {
+          const prov = (job as any).__prov as SeoInputProvenance | null;
+          const used = seoUsedCleanHash(prov);
+          const independent = seoPrimary(prov) === "transcript" && !used;
+          if (!independent) {
+            const { data: ds } = await admin.from("episode_derivation_state").select("seo_status, seo_hash, clean_hash").eq("episode_id", job.target_id).maybeSingle();
+            if (ds && ["current", "not_applicable", "blocked"].includes(String(ds.seo_status)) && ds.seo_hash && ds.seo_hash === ds.clean_hash && used !== ds.clean_hash) {
+              await admin.from("ai_enrichment_jobs").update({
+                status: "done", completed_at: new Date().toISOString(), cost_usd: 0, locked_until: null,
+                last_error: "superseded_by_current_version_no_ai_call",
+              }).eq("id", job.id);
+              skipped++;
+              return;
+            }
+          }
+        }
         const tool = isPodcast ? PODCAST_SEO_TOOL : EPISODE_SEO_TOOL;
         const toolName = isPodcast ? "podcast_seo" : "episode_seo";
         let ai = await callAI(model, [
@@ -410,8 +429,8 @@ Deno.serve(async (req) => {
           status: "done",
           completed_at: new Date().toISOString(),
           model, cost_usd: cost, input_tokens: inTok, output_tokens: outTok,
-          result: { ...job.result, parsed },
-          last_error: null,
+          result: { ...job.result, parsed, input_provenance: (job as any).__prov ?? job.result?.input_provenance ?? null, applied: (job as any).__applied ?? null },
+          last_error: (job as any).__applied === "superseded" ? "superseded_by_newer_version" : null,
         }).eq("id", job.id);
 
         succeeded++;
