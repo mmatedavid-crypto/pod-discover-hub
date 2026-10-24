@@ -10,6 +10,7 @@ import { SYSTEM_PROMPT, PODCAST_SEO_TOOL, EPISODE_SEO_TOOL, podcastUserPrompt, e
 import { chatTokenCostUsd } from "../_shared/ai-pricing.ts";
 import { assertHungarianPublicFields, isHungarianish } from "../_shared/hu-language-guard.ts";
 import { callLovableAI } from "../_shared/lovable-ai.ts";
+import { loadDerivationInputs, markDerivation, promptUsedCleanHash } from "../_shared/derivation-state.ts";
 
 const HU_REINFORCE = "KRITIKUS NYELVI SZABÁLY: A seo_title, seo_description ÉS ai_summary mezőket KIZÁRÓLAG MAGYARUL írd. A Podiverzum magyar oldal, angol publikus szöveg nem kerülhet ki. NE keverd a nyelveket. Ha az előző válaszod angol volt, ez hiba volt — most magyarul írj. TÉNYSZABÁLY: számot, évszámot, évfordulót, dátumot vagy statisztikát CSAK akkor írj, ha szó szerint szerepel a forrásszövegben; ne következtess és ne egészíts ki saját tudásból.";
 
@@ -161,7 +162,7 @@ Deno.serve(async (req) => {
             if (!p) throw new Error("target_missing");
             prompt = podcastUserPrompt(p as any);
           } else {
-            const { data: e } = await admin.from("episodes").select("title,display_title,description,published_at,podcasts!inner(title,display_title,language,language_decision,hosts)").eq("id", job.target_id).maybeSingle();
+            const { data: e } = await admin.from("episodes").select("title,display_title,description,published_at,seo_description,podcasts!inner(title,display_title,language,language_decision,hosts)").eq("id", job.target_id).maybeSingle();
             if (!e) throw new Error("target_missing");
             const podName = ((e as any).podcasts?.display_title) || ((e as any).podcasts?.title) || "";
             const podLanguage = ((e as any).podcasts?.language) || null;
@@ -180,20 +181,28 @@ Deno.serve(async (req) => {
             // Episode SEO/summary/entity input policy:
             // transcript wins; otherwise require promoted deterministic clean text.
             // Never spend AI on raw RSS/YT descriptions directly.
-            const { data: ct } = await admin
-              .from("episode_clean_text")
-              .select("cleaned_text,cleaner_method")
-              .eq("episode_id", job.target_id)
-              .like("cleaner_method", "deterministic_v4%")
-              .maybeSingle();
-            (e as any).clean_text = (ct as any)?.cleaned_text || null;
+            // Clean text is read with its content fingerprint (recorded after success).
+            const inp = (await loadDerivationInputs(admin, [job.target_id])).get(String(job.target_id));
+            const v4 = inp && inp.method.startsWith("deterministic_v4") ? inp : null;
+            (e as any).clean_text = v4?.text || null;
+            (job as any).__clean_hash = v4 && v4.text.trim().length >= 80 ? v4.hash : null;
             if (!(job as any).__has_transcript && String((e as any).clean_text || "").trim().length < 80) {
               // No transcript AND no usable text. Waiting forever leaves the episode
               // with NO meta at all (bad for indexing). After a 24h grace period we
-              // write a deterministic, AI-free Hungarian title-based meta instead.
+              // write a deterministic, AI-free Hungarian title-based meta instead —
+              // never over an existing description, and never an ai_summary.
               const jobAgeMs = Date.now() - new Date(job.created_at || Date.now()).getTime();
               const huSource = isAcceptedHungarian((e as any).podcasts);
               const epTitle = String((e as any).display_title || (e as any).title || "").replace(/\s+/g, " ").trim();
+              const hasMeta = String((e as any).seo_description || "").trim().length > 0;
+              if (hasMeta && jobAgeMs > 24 * 60 * 60 * 1000) {
+                await admin.from("ai_enrichment_jobs").update({
+                  status: "done", completed_at: new Date().toISOString(), cost_usd: 0, locked_until: null,
+                  last_error: "no_usable_text_existing_meta_kept",
+                }).eq("id", job.id);
+                skipped++;
+                return;
+              }
               if (jobAgeMs > 24 * 60 * 60 * 1000 && huSource && epTitle.length >= 3) {
                 const cut = (s: string, max: number, ellipsis = true) => {
                   s = s.replace(/\s+/g, " ").trim();
@@ -360,6 +369,16 @@ Deno.serve(async (req) => {
             ai_summary_source: fromTranscript ? "transcript" : "description",
             ai_enriched_at: new Date().toISOString(),
           }).eq("id", job.target_id);
+          // Record the clean-text version this SEO result was built from. Pre-built
+          // (enqueue-time) prompts count only when they contain the live clean text.
+          {
+            let usedHash: string | null = (job as any).__clean_hash ?? null;
+            if (!usedHash && job.result?.prompt) {
+              const inp = (await loadDerivationInputs(admin, [job.target_id])).get(String(job.target_id));
+              usedHash = inp ? promptUsedCleanHash(String(job.result.prompt), inp.text, inp.hash) : null;
+            }
+            await markDerivation(admin, "seo", [{ episode_id: job.target_id, used_hash: usedHash, result: "done" }]);
+          }
           // If a real (non-mul) language is detected for the episode and it disagrees with
           // the parent podcast's tag, fix the parent. Handles both wrong-EN→other AND wrong-HU→EN.
           if (detectedLang && detectedLang !== "mul" && !isAcceptedHungarian(epPodcastMeta)) {

@@ -15,8 +15,16 @@
 //    clean-text-repair). Fast-lane episodes whose YouTube source stopped being
 //    verified get their YouTube-derived clean text rebuilt from RSS.
 // Policy: _shared/best-text-source-policy.ts + _shared/youtube-source-gain.ts.
-// Progress (cursors, per-feed counts, queue lag, errors) is persisted on every
-// run, including failures, so a 200 from pg_net is not mistaken for progress.
+//
+// Run accounting (2026-10-24): every run writes a pipeline_runner_runs row at start,
+// a heartbeat with the current stage (and the item ids it is working on) at each
+// stage, and ok/error at the end. A run killed by the edge CPU/wall limit never
+// reaches catch, so its row stays `running`; the next run marks it `killed`, shrinks
+// its own batch (÷4 per consecutive kill) and isolates a single offending item in
+// pipeline_item_blocks. Selection compute is metered (cpu budget); episodes past the
+// budget are deferred: cursors stop before them and fast-lane items are released
+// without counting an attempt. A cron dispatch (pg_net) is never counted as progress:
+// only an `ok` run row / last_success_at is.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 import { BEST_SOURCE_POLICY_VERSION } from "../_shared/best-text-source-policy.ts";
@@ -29,7 +37,15 @@ import {
   planYoutubeReclean,
   upsertSelections,
 } from "../_shared/best-text-source-core.ts";
-import { laneBudgets, recleanAllowances, spotifyRecleanAllowance } from "../_shared/best-text-source-lanes.ts";
+import {
+  consecutiveKills,
+  isolationLimit,
+  itemToIsolate,
+  laneBudgets,
+  processedPrefix,
+  recleanAllowances,
+  spotifyRecleanAllowance,
+} from "../_shared/best-text-source-lanes.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -42,7 +58,10 @@ type Cursor = { ts: string; id: string } | null;
 type FeedName = "transcript" | "youtube" | "article" | "spotify";
 const FEEDS: FeedName[] = ["transcript", "youtube", "article", "spotify"];
 const STATE_KEY = "episode_best_text_source_state";
+const RUNNER = "episode-best-text-source-runner";
 const MAX_TARGETS = 60; // AGENTS.md: ≤60 episodes per call (edge CPU)
+const DEFAULT_SELECTION_CPU_BUDGET_MS = 900;
+const KILLED_AFTER_MS = 4 * 60_000; // edge wall limit is 150 s; a silent row older than this was killed
 
 function feedQuery(admin: any, feed: FeedName) {
   switch (feed) {
@@ -65,8 +84,7 @@ async function readFeed(admin: any, feed: FeedName, cursor: Cursor, limit: numbe
   const { data, error } = await q.order("updated_at", { ascending: true }).order("id", { ascending: true }).limit(limit);
   if (error) throw new Error(`${feed} feed: ${error.message}`);
   const rows = (data || []) as Array<{ id: string; episode_id: string; updated_at: string }>;
-  const last = rows.length ? rows[rows.length - 1] : null;
-  return { rows, next: last ? { ts: last.updated_at, id: last.id } : cursor, exhausted: rows.length < limit };
+  return { rows, exhausted: rows.length < limit };
 }
 
 async function readState(admin: any) {
@@ -89,6 +107,41 @@ async function queueSizes(admin: any) {
   return { pending: p.count ?? null, dead: d.count ?? null };
 }
 
+/** Durable run log: start row, stage heartbeats (with the ids being worked on), completion. */
+function runLog(admin: any) {
+  let id: string | null = null;
+  let stageStart = Date.now();
+  let current = "init";
+  const stageMs: Record<string, number> = {};
+  const close = () => { stageMs[current] = (stageMs[current] || 0) + (Date.now() - stageStart); };
+  return {
+    get id() { return id; },
+    stageMs,
+    async start(meta: any) {
+      try {
+        const { data } = await admin.from("pipeline_runner_runs").insert({ runner: RUNNER, stage: "init", meta }).select("id").single();
+        id = data?.id ?? null;
+      } catch (_) { id = null; }
+    },
+    async beat(stage: string, patch: Record<string, unknown> = {}) {
+      close();
+      current = stage;
+      stageStart = Date.now();
+      if (!id) return;
+      try {
+        await admin.from("pipeline_runner_runs").update({ stage, heartbeat_at: new Date().toISOString(), stage_ms: stageMs, ...patch }).eq("id", id);
+      } catch (_) { /* telemetry only */ }
+    },
+    async finish(outcome: "ok" | "error", patch: Record<string, unknown> = {}) {
+      close();
+      if (!id) return;
+      try {
+        await admin.from("pipeline_runner_runs").update({ outcome, finished_at: new Date().toISOString(), heartbeat_at: new Date().toISOString(), stage: current, stage_ms: stageMs, ...patch }).eq("id", id);
+      } catch (_) { /* telemetry only */ }
+    },
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const startedAt = Date.now();
@@ -96,9 +149,11 @@ Deno.serve(async (req) => {
   let mode = "incremental";
   let stage = "init";
   let lease: { token: string; items: Array<{ episode_id: string; change_seq: number }> } | null = null;
+  let log: ReturnType<typeof runLog> | null = null;
+  const setStage = async (s: string, patch: Record<string, unknown> = {}) => { stage = s; if (log) await log.beat(s, patch); };
   try {
     admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-    const guard = await checkBackgroundJobsAllowed(admin, "episode-best-text-source-runner");
+    const guard = await checkBackgroundJobsAllowed(admin, RUNNER);
     if (guard.blocked) return json({ ok: true, skipped: true, reason: guard.reason });
 
     const body = await req.json().catch(() => ({}));
@@ -112,30 +167,66 @@ Deno.serve(async (req) => {
     // incremental run into an "ids" run (that bug froze every cursor at null).
     const explicitIds: string[] = Array.isArray(body.ids) ? body.ids.map(String).filter(Boolean).slice(0, limit) : [];
     mode = explicitIds.length ? "ids" : "incremental";
+    const tracked = mode === "incremental" && !dryRun;
+
+    // --- Run log + kill detection / isolation ---
+    log = runLog(admin);
+    const nowIso = new Date().toISOString();
+    await admin.from("pipeline_runner_runs")
+      .update({ outcome: "killed", finished_at: nowIso, error: "no_completion_heartbeat_stale_worker_killed" })
+      .eq("runner", RUNNER).eq("outcome", "running").lt("heartbeat_at", new Date(Date.now() - KILLED_AFTER_MS).toISOString());
+    const { data: recentRuns } = await admin.from("pipeline_runner_runs")
+      .select("id,outcome,stage,target_ids,meta,started_at")
+      .eq("runner", RUNNER).eq("meta->>tracked", "true")
+      .order("started_at", { ascending: false }).limit(8);
+    const recent = ((recentRuns || []) as any[]).filter((r) => r.outcome !== "running");
+    const kills = tracked ? consecutiveKills(recent) : 0;
+    const blocked = new Set<string>();
+    let newlyIsolated: string | null = null;
+    if (tracked) {
+      const isolate = itemToIsolate(recent[0]);
+      if (isolate) {
+        const { error: bErr } = await admin.from("pipeline_item_blocks").insert({
+          runner: RUNNER, item_kind: "episode", item_id: isolate, reason: "worker_killed_while_processing_only_this_item",
+          stage: recent[0]?.stage ?? null, run_id: recent[0]?.id ?? null,
+        });
+        if (!bErr) newlyIsolated = isolate;
+      }
+      const { data: blk } = await admin.from("pipeline_item_blocks").select("item_id")
+        .eq("runner", RUNNER).eq("item_kind", "episode").is("cleared_at", null).limit(1000);
+      for (const b of (blk || []) as any[]) blocked.add(String(b.item_id));
+    }
+    const effLimit = isolationLimit(limit, kills);
+    const scaleDown = (x: number) => (kills > 0 ? Math.max(x > 0 ? 1 : 0, Math.floor(x / Math.pow(4, kills))) : x);
+    const cpuBudgetMs = Math.max(200, Math.min(1500, Number(ctrl.selection_cpu_budget_ms ?? DEFAULT_SELECTION_CPU_BUDGET_MS)));
+    await log.start({ tracked, mode, dry_run: dryRun, limit, effective_limit: effLimit, consecutive_kills: kills, newly_isolated: newlyIsolated, blocked_items: blocked.size });
 
     const state = await readState(admin);
     const cursors: Record<FeedName, Cursor> = { transcript: null, youtube: null, article: null, spotify: null, ...(state.cursors || {}) };
     const nextCursors: Record<string, Cursor> = { ...cursors };
     const feedCounts: Record<string, number> = {};
     const feedExhausted: Record<string, boolean> = {};
+    const feedRows: Partial<Record<FeedName, Array<{ id: string; episode_id: string; updated_at: string }>>> = {};
     const targetIds: string[] = [...explicitIds];
     const seen = new Set<string>(targetIds);
+    const addTarget = (id: string) => { if (!id || seen.has(id)) return; seen.add(id); if (!blocked.has(id)) targetIds.push(id); };
     const budgets = laneBudgets(limit, ctrl, MAX_TARGETS);
 
     // 0) Fast lane: new / really changed verified YouTube pairs first (dry runs never claim).
     const fastIds = new Set<string>();
-    const fast = { claimed: 0, max_lag_s: 0 as number, reasons: {} as Record<string, number> };
+    const fast = { claimed: 0, max_lag_s: 0 as number, reasons: {} as Record<string, number>, released_deferred: 0, isolated: 0 };
     if (mode === "incremental" && !dryRun && budgets.fast > 0) {
-      stage = "fast_lane_claim";
-      const { data: claimed, error: cErr } = await admin.rpc("claim_episode_source_changes_v1", { p_limit: budgets.fast, p_lease_seconds: 600 });
+      await setStage("fast_lane_claim");
+      const { data: claimed, error: cErr } = await admin.rpc("claim_episode_source_changes_v1", { p_limit: Math.min(budgets.fast, effLimit), p_lease_seconds: 600 });
       if (cErr) throw new Error(`fast lane claim: ${cErr.message}`);
       const rows = (claimed || []) as any[];
       if (rows.length) {
         lease = { token: String(rows[0].lease_token), items: rows.map((r) => ({ episode_id: String(r.episode_id), change_seq: Number(r.change_seq) })) };
         for (const r of rows) {
           const id = String(r.episode_id);
+          if (blocked.has(id)) { fast.isolated++; continue; } // acked with the lease; recorded in pipeline_item_blocks
           fastIds.add(id);
-          if (!seen.has(id)) { seen.add(id); targetIds.push(id); }
+          addTarget(id);
           fast.reasons[r.reason] = (fast.reasons[r.reason] || 0) + 1;
           fast.max_lag_s = Math.max(fast.max_lag_s, Math.round((Date.now() - Date.parse(r.first_enqueued_at || r.enqueued_at)) / 1000));
         }
@@ -145,37 +236,33 @@ Deno.serve(async (req) => {
 
     // 2) Staged backfill of the verified-YouTube target set (keyset on episode_id).
     const backfill = { ...(state.youtube_backfill || {}) } as any;
-    let backfillCount = 0;
+    let backfillIds: string[] = [];
+    let backfillPer = 0;
     const backfillOn = mode === "incremental" && ctrl.youtube_backfill_enabled === true && !backfill.completed_at;
     if (backfillOn) {
-      const per = Math.min(budgets.backfill, MAX_TARGETS - targetIds.length);
-      if (per > 0) {
-        stage = "backfill_targets";
-        const { data, error } = await admin.rpc("best_source_youtube_gain_targets_v1", { p_after: backfill.cursor || null, p_limit: per });
+      backfillPer = Math.min(budgets.backfill, MAX_TARGETS - targetIds.length);
+      if (backfillPer > 0) {
+        await setStage("backfill_targets");
+        const { data, error } = await admin.rpc("best_source_youtube_gain_targets_v1", { p_after: backfill.cursor || null, p_limit: backfillPer });
         if (error) throw new Error(`backfill targets: ${error.message}`);
-        const ids = ((data || []) as any[]).map((r) => String(r.episode_id));
-        for (const id of ids) if (!seen.has(id)) { seen.add(id); targetIds.push(id); }
-        backfillCount = ids.length;
-        if (ids.length) backfill.cursor = ids[ids.length - 1];
-        if (ids.length < per) backfill.completed_at = new Date().toISOString();
+        backfillIds = ((data || []) as any[]).map((r) => String(r.episode_id));
+        for (const id of backfillIds) addTarget(id);
       }
     }
 
     // 2b) Staged verified-Spotify set (keyset on episode_id), only when enabled.
     const spBackfill = { ...(state.spotify_backfill || {}) } as any;
-    let spBackfillCount = 0;
+    let spBackfillIds: string[] = [];
+    let spPer = 0;
     const spBackfillOn = mode === "incremental" && budgets.spotifyBackfill > 0 && !spBackfill.completed_at;
     if (spBackfillOn) {
-      const per = Math.min(budgets.spotifyBackfill, MAX_TARGETS - targetIds.length);
-      if (per > 0) {
-        stage = "spotify_backfill_targets";
-        const { data, error } = await admin.rpc("best_source_spotify_targets_v1", { p_after: spBackfill.cursor || null, p_limit: per });
+      spPer = Math.min(budgets.spotifyBackfill, MAX_TARGETS - targetIds.length);
+      if (spPer > 0) {
+        await setStage("spotify_backfill_targets");
+        const { data, error } = await admin.rpc("best_source_spotify_targets_v1", { p_after: spBackfill.cursor || null, p_limit: spPer });
         if (error) throw new Error(`spotify backfill targets: ${error.message}`);
-        const ids = ((data || []) as any[]).map((r) => String(r.episode_id));
-        for (const id of ids) if (!seen.has(id)) { seen.add(id); targetIds.push(id); }
-        spBackfillCount = ids.length;
-        if (ids.length) spBackfill.cursor = ids[ids.length - 1];
-        if (ids.length < per) spBackfill.completed_at = new Date().toISOString();
+        spBackfillIds = ((data || []) as any[]).map((r) => String(r.episode_id));
+        for (const id of spBackfillIds) addTarget(id);
       }
     }
 
@@ -189,25 +276,57 @@ Deno.serve(async (req) => {
         for (const feed of FEEDS) {
           const q = Math.min(quotas[feed] || 0, room - used);
           if (q <= 0) continue;
-          stage = `feed_${feed}`;
-          const { rows, next, exhausted } = await readFeed(admin, feed, cursors[feed], q);
+          await setStage(`feed_${feed}`);
+          const { rows, exhausted } = await readFeed(admin, feed, cursors[feed], q);
           used += q;
           feedCounts[feed] = rows.length;
           feedExhausted[feed] = exhausted;
-          nextCursors[feed] = next;
-          for (const r of rows) if (r.episode_id && !seen.has(r.episode_id)) { seen.add(r.episode_id); targetIds.push(r.episode_id); }
+          feedRows[feed] = rows;
+          for (const r of rows) addTarget(r.episode_id);
         }
       }
     }
 
-    stage = "compute_selections";
-    const sel = await computeSelections(admin, targetIds.slice(0, MAX_TARGETS), ctrl);
+    // Selection: at most effLimit targets (isolation after kills), compute metered.
+    const allTargets = targetIds.slice(0, MAX_TARGETS);
+    const processList = allTargets.slice(0, effLimit);
+    await setStage("compute_selections", { target_ids: processList, effective_limit: effLimit });
+    const sel = await computeSelections(admin, processList, ctrl, { cpuBudgetMs });
+    const deferred = new Set<string>([...allTargets.slice(effLimit), ...sel.deferredIds]);
+
+    // Cursors / lane positions advance only over processed (or isolated) items.
+    for (const feed of FEEDS) {
+      const rows = feedRows[feed];
+      if (!rows) continue;
+      const { done, stoppedEarly } = processedPrefix(rows, (r) => String(r.episode_id || ""), deferred);
+      const last = done.length ? done[done.length - 1] : null;
+      nextCursors[feed] = last ? { ts: last.updated_at, id: last.id } : cursors[feed];
+      feedExhausted[feed] = !!feedExhausted[feed] && !stoppedEarly;
+      feedCounts[feed] = done.length;
+    }
+    let backfillCount = 0;
+    if (backfillIds.length) {
+      const { done, stoppedEarly } = processedPrefix(backfillIds, (x) => x, deferred);
+      backfillCount = done.length;
+      if (done.length) backfill.cursor = done[done.length - 1];
+      if (!stoppedEarly && backfillIds.length < backfillPer) backfill.completed_at = new Date().toISOString();
+    } else if (backfillOn && backfillPer > 0) backfill.completed_at = new Date().toISOString();
+    let spBackfillCount = 0;
+    if (spBackfillIds.length) {
+      const { done, stoppedEarly } = processedPrefix(spBackfillIds, (x) => x, deferred);
+      spBackfillCount = done.length;
+      if (done.length) spBackfill.cursor = done[done.length - 1];
+      if (!stoppedEarly && spBackfillIds.length < spPer) spBackfill.completed_at = new Date().toISOString();
+    } else if (spBackfillOn && spPer > 0) spBackfill.completed_at = new Date().toISOString();
+    for (const id of deferred) fastIds.delete(id);
+    const selectionMeta = { compute_ms: sel.computeMs, cpu_budget_ms: cpuBudgetMs, processed: sel.processedIds.length, deferred: deferred.size, slowest: sel.slowest };
 
     if (dryRun) {
-      return json({ ok: true, dry_run: true, mode, budgets, target_ids: targetIds.length, feed_counts: feedCounts, backfill_targets: backfillCount, spotify_backfill_targets: spBackfillCount, would_upsert: sel.rows.length, ...sel.stats, samples: sel.decisions.slice(0, 10).map((d) => ({ episode_id: d.episode_id, prev: d.prev_source, next: d.next_source, gain: d.gain?.decision ?? null })), queue: await queueSizes(admin), elapsed_ms: Date.now() - startedAt });
+      await log.finish("ok", { meta: { tracked, mode, dry_run: true, selection: selectionMeta, would_upsert: sel.rows.length } });
+      return json({ ok: true, dry_run: true, run_id: log.id, mode, budgets, effective_limit: effLimit, target_ids: allTargets.length, feed_counts: feedCounts, backfill_targets: backfillCount, spotify_backfill_targets: spBackfillCount, would_upsert: sel.rows.length, ...sel.stats, selection: selectionMeta, samples: sel.decisions.slice(0, 10).map((d) => ({ episode_id: d.episode_id, prev: d.prev_source, next: d.next_source, gain: d.gain?.decision ?? null })), queue: await queueSizes(admin), elapsed_ms: Date.now() - startedAt });
     }
 
-    stage = "upsert_selections";
+    await setStage("upsert_selections");
     const upserted = await upsertSelections(admin, sel.rows);
 
     // 3) Verified-YouTube re-clean: bounded, daily-capped, backed up, CAS.
@@ -217,7 +336,8 @@ Deno.serve(async (req) => {
     const usedToday = rc.day === today ? Number(rc.applied_today || 0) : 0;
     let recleanResult: any = null;
     if (ctrl.youtube_reclean_enabled === true) {
-      const allow = recleanAllowances(ctrl, usedToday);
+      const base = recleanAllowances(ctrl, usedToday);
+      const allow = { ...base, perRun: scaleDown(base.perRun), fast: scaleDown(base.fast), archive: scaleDown(base.archive) };
       const outcomes: Record<string, number> = {};
       const batches: Array<{ batch_id: string; applied: number; kind: string }> = [];
       let applied = 0, conflicts = 0, invalid = 0, planned = 0, fastApplied = 0, reverts = 0;
@@ -234,7 +354,6 @@ Deno.serve(async (req) => {
         return a;
       };
 
-      stage = "reclean_fast_lane";
       let fastBudget = allow.fast;
       if (fastIds.size && fastBudget > 0) {
         const { data: fp, error: fErr } = await admin.from("episode_best_text_source")
@@ -242,33 +361,39 @@ Deno.serve(async (req) => {
           .eq("reclean_status", "pending")
           .in("episode_id", Array.from(fastIds));
         if (fErr) throw fErr;
-        const rows = (fp || []) as any[];
+        const rows = ((fp || []) as any[]).filter((r) => !blocked.has(String(r.episode_id)));
         const yt = rows.filter((r) => r.source_type === "youtube").slice(0, fastBudget);
-        if (yt.length) fastApplied += await runBatch(await planYoutubeReclean(admin, yt), "fast_youtube");
+        if (yt.length) {
+          await setStage("reclean_fast_lane", { target_ids: yt.map((r) => r.episode_id) });
+          fastApplied += await runBatch(await planYoutubeReclean(admin, yt), "fast_youtube");
+        }
         fastBudget = Math.max(0, fastBudget - yt.length);
         const nonYt = rows.filter((r) => r.source_type !== "youtube").slice(0, fastBudget);
         if (nonYt.length) {
+          await setStage("reclean_fast_rss_revert", { target_ids: nonYt.map((r) => r.episode_id) });
           const a = await runBatch(await planRssRevert(admin, nonYt, { method: ctrl.clean_method_version }), "fast_rss_revert");
           fastApplied += a; reverts += a;
         }
       }
       const archiveAllowance = Math.max(0, Math.min(allow.archive, allow.perRun - planned, allow.cap - usedToday - fastApplied - allow.reserve));
       if (archiveAllowance > 0) {
-        stage = "reclean_archive";
         const { data: pend, error: pErr } = await admin
           .from("episode_best_text_source")
           .select("episode_id,podcast_id,raw_text,source_fingerprint,evidence")
           .eq("reclean_status", "pending")
           .eq("source_type", "youtube")
           .order("reclean_marked_at", { ascending: true })
-          .limit(archiveAllowance + fastIds.size);
+          .limit(archiveAllowance + fastIds.size + Math.min(blocked.size, 20));
         if (pErr) throw pErr;
-        const rows = ((pend || []) as any[]).filter((r) => !fastIds.has(String(r.episode_id))).slice(0, archiveAllowance);
-        if (rows.length) await runBatch(await planYoutubeReclean(admin, rows), "archive_youtube");
+        const rows = ((pend || []) as any[]).filter((r) => !fastIds.has(String(r.episode_id)) && !blocked.has(String(r.episode_id))).slice(0, archiveAllowance);
+        if (rows.length) {
+          await setStage("reclean_archive", { target_ids: rows.map((r) => r.episode_id) });
+          await runBatch(await planYoutubeReclean(admin, rows), "archive_youtube");
+        }
       }
       recleanResult = {
         batch_id: batches[0]?.batch_id ?? null, batches, planned, outcomes, applied, fast_applied: fastApplied, rss_reverts: reverts,
-        conflicts, invalid, cap: allow.cap, reserve_for_fast_lane: allow.reserve, used_today_before: usedToday,
+        conflicts, invalid, cap: allow.cap, per_run: allow.perRun, reserve_for_fast_lane: allow.reserve, used_today_before: usedToday,
         ...(planned === 0 && allow.fast === 0 ? { skipped: "daily_cap_reached" } : {}),
       };
     }
@@ -276,10 +401,10 @@ Deno.serve(async (req) => {
     // 3b) Verified-Spotify re-clean: own small per-run limit and daily cap (default off).
     const spRc = { ...(state.spotify_reclean || {}) } as any;
     const spUsedToday = spRc.day === today ? Number(spRc.applied_today || 0) : 0;
-    const spAllow = spotifyRecleanAllowance(ctrl, spUsedToday);
+    const spBase = spotifyRecleanAllowance(ctrl, spUsedToday);
+    const spAllow = { ...spBase, allowed: scaleDown(spBase.allowed) };
     let spotifyResult: any = null;
     if (spAllow.allowed > 0) {
-      stage = "reclean_spotify";
       // Only rows selected by the informative-gain policy (legacy length-based rows never qualify).
       const { data: sp, error: sErr } = await admin.from("episode_best_text_source")
         .select("episode_id,podcast_id,raw_text,source_fingerprint,evidence")
@@ -287,10 +412,11 @@ Deno.serve(async (req) => {
         .eq("source_type", "spotify")
         .eq("evidence->spotify_gain->>decision", "spotify_better")
         .order("reclean_marked_at", { ascending: true })
-        .limit(spAllow.allowed);
+        .limit(spAllow.allowed + Math.min(blocked.size, 20));
       if (sErr) throw sErr;
-      const rows = (sp || []) as any[];
+      const rows = ((sp || []) as any[]).filter((r) => !blocked.has(String(r.episode_id))).slice(0, spAllow.allowed);
       if (rows.length) {
+        await setStage("reclean_spotify", { target_ids: rows.map((r) => r.episode_id) });
         const plans = await planSpotifyReclean(admin, rows);
         const batchId = crypto.randomUUID();
         const res = await applyYoutubeReclean(admin, plans, batchId);
@@ -300,11 +426,19 @@ Deno.serve(async (req) => {
       } else spotifyResult = { planned: 0, applied: 0, cap: spAllow.cap, used_today_before: spUsedToday };
     }
 
-    // Ack the fast lane only after selection + re-clean succeeded.
+    // Fast lane: deferred items go back without an attempt counted; the rest are acked
+    // only after selection + re-clean succeeded (isolated items are acked; their block row stays).
     let ack: any = null;
-    stage = "fast_lane_ack";
+    await setStage("fast_lane_ack", { target_ids: null });
     if (lease) {
-      const { data: a, error: aErr } = await admin.rpc("ack_episode_source_changes_v1", { p_lease_token: lease.token, p_items: lease.items, p_error: null });
+      const deferredItems = lease.items.filter((it) => deferred.has(it.episode_id));
+      if (deferredItems.length) {
+        const { data: rel, error: rErr } = await admin.rpc("release_episode_source_changes_v1", { p_lease_token: lease.token, p_items: deferredItems });
+        if (rErr) throw new Error(`fast lane release: ${rErr.message}`);
+        fast.released_deferred = Number(rel || 0);
+      }
+      const doneItems = lease.items.filter((it) => !deferred.has(it.episode_id));
+      const { data: a, error: aErr } = await admin.rpc("ack_episode_source_changes_v1", { p_lease_token: lease.token, p_items: doneItems, p_error: null });
       if (aErr) throw new Error(`fast lane ack: ${aErr.message}`);
       ack = a; lease = null;
     }
@@ -313,6 +447,7 @@ Deno.serve(async (req) => {
     const now = new Date().toISOString();
     const runtimeMs = Date.now() - startedAt;
     const fastLane = { ...fast, acked: Number(ack?.done || 0), requeued_changed_during_run: Number(ack?.requeued || 0), queue_pending: queue.pending, queue_dead: queue.dead };
+    await setStage("persist_state");
     await persistState(admin, (fresh) => {
       const freshRc = fresh.youtube_reclean || {};
       const freshUsed = freshRc.day === today ? Number(freshRc.applied_today || 0) : 0;
@@ -354,11 +489,12 @@ Deno.serve(async (req) => {
         runs_ok: Number(fresh.runs_ok || 0) + 1,
         consecutive_errors: 0,
         last_success_at: now,
-        last_run: { at: now, ok: true, mode, budgets, scanned: sel.stats.scanned, fast_lane: fastLane, feed_counts: feedCounts, backfill_targets: backfillCount, upserted, unchanged: sel.stats.unchanged, rss_noop: sel.stats.rss_noop, reclean_marked: sel.stats.reclean_marked, source_counts: sel.stats.source_counts, youtube_gain: sel.stats.youtube_gain, spotify_gain: sel.stats.spotify_gain, spotify_backfill_targets: spBackfillCount, reclean: recleanResult, spotify_reclean: spotifyResult, runtime_ms: runtimeMs },
+        last_run: { at: now, ok: true, run_id: log?.id ?? null, mode, budgets, effective_limit: effLimit, consecutive_kills_before: kills, newly_isolated: newlyIsolated, scanned: sel.stats.scanned, selection: selectionMeta, fast_lane: fastLane, feed_counts: feedCounts, backfill_targets: backfillCount, upserted, unchanged: sel.stats.unchanged, rss_noop: sel.stats.rss_noop, reclean_marked: sel.stats.reclean_marked, source_counts: sel.stats.source_counts, youtube_gain: sel.stats.youtube_gain, spotify_gain: sel.stats.spotify_gain, spotify_backfill_targets: spBackfillCount, reclean: recleanResult, spotify_reclean: spotifyResult, runtime_ms: runtimeMs },
       };
     });
+    await log.finish("ok", { meta: { tracked, mode, effective_limit: effLimit, consecutive_kills_before: kills, newly_isolated: newlyIsolated, selection: selectionMeta, upserted, reclean_applied: Number(recleanResult?.applied || 0), spotify_applied: Number(spotifyResult?.applied || 0), fast_acked: fastLane.acked, fast_released: fast.released_deferred, runtime_ms: runtimeMs } });
 
-    return json({ ok: true, mode, budgets, scanned: sel.stats.scanned, fast_lane: fastLane, upserted, unchanged: sel.stats.unchanged, rss_noop: sel.stats.rss_noop, reclean_marked: sel.stats.reclean_marked, feed_counts: feedCounts, backfill_targets: backfillCount, source_counts: sel.stats.source_counts, youtube_gain: sel.stats.youtube_gain, spotify_gain: sel.stats.spotify_gain, spotify_backfill_targets: spBackfillCount, reclean: recleanResult, spotify_reclean: spotifyResult, elapsed_ms: runtimeMs });
+    return json({ ok: true, run_id: log.id, mode, budgets, effective_limit: effLimit, consecutive_kills_before: kills, newly_isolated: newlyIsolated, scanned: sel.stats.scanned, selection: selectionMeta, fast_lane: fastLane, upserted, unchanged: sel.stats.unchanged, rss_noop: sel.stats.rss_noop, reclean_marked: sel.stats.reclean_marked, feed_counts: feedCounts, backfill_targets: backfillCount, source_counts: sel.stats.source_counts, youtube_gain: sel.stats.youtube_gain, spotify_gain: sel.stats.spotify_gain, spotify_backfill_targets: spBackfillCount, reclean: recleanResult, spotify_reclean: spotifyResult, elapsed_ms: runtimeMs });
   } catch (e) {
     const base = e instanceof Error ? `${e.message}${e.stack ? ` :: ${e.stack.split('\n').slice(0, 3).join(' | ')}` : ''}` : (typeof e === "string" ? e : JSON.stringify(e));
     const msg = `[${stage}] ${base}`;
@@ -368,6 +504,7 @@ Deno.serve(async (req) => {
       if (lease) {
         try { await admin.rpc("ack_episode_source_changes_v1", { p_lease_token: lease.token, p_items: lease.items, p_error: msg.slice(0, 500) }); } catch (_) { /* lease expires and is retried */ }
       }
+      if (log) await log.finish("error", { error: msg.slice(0, 500) });
       try {
         await persistState(admin, (fresh) => ({
           ...fresh,

@@ -15,6 +15,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 import { inputHash, podcastUserPrompt, episodeUserPrompt } from "../_shared/seo-prompt.ts";
+import { derivationSeoJobKey } from "../_shared/derivation-state.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -270,6 +271,40 @@ Deno.serve(async (req) => {
       }
     }
 
+    // === PASS 4: clean-text content changed after SEO/topic/entity were built ===
+    // dispatch_stale_derivations_v1 (bounded per run + per day) re-opens topic and
+    // entity work in their own queues and returns the episodes whose SEO is stale.
+    // SEO jobs carry no pre-built prompt: the runner builds it from the clean text
+    // live at run time and records that version's hash. One job per clean-text
+    // version (input_hash), so a second pass over the same version is a no-op.
+    let derivationDispatched = 0, derivationSeoJobs = 0;
+    let derivationErr: string | null = null;
+    if (body.skip_derivation !== true) {
+      const { data: stale, error: dErr } = await admin.rpc("dispatch_stale_derivations_v1", {
+        p_limit: Math.max(0, Math.min(60, Number(body.derivation_limit ?? 20))),
+        p_dry_run: body.derivation_dry_run === true,
+      });
+      if (dErr) derivationErr = dErr.message;
+      const list = (stale || []) as any[];
+      derivationDispatched = list.length;
+      const seoRows = list.filter((r) => r.seo_dispatch && r.clean_hash).map((r) => ({
+        kind: "seo_episode",
+        target_type: "episode",
+        target_id: r.episode_id,
+        input_hash: derivationSeoJobKey(String(r.clean_hash)),
+        priority: 90,
+        status: "pending",
+        result: { source: "clean_text_changed", clean_hash: r.clean_hash },
+      }));
+      if (seoRows.length && body.derivation_dry_run !== true) {
+        const { error, count } = await admin
+          .from("ai_enrichment_jobs")
+          .upsert(seoRows, { onConflict: "kind,target_type,target_id,input_hash", ignoreDuplicates: true, count: "exact" });
+        if (error) derivationErr = error.message;
+        else derivationSeoJobs = count ?? seoRows.length;
+      }
+    }
+
     return json({
       ok: true,
       podcasts_queued: podJobs,
@@ -277,6 +312,9 @@ Deno.serve(async (req) => {
       transcript_regen_queued: transcriptJobs,
       transcript_candidates: transcriptCandidates,
       transcript_upsert_err: transcriptUpsertErr,
+      derivation_dispatched: derivationDispatched,
+      derivation_seo_jobs: derivationSeoJobs,
+      derivation_err: derivationErr,
       podcasts_considered: pods.length,
       ep_podcasts_considered: epPods.length,
       ep_episodes_collected: collectedCount,

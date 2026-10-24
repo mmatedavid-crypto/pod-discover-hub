@@ -247,33 +247,43 @@ function isFooterishSentence(sentence: string): boolean {
   return false;
 }
 
+// Linear-time version (2026-10-24). The previous loop re-joined and re-scanned
+// the whole tail for every cut point (O(n²) regex work), which on long,
+// newline-less ASR transcripts (12k-char preview ≈ 300 sentences) cost
+// ~100 ms per episode and pushed the best-text-source runner over the edge
+// CPU limit. Same decisions: per-sentence word counts and footer flags are
+// computed once; prefix/suffix sums replace the repeated joins.
+// (Sentences are trimmed and non-empty, so the word count of a " "-join is the
+// sum of the per-sentence counts.)
 function stripSentenceFooterTail(input: string): { text: string; removed: string[] } {
   const normalized = input.trim();
   if (normalized.length < 500) return { text: input, removed: [] };
 
   const sentences = splitSentences(normalized);
-  if (sentences.length < 3) return { text: input, removed: [] };
+  const n = sentences.length;
+  if (n < 3) return { text: input, removed: [] };
 
-  for (let i = 1; i < sentences.length; i++) {
-    const before = sentences.slice(0, i).join(" ").trim();
-    const tail = sentences.slice(i);
-    const beforeWords = sentenceWordCount(before);
+  const words = sentences.map(sentenceWordCount);
+  const footerish = sentences.map(isFooterishSentence);
+  const suffixWords = new Array<number>(n + 1).fill(0);
+  const suffixFooter = new Array<number>(n + 1).fill(0);
+  for (let k = n - 1; k >= 0; k--) {
+    suffixWords[k] = suffixWords[k + 1] + words[k];
+    suffixFooter[k] = suffixFooter[k + 1] + (footerish[k] ? 1 : 0);
+  }
+
+  let beforeWords = 0;
+  for (let i = 1; i < n; i++) {
+    beforeWords += words[i - 1];
     if (beforeWords < 18) continue;
+    if (suffixWords[i] < 8) continue;
 
-    const tailText = tail.join(" ").trim();
-    const tailWords = sentenceWordCount(tailText);
-    if (tailWords < 8) continue;
+    const cut = () => ({ text: sentences.slice(0, i).join(" ").trim(), removed: ["sentence_footer_tail_cut"] });
+    if (LEGAL_TAIL_RX.test(sentences[i])) return cut();
 
-    if (LEGAL_TAIL_RX.test(tail[0])) {
-      return { text: before, removed: ["sentence_footer_tail_cut"] };
-    }
-
-    const footerish = tail.filter(isFooterishSentence).length;
-    const ratio = footerish / tail.length;
-    const firstTwoFooterish = tail.slice(0, 2).filter(isFooterishSentence).length;
-    if (ratio >= 0.5 && firstTwoFooterish >= 1) {
-      return { text: before, removed: ["sentence_footer_tail_cut"] };
-    }
+    const ratio = suffixFooter[i] / (n - i);
+    const firstTwoFooterish = (footerish[i] ? 1 : 0) + (i + 1 < n && footerish[i + 1] ? 1 : 0);
+    if (ratio >= 0.5 && firstTwoFooterish >= 1) return cut();
   }
 
   return { text: input, removed: [] };
@@ -837,3 +847,7 @@ export function chunkText(text: string, chunkChars: number, overlap: number): Ar
   }
   return out;
 }
+
+// Test-only access to the sentence-tail internals (regression tests compare the
+// linear-time stripSentenceFooterTail with the previous quadratic version).
+export const __cleanerInternals = { stripSentenceFooterTail, splitSentences, sentenceWordCount, isFooterishSentence, LEGAL_TAIL_RX };

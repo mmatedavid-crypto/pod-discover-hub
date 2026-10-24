@@ -787,21 +787,15 @@ async function buildEpisode(
     : [];
   const [
     { data: cleanRow },
-    { data: transcriptRow },
     { data: siblingEps },
     { data: topicRows },
     { data: orgRows },
     { data: relatedRows },
   ] = await Promise.all([
     // Owner-approved public cleaned text (YouTube / Spotify show notes) with its source;
-    // the clean-text table itself stays admin-only.
+    // the clean-text table itself stays admin-only. No transcript excerpt: transcripts
+    // are never public (owner rule), so get_episode_index_text is not used here.
     (supabase as any).rpc("get_episode_public_clean_description_v2", { p_episode_id: ep.id }),
-    // Transcripts are not readable by anon (rights-gated table); a bounded,
-    // index-only excerpt is exposed through a dedicated read-only function.
-    (supabase as any).rpc("get_episode_index_text", {
-      p_episode_id: ep.id,
-      p_max_chars: 16000,
-    }),
     supabase
       .from("episode_cards")
       .select("title, display_title, slug, published_at, summary:card_summary")
@@ -837,9 +831,6 @@ async function buildEpisode(
   const cleanText = cleanSource === "youtube" || cleanSource === "spotify" ? stripHtml((cleanRow as any)?.text || "") : "";
   const cleanSourceUrl = String((cleanRow as any)?.source_url || "");
   const cleanSourceLabel = cleanSource === "youtube" ? "YouTube-videó leírása" : cleanSource === "spotify" ? "Spotify-epizód leírása" : "";
-  const transcriptText = stripHtml(
-    typeof transcriptRow === "string" ? transcriptRow : ((transcriptRow as any)?.transcript || ""),
-  );
   const rawDescText = stripHtml(ep.description);
 
   // Person JSON-LD: resolve episode.people[] names to canonical `people` rows,
@@ -911,21 +902,14 @@ async function buildEpisode(
   // longText remains for structured-data descriptions (short-ish, factual).
   const longText = aiSummaryText || cleanText || rawDescText;
 
-  // === Thick body composition ===
-  // Body source priority for the visible HTML that Googlebot indexes:
-  //   1. Full cleaned text (deterministic v4 — sponsor/CTA noise stripped)
-  //   2. Transcript excerpt (first ~6000 chars)
-  //   3. Raw description
-  // AI summary shown as a lead paragraph on top when present.
-  // 2026-09-07: az átirat (YouTube-felirat / RSS transcript tag) sokkal
-  // gazdagabb, mint a leírásból tisztított clean_text — ha érdemben hosszabb,
-  // ő lesz a törzs. Ez a legidézhetőbb tartalmunk AI-válaszok szempontjából.
-  const transcriptBacked = transcriptText.length > 2000 && transcriptText.length > cleanText.length * 1.5;
-  const bodyPrimary = transcriptBacked ? transcriptText
-                    : cleanText.length > 200 ? cleanText
-                    : transcriptText.length > 200 ? transcriptText
-                    : rawDescText;
-  const BODY_MAX = transcriptBacked ? 14000 : 8000;
+  // === Body composition (same text a visitor sees) ===
+  // 2026-10-24: crawler HTML shows exactly the visitor's "Leírás": the
+  // owner-approved public cleaned description (YouTube/Spotify, with source
+  // link) when get_episode_public_clean_description_v2 returns one, otherwise
+  // the RSS description. Transcript text is never public (owner rule), so no
+  // transcript excerpt is fetched or rendered here.
+  const bodyPrimary = cleanText.length >= 40 ? cleanText : rawDescText;
+  const BODY_MAX = 8000;
   const bodyChunk = bodyPrimary.length > BODY_MAX
     ? bodyPrimary.slice(0, BODY_MAX).replace(/\s+\S*$/, "") + "…"
     : bodyPrimary;
@@ -1170,7 +1154,6 @@ async function buildEpisode(
     ...(durationHuman ? [["Hossz", durationHuman] as [string, string]] : []),
     ...(peopleNamesForFacts.length ? [["Szereplők, említett nevek", peopleNamesForFacts.join(", ")] as [string, string]] : []),
     ...(topicNamesForFacts.length ? [["Témák", topicNamesForFacts.join(", ")] as [string, string]] : []),
-    ...(transcriptBacked ? [["Átirat", "Az epizód beszélt szövege alapján indexelve"] as [string, string]] : []),
   ];
   const factsHtml = `<section aria-label="Röviden"><h2>Röviden</h2><dl>${factRows
     .map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`)

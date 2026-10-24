@@ -9,6 +9,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 import { chatTokenCostUsd } from "../_shared/ai-pricing.ts";
 import { callLovableAI } from "../_shared/lovable-ai.ts";
+import { loadDerivationInputs, markDerivation } from "../_shared/derivation-state.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -154,6 +155,34 @@ Deno.serve(async (req) => {
 
     let totalProcessed = 0, totalWritten = 0, totalSkipped = 0, totalErrors = 0, totalWaitingCleanText = 0, runCost = 0, batches = 0;
 
+    // Ready-state repair (bounded, no AI): (a) claims left in_progress by a killed run
+    // (>30 min untouched) go back to pending; (b) waiting_clean_text episodes whose
+    // promoted deterministic_v4 clean text now exists (e.g. written by the repair queue,
+    // which never notified this runner) become pending again.
+    let releasedStale = 0, promotedWaiting = 0;
+    {
+      const cutoff = new Date(Date.now() - 30 * 60_000).toISOString();
+      const { data: stuck } = await admin.from("episodes").select("id")
+        .eq("topic_extraction_status", "in_progress").lt("updated_at", cutoff).limit(100);
+      const stuckIds = (stuck || []).map((r: any) => r.id);
+      if (stuckIds.length) {
+        await admin.from("episodes").update({ topic_extraction_status: "pending" }).in("id", stuckIds).eq("topic_extraction_status", "in_progress");
+        releasedStale = stuckIds.length;
+      }
+      const { data: waiting } = await admin.from("episodes").select("id")
+        .eq("topic_extraction_status", "waiting_clean_text").eq("clean_text_status", "done").limit(200);
+      const waitIds = (waiting || []).map((r: any) => r.id);
+      if (waitIds.length) {
+        const { data: ready } = await admin.from("episode_clean_text").select("episode_id")
+          .in("episode_id", waitIds).like("cleaner_method", "deterministic_v4%");
+        const readyIds = (ready || []).map((r: any) => r.episode_id);
+        if (readyIds.length) {
+          await admin.from("episodes").update({ topic_extraction_status: "pending" }).in("id", readyIds).eq("topic_extraction_status", "waiting_clean_text");
+          promotedWaiting = readyIds.length;
+        }
+      }
+    }
+
     // Drain loop: keep claiming batches until time budget exhausted, queue empty, or budget exhausted
     while (Date.now() - startedAt < maxRuntimeMs) {
       // Need at least ~25s headroom per batch (AI calls can take 20s+)
@@ -177,14 +206,17 @@ Deno.serve(async (req) => {
       const claimIds = epsRaw.map((e: any) => e.id);
       await admin.from("episodes").update({ topic_extraction_status: "in_progress" }).in("id", claimIds);
 
-      // Fetch only promoted deterministic_v4 clean text. Older cleaner rows must
-      // wait; otherwise we would extract topics from polluted descriptions.
-      const { data: cts } = await admin
-        .from("episode_clean_text")
-        .select("episode_id, cleaned_text")
-        .in("episode_id", claimIds)
-        .like("cleaner_method", "deterministic_v4%");
-      const ctMap = new Map<string, string>((cts || []).map((r: any) => [r.episode_id, r.cleaned_text || ""]));
+      // Fetch only promoted deterministic_v4 clean text (with its content fingerprint).
+      // Older cleaner rows must wait; otherwise we would extract topics from polluted descriptions.
+      const batchStartIso = new Date().toISOString();
+      const inputs = await loadDerivationInputs(admin, claimIds);
+      const ctMap = new Map<string, string>();
+      const hashMap = new Map<string, string | null>();
+      for (const [id, inp] of inputs) {
+        if (!inp.method.startsWith("deterministic_v4")) continue;
+        ctMap.set(id, inp.text);
+        hashMap.set(id, inp.hash);
+      }
 
       // Pre-filter short ones
       const skipIds: string[] = [];
@@ -239,10 +271,18 @@ Deno.serve(async (req) => {
       }
 
       // Persist this batch
+      let insertsOk = true;
       if (inserts.length > 0) {
         for (let i = 0; i < inserts.length; i += 500) {
           const { error: insErr } = await admin.from("episode_extracted_topics").insert(inserts.slice(i, i + 500));
-          if (insErr) console.warn("insert error", insErr.message);
+          if (insErr) { insertsOk = false; console.warn("insert error", insErr.message); }
+        }
+      }
+      // Re-extraction after a clean-text change replaces the machine topics built from
+      // the older text (only once the new rows are safely in).
+      if (insertsOk && doneIds.length > 0) {
+        for (let i = 0; i < doneIds.length; i += 150) {
+          await admin.from("episode_extracted_topics").delete().in("episode_id", doneIds.slice(i, i + 150)).lt("created_at", batchStartIso);
         }
       }
       if (doneIds.length > 0) {
@@ -269,6 +309,11 @@ Deno.serve(async (req) => {
           await admin.from("episodes").update({ topic_extraction_status: "error" }).in("id", errIds.slice(i, i + 150));
         }
       }
+      await markDerivation(admin, "topic", [
+        ...(insertsOk ? doneIds : []).map((id) => ({ episode_id: id, used_hash: hashMap.get(id) || null, result: "done" as const })),
+        ...skipIds.map((id) => ({ episode_id: id, used_hash: hashMap.get(id) || null, result: "not_applicable" as const, reason: "clean_text_below_topic_min" })),
+        ...errIds.map((id) => ({ episode_id: id, used_hash: hashMap.get(id) || null, result: "error" as const, reason: "topic_extraction_empty_or_failed" })),
+      ]);
 
       totalProcessed += epsRaw.length;
       totalWritten += doneIds.length;
@@ -284,7 +329,7 @@ Deno.serve(async (req) => {
         runner: "episode-topic-extractor",
         model,
         cost_usd: runCost,
-        meta: { processed: totalProcessed, written: totalWritten, skipped: totalSkipped, waiting_clean_text: totalWaitingCleanText, errors: totalErrors, batches },
+        meta: { processed: totalProcessed, written: totalWritten, skipped: totalSkipped, waiting_clean_text: totalWaitingCleanText, errors: totalErrors, batches, released_stale_in_progress: releasedStale, promoted_waiting_clean_text: promotedWaiting },
       });
     } catch (_) { /* table optional */ }
 
@@ -295,6 +340,8 @@ Deno.serve(async (req) => {
       written: totalWritten,
       skipped: totalSkipped,
       waiting_clean_text: totalWaitingCleanText,
+      released_stale_in_progress: releasedStale,
+      promoted_waiting_clean_text: promotedWaiting,
       errors: totalErrors,
       cost_usd: Number(runCost.toFixed(5)),
       spent_today: Number((spentToday + runCost).toFixed(4)),
