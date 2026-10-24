@@ -329,7 +329,7 @@ Deno.serve(async (req) => {
         runner: "episode-topic-extractor",
         model,
         cost_usd: runCost,
-        meta: { processed: totalProcessed, written: totalWritten, skipped: totalSkipped, waiting_clean_text: totalWaitingCleanText, errors: totalErrors, batches },
+        meta: { processed: totalProcessed, written: totalWritten, skipped: totalSkipped, waiting_clean_text: totalWaitingCleanText, errors: totalErrors, batches, released_stale_in_progress: releasedStale, promoted_waiting_clean_text: promotedWaiting },
       });
     } catch (_) { /* table optional */ }
 
@@ -340,6 +340,8 @@ Deno.serve(async (req) => {
       written: totalWritten,
       skipped: totalSkipped,
       waiting_clean_text: totalWaitingCleanText,
+      released_stale_in_progress: releasedStale,
+      promoted_waiting_clean_text: promotedWaiting,
       errors: totalErrors,
       cost_usd: Number(runCost.toFixed(5)),
       spent_today: Number((spentToday + runCost).toFixed(4)),
