@@ -535,7 +535,11 @@ Deno.serve(async (req) => {
         else if (p >= 1) next_schedule = "*/10 * * * *";
         else next_schedule = "*/30 * * * *";
       }
-      try { await admin.rpc("set_seo_enrich_runner_schedule" as any, { _schedule: next_schedule }); } catch { /* ignore */ }
+      // During an active catch-up the queue-health-controller owns this cron (catch-up cadence);
+      // a second writer would flap it.
+      const { data: cuRow } = await admin.from("app_settings").select("value").eq("key", "pipeline_catchup_state").maybeSingle();
+      if (activeDerivationCatchup(cuRow?.value)?.runner_cadence?.seo_enrich) next_schedule = `catchup:${next_schedule}`;
+      else try { await admin.rpc("set_seo_enrich_runner_schedule" as any, { _schedule: next_schedule }); } catch { /* ignore */ }
     } catch { /* ignore */ }
 
     const summary = { ok: failure_bookkeeping_errors === 0, claimed: total_claimed, drain_loops, processed, succeeded, failed, failure_bookkeeping_errors, skipped, rate_limited, concurrency, spend_usd: spend, run_increment_usd: runIncrement, reaped_stale_locks, next_schedule, elapsed_ms: Date.now() - startedAt };

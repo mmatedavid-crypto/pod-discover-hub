@@ -11,6 +11,7 @@
 // Új runner felvételéhez: új ágat a countPending dispatcherbe + a registry-be.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { activeDerivationCatchup } from "../_shared/derivation-state.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -218,6 +219,8 @@ Deno.serve(async (req) => {
     const dryRun = false;
     const runners: RunnerCfg[] = Array.isArray(state.runners) ? state.runners : [];
     const history: Record<string, { p1?: number; p2?: number; updated_at?: string }> = state.history || {};
+    const { data: cuRow } = await admin.from("app_settings").select("value").eq("key", "pipeline_catchup_state").maybeSingle();
+    const catchupCadence = activeDerivationCatchup(cuRow?.value)?.runner_cadence || null;
 
     const results: any[] = [];
     const alerts: string[] = [];
@@ -315,14 +318,19 @@ Deno.serve(async (req) => {
 
       // ADAPTIVE CADENCE: retune the runner's own cron to the size of its queue, so a
       // large backlog is drained fast and an empty queue stops polling frequently.
+      // An active owner-approved catch-up (pipeline_catchup_state.runner_cadence, derivation
+      // part not yet restored) overrides the ladder while the runner is enabled and has work;
+      // once the catch-up ends or restores, the ladder applies again on the next tick.
       let cadence: any = null;
       if (r.cron_job_name) {
-        const wanted = pickSchedule(pending, r.cadence);
+        const enabledNow = action === "resume" || (ctrl.enabled !== false && action !== "pause_empty" && action !== "pause_stall");
+        const override = catchupCadence?.[r.name];
+        const wanted = override && pending > 0 && enabledNow ? override : pickSchedule(pending, r.cadence);
         const { data: cronRes, error: cronErr } = await admin.rpc("set_runner_cron", {
           p_job_name: r.cron_job_name,
           p_schedule: wanted,
         });
-        cadence = { job: r.cron_job_name, schedule: wanted, result: cronErr ? `error:${cronErr.message}` : cronRes };
+        cadence = { job: r.cron_job_name, schedule: wanted, source: override && wanted === override ? "catchup" : "ladder", result: cronErr ? `error:${cronErr.message}` : cronRes };
       }
 
 
