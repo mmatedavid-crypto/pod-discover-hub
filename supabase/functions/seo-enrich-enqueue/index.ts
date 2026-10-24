@@ -59,6 +59,12 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const { data: ctrlRow } = await admin.from("app_settings").select("value").eq("key", "ai_seo_controls").maybeSingle();
     const ctrl = (ctrlRow?.value || {}) as any;
+    // Temporary catch-up (pipeline_catchup_state): the cron may run every minute; the full
+    // (podcast / episode / transcript) passes keep their old 5-minute rhythm, only the
+    // derivation dispatch (PASS 4) runs on every call.
+    const { data: cuRow } = await admin.from("app_settings").select("value").eq("key", "pipeline_catchup_state").maybeSingle();
+    const catchup = activeDerivationCatchup(cuRow?.value);
+    const fullPass = runFullEnqueuePass(catchup, new Date(), body.full_pass === true);
     const requireBackfill = body.require_full_backfill ?? ctrl.require_full_backfill ?? true;
     const maxPods = Number(body.max_podcasts ?? ctrl.max_podcasts_per_run ?? 50);
     const maxEps = Number(body.max_episodes ?? ctrl.max_episodes_per_run ?? 300);
