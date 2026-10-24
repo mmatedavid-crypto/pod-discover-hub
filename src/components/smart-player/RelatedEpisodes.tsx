@@ -31,6 +31,8 @@ type Row = {
   podcast_image_url: string | null;
   podcast_category?: string | null;
   related_reason?: string | null;
+  /** People the server verified as the same identity on the source and this episode. */
+  shared_people?: string[] | null;
 };
 
 const MAX = 5;
@@ -68,6 +70,7 @@ function rowToCandidate(row: Row) {
     category: row.podcast_category || null,
     topics: row.topics || [],
     people: row.people || [],
+    sharedPeople: row.shared_people || [],
     companies: row.companies || [],
   };
 }
@@ -96,8 +99,10 @@ function sharedValues(left?: string[] | null, right?: string[] | null, limit = 2
   return out;
 }
 
+// A shared display name is not a shared identity: only people verified on both episodes
+// (accepted, reviewed links on a trusted canonical person) may explain a recommendation.
 function fallbackRelatedReason(source: RecommendationContext, row: Row): string | null {
-  const people = sharedValues(source.people, row.people);
+  const people = (row.shared_people || []).slice(0, 2);
   if (people.length) return `Kapcsolódó személy: ${people.join(", ")}.`;
 
   const companies = sharedValues(source.companies, row.companies);
@@ -145,7 +150,6 @@ export function RelatedEpisodes({ episodeIdOverride, podcastIdOverride, variant 
         .maybeSingle();
       const source = sourceFromEpisode(cur);
       const topics: string[] = (cur as any)?.topics || [];
-      const people: string[] = (cur as any)?.people || [];
       const category: string | null = (Array.isArray((cur as any)?.podcasts) ? (cur as any)?.podcasts?.[0] : (cur as any)?.podcasts)?.category || null;
 
       const { data: rpcData, error: rpcErr } = await supabase.rpc("similar_episodes", {
@@ -166,7 +170,10 @@ export function RelatedEpisodes({ episodeIdOverride, podcastIdOverride, variant 
 
       const probes: any[] = [];
       if (topics.length) probes.push(supabase.from("episodes").select(sel).neq("id", episodeId!).eq("podcasts.language_decision", "accept_hungarian").overlaps("topics", topics.slice(0, 8)).order("published_at", { ascending: false, nullsFirst: false }).limit(10));
-      if (people.length) probes.push(supabase.from("episodes").select(sel).neq("id", episodeId!).eq("podcasts.language_decision", "accept_hungarian").overlaps("people", people.slice(0, 8)).order("published_at", { ascending: false, nullsFirst: false }).limit(10));
+      // Same-person probe only through verified identities, never raw people[] names.
+      const { data: personProbe } = await supabase.rpc("get_shared_verified_people_v1", { p_episode_id: episodeId!, p_limit: 20 });
+      const personProbeIds = Array.from(new Set(((personProbe || []) as any[]).map((r) => r.episode_id))).slice(0, 10);
+      if (personProbeIds.length) probes.push(supabase.from("episodes").select(sel).in("id", personProbeIds).eq("podcasts.language_decision", "accept_hungarian").limit(10));
       if (category) probes.push(supabase.from("episodes").select(sel).neq("id", episodeId!).eq("podcasts.language_decision", "accept_hungarian").eq("podcasts.category", category).order("published_at", { ascending: false, nullsFirst: false }).limit(10));
       // Intentionally NO same-podcast probe: Smart Player surfaces cross-podcast discovery only.
 
@@ -178,6 +185,21 @@ export function RelatedEpisodes({ episodeIdOverride, podcastIdOverride, variant 
         if (row.podcasts?.language_decision !== "accept_hungarian") return;
         if (!candidates.has(row.id)) candidates.set(row.id, row);
       }));
+
+      const candidateIds = Array.from(candidates.keys());
+      const sharedById = new Map<string, string[]>();
+      if (candidateIds.length) {
+        const { data: shared } = await supabase.rpc("get_shared_verified_people_v1", {
+          p_episode_id: episodeId!,
+          p_candidate_ids: candidateIds,
+          p_limit: 100,
+        });
+        for (const r of (shared || []) as any[]) {
+          const list = sharedById.get(r.episode_id) || [];
+          if (r.person_name && !list.includes(r.person_name)) list.push(r.person_name);
+          sharedById.set(r.episode_id, list);
+        }
+      }
 
       const rows = Array.from(candidates.values()).map((r) => {
         const row = {
@@ -201,6 +223,7 @@ export function RelatedEpisodes({ episodeIdOverride, podcastIdOverride, variant 
           podcast_display_title: r.podcasts?.display_title,
           podcast_image_url: r.podcasts?.image_url,
           podcast_category: r.podcasts?.category,
+          shared_people: sharedById.get(r.id) || [],
         } as Row;
         return { ...row, related_reason: fallbackRelatedReason(source, row) };
       });
