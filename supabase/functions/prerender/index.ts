@@ -15,6 +15,7 @@
 //   anything else                  → 404 (Worker will fall back to origin)
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { bodyParagraphs } from "../_shared/body-paragraphs.ts";
+import { personPageMentionRows } from "../_shared/person-link-trust.ts";
 import { categoryHeading, categoryIntro, categoryMetaDescription, categoryTitle } from "../_shared/category-copy.ts";
 import { CATEGORY_HUB_INTRO, DISCOVERY_LINKS, HOME_DESCRIPTION, HOME_INTRO, discoveryCategories } from "../_shared/discovery-navigation.ts";
 import { hetiLookupWindow, hetiSlug, isLiveHetiPost, isoWeek, parseHetiSlug, resolveHetiSlug } from "../_shared/heti-editorial.ts";
@@ -834,12 +835,8 @@ async function buildEpisode(
   const cleanSourceLabel = cleanSource === "youtube" ? "YouTube-videó leírása" : cleanSource === "spotify" ? "Spotify-epizód leírása" : "";
   const rawDescText = stripHtml(ep.description);
 
-  // Person JSON-LD: resolve episode.people[] names to canonical `people` rows,
-  // filter through the same safety gate we use for podcast prerender, and emit
-  // Person nodes with sameAs (Wikipedia/Wikidata). Critical for "<name>" queries.
-  const episodePeopleNames = Array.isArray(ep.people)
-    ? (ep.people as unknown[]).filter((n) => typeof n === "string" && (n as string).trim()).slice(0, 20) as string[]
-    : [];
+  // Person JSON-LD: canonical people linked to this episode, same safety gate as the
+  // podcast prerender; Person nodes with sameAs (Wikipedia/Wikidata).
   let safeEpisodePeople: Array<Record<string, any>> = [];
   const verifiedEpisodePersonIds = new Set<string>();
   const PERSON_PRERENDER_SELECT =
@@ -877,7 +874,7 @@ async function buildEpisode(
       ...(sameAs.length ? { sameAs } : {}),
     };
   });
-  const episodePersonMentions = safeEpisodePeople.map((p) => ({
+  const episodePersonMentions = safeEpisodePeople.filter((p) => verifiedEpisodePersonIds.has(String(p.id))).map((p) => ({
     "@type": "Person",
     name: p.name,
     ...(p.slug ? { url: `${SITE}/szemelyek/${p.slug}` } : {}),
@@ -1429,13 +1426,15 @@ async function buildPerson(
 
   const { data: rows } = await (supabase as any)
     .from("person_episode_mentions")
-    .select(`episode_id, role_type, episodes!inner(id, title, display_title, slug, published_at, ai_summary, podcast:podcasts!inner(title, display_title, slug, image_url, language_decision))`)
+    .select(`episode_id, role_type, relevance_status, validation_source, episodes!inner(id, title, display_title, slug, published_at, ai_summary, podcast:podcasts!inner(title, display_title, slug, image_url, language_decision))`)
     .eq("person_id", person.id)
     .order("created_at", { ascending: false })
     .limit(120);
 
-  const eps = ((rows ?? []) as Array<any>)
-    .map((r) => ({ ...r.episodes, mention_role: r.role_type }))
+  // Rejected / needs_review links never appear; unreviewed name matches only as mentions,
+  // never as participant/subject (shared policy in _shared/person-link-trust.ts).
+  const eps = personPageMentionRows((rows ?? []) as Array<any>)
+    .map(({ row, role }) => ({ ...row.episodes, mention_role: role }))
     .filter((e) => e && e.slug && isAcceptedHungarianPrerenderPodcast(e.podcast))
     .sort((a, b) => String(b.published_at || "").localeCompare(String(a.published_at || "")))
     .slice(0, 40);
