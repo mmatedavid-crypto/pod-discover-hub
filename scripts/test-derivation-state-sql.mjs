@@ -11,7 +11,7 @@ const url = process.env.DERIV_PG_URL;
 if (!url) { console.error('DERIV_PG_URL required (throwaway database only)'); process.exit(2); }
 const A = postgres(url, { max: 1, onnotice: () => {} });
 const B = postgres(url, { max: 1, onnotice: () => {} });
-const dir = new URL('../drizzle/migrations/', import.meta.url);
+const dir = process.env.DERIV_MIGRATIONS_DIR ? new URL(`file://${process.env.DERIV_MIGRATIONS_DIR.replace(/\/?$/, '/')}`) : new URL('../drizzle/migrations/', import.meta.url);
 const files = (await readdir(dir)).filter((f) => /^00(78|79|80)_.*\.sql$/.test(f)).sort();
 assert.equal(files.length, 3, `expected 0078-0080 migrations, got ${files}`);
 
