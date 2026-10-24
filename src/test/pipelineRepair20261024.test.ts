@@ -231,3 +231,24 @@ describe("pipeline health display", async () => {
     expect(healthBadgeVariant("red")).toBe("destructive");
   });
 });
+
+describe("catch-up follow-up 2026-10-24", () => {
+  const read = (p: string) => require("node:fs").readFileSync(p, "utf8") as string;
+  it("topic runner treats a promoted but empty clean text as final, not as waiting", () => {
+    const src = read("supabase/functions/episode-topic-extractor/index.ts");
+    expect(src).toContain("if (!ctMap.has(ep.id)) { waitingCleanTextIds.push(ep.id); continue; }");
+    expect(src).toContain('.like("cleaner_method", "deterministic_v4%").neq("cleaned_text", "")');
+  });
+  it("catch-up quotas are time-limited, audited and restore without clobbering later changes", () => {
+    const sql = read("drizzle/migrations/0085_pipeline_catchup_mode.sql");
+    expect(sql).toContain("least(greatest(coalesce(p_hours, 24), 1), 24)");
+    expect(sql).toContain("IF cur IS NOT DISTINCT FROM (c->'new') THEN");
+    expect(sql).toContain("'kept_changed_value'");
+    expect(sql).toContain("'eligible_backlog_empty'");
+    expect(sql).toContain("pipeline-catchup-expiry");
+    const disp = read("drizzle/migrations/0086_dispatch_stale_derivations_set_based.sql");
+    expect(disp).toContain("least(greatest(coalesce((ctrl->>'daily_cap')::int, 300), 0), 5000)");
+    expect(disp).toContain("least(coalesce((ctrl->>'per_run')::int, 20), 60)");
+    expect(disp).toContain("pg_advisory_xact_lock(hashtext('dispatch_stale_derivations_v1'))");
+  });
+});
