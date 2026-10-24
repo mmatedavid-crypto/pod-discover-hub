@@ -119,3 +119,40 @@ export function nextDispatchBatch(current: number, ms: number): number {
   return dispatchBatchClamp(current);
 }
 
+/** Like markDerivation, but reports the first RPC error instead of only logging it. */
+export async function markDerivationStrict(admin: any, stage: DerivationStage, items: DerivationMark[]): Promise<string | null> {
+  const list = items.filter((i) => i.episode_id && (i.used_hash || i.result === "not_applicable" || i.result === "blocked" || i.result === "error"));
+  for (let i = 0; i < list.length; i += 200) {
+    const { error } = await admin.rpc("mark_episode_derivation_v1", { p_stage: stage, p_items: list.slice(i, i + 200) });
+    if (error) return error.message || "mark_failed";
+  }
+  return null;
+}
+
+export type SeoJobFailureOutcome =
+  | { ok: true; terminal: boolean; stage_marked: boolean }
+  | { ok: false; step: "job_update" | "stage_mark"; error: string };
+
+/**
+ * Persists a failed SEO job attempt. The job row is written first and must be confirmed
+ * (error-free and exactly that row updated); only then is the matching clean-text version's
+ * stage marked blocked on terminal failure. A failed job write never marks the stage, so a
+ * stage can't read "blocked" while its job is still pending / in_progress and invisible to the
+ * bounded retry RPC. Failures are returned, never reported as successful bookkeeping.
+ */
+export async function persistSeoJobFailure(
+  admin: any,
+  jobId: string,
+  update: Record<string, unknown>,
+  terminalMark: DerivationMark | null,
+): Promise<SeoJobFailureOutcome> {
+  const { data, error } = await admin.from("ai_enrichment_jobs").update(update).eq("id", jobId).select("id");
+  if (error) return { ok: false, step: "job_update", error: error.message || "job_update_failed" };
+  if (!Array.isArray(data) || data.length !== 1) return { ok: false, step: "job_update", error: "job_row_not_updated" };
+  const terminal = update.status === "failed";
+  if (!terminal || !terminalMark) return { ok: true, terminal, stage_marked: false };
+  const markErr = await markDerivationStrict(admin, "seo", [terminalMark]);
+  if (markErr) return { ok: false, step: "stage_mark", error: markErr };
+  return { ok: true, terminal, stage_marked: true };
+}
+

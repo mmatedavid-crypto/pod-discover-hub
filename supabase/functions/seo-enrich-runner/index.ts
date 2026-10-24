@@ -10,7 +10,7 @@ import { SYSTEM_PROMPT, PODCAST_SEO_TOOL, EPISODE_SEO_TOOL, podcastUserPrompt, e
 import { chatTokenCostUsd } from "../_shared/ai-pricing.ts";
 import { assertHungarianPublicFields, isHungarianish } from "../_shared/hu-language-guard.ts";
 import { callLovableAI } from "../_shared/lovable-ai.ts";
-import { loadDerivationInputs, markDerivation, prebuiltPromptDecision, seoInputProvenance, seoPrimary, seoUsedCleanHash, terminalSeoFailureMark, type SeoInputProvenance } from "../_shared/derivation-state.ts";
+import { loadDerivationInputs, markDerivation, persistSeoJobFailure, prebuiltPromptDecision, seoInputProvenance, seoPrimary, seoUsedCleanHash, terminalSeoFailureMark, type SeoInputProvenance } from "../_shared/derivation-state.ts";
 import { runLog } from "../_shared/runner-run-log.ts";
 
 const HU_REINFORCE = "KRITIKUS NYELVI SZABÁLY: A seo_title, seo_description ÉS ai_summary mezőket KIZÁRÓLAG MAGYARUL írd. A Podiverzum magyar oldal, angol publikus szöveg nem kerülhet ki. NE keverd a nyelveket. Ha az előző válaszod angol volt, ez hiba volt — most magyarul írj. TÉNYSZABÁLY: számot, évszámot, évfordulót, dátumot vagy statisztikát CSAK akkor írj, ha szó szerint szerepel a forrásszövegben; ne következtess és ne egészíts ki saját tudásból.";
@@ -455,18 +455,19 @@ Deno.serve(async (req) => {
         const rejected = msg.startsWith("hu_language_guard_failed") && candidate
           ? { rejected_output: { at: new Date().toISOString(), attempt: job.attempts || 0, reason: msg, ...candidate } }
           : {};
-        await admin.from("ai_enrichment_jobs").update({
+        // Job row first (confirmed), then — only on terminal failure and only if that write
+        // succeeded — the matching clean-text version's stage is marked blocked (never current;
+        // a newer version is left untouched). Retried only by a clean-text change or the bounded
+        // admin retry RPC. A failed write is reported, never counted as done bookkeeping.
+        const outcome = await persistSeoJobFailure(admin, job.id, {
           status: giveUp ? "failed" : "pending",
           locked_until: null,
           last_error: msg,
           ...(Object.keys(rejected).length ? { result: { ...(job.result || {}), ...rejected } } : {}),
-        }).eq("id", job.id);
-        // Exhausted terminal failure: the stage is truthfully "blocked" for exactly the clean-text
-        // version this job was for (never current; a newer version is left untouched). It is
-        // retried only by a clean-text change or the bounded admin retry RPC.
-        if (giveUp) {
-          const mark = terminalSeoFailureMark(job, (job as any).__prov ?? job.result?.input_provenance ?? null, msg);
-          if (mark) await markDerivation(admin, "seo", [mark]);
+        }, giveUp ? terminalSeoFailureMark(job, (job as any).__prov ?? job.result?.input_provenance ?? null, msg) : null);
+        if (!outcome.ok) {
+          failure_bookkeeping_errors++;
+          console.error("seo job failure bookkeeping failed", job.id, outcome.step, outcome.error);
         }
       }
     };
