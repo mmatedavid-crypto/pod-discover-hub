@@ -6,7 +6,9 @@ Object.defineProperty(globalThis, "Deno", { value: { env: { get: () => "" } }, c
 const { __cleanerInternals, heuristicClean } = await import("../../supabase/functions/_shared/episode-text-cleaner");
 const { consecutiveKills, isolationLimit, itemToIsolate, processedPrefix } = await import("../../supabase/functions/_shared/best-text-source-lanes");
 const { indexingApiDecision } = await import("../../supabase/functions/_shared/indexing-api-policy");
-const { promptUsedCleanHash, derivationSeoJobKey } = await import("../../supabase/functions/_shared/derivation-state");
+const derivation = await import("../../supabase/functions/_shared/derivation-state");
+const { derivationSeoJobKey, seoInputProvenance, prebuiltPromptDecision, seoUsedCleanHash, seoPrimary, SEO_INPUT_POLICY } = derivation;
+const { personExtractorInputFingerprint, aliasSetFingerprint, isReviewedMention } = await import("../../supabase/functions/_shared/person-extractor-fingerprint");
 
 const read = (p: string) => readFileSync(`${process.cwd()}/${p}`, "utf8");
 const { splitSentences, sentenceWordCount, isFooterishSentence, LEGAL_TAIL_RX, stripSentenceFooterTail } = __cleanerInternals;
@@ -95,16 +97,87 @@ describe("best-source run isolation", () => {
   });
 });
 
-describe("clean-text version used by SEO", () => {
-  const clean = "Ebben az epizódban Kovács Anna közgazdász a magyar lakáspiacról beszél, a kamatokról és a bérleti díjak alakulásáról az elmúlt két évben.";
-  it("counts a pre-built prompt only when it contains the live clean text", () => {
-    expect(promptUsedCleanHash(`Description: ${clean}`, clean, "h1")).toBe("h1");
-    expect(promptUsedCleanHash("Description: régi, más szöveg ami már nem az aktuális tisztított leírás, hanem egy korábbi változat.", clean, "h1")).toBeNull();
-    expect(promptUsedCleanHash(`Description: ${clean}`, "rövid", "h1")).toBeNull();
+describe("clean-text version used by SEO: exact provenance, never inferred", () => {
+  const prefix = "Ebben az epizódban Kovács Anna közgazdász a magyar lakáspiacról beszél, a kamatokról és a bérleti díjak alakulásáról az elmúlt két évben. ".repeat(2);
+  const oldText = prefix + "A végén a hitelfelvétel kockázatairól is szó esik.";
+  const newText = prefix + "A végén Szabó Péter a csok plusz programot elemzi.";
+
+  it("no prefix-based inference helper exists any more", () => {
+    expect((derivation as any).promptUsedCleanHash).toBeUndefined();
+    expect(read("supabase/functions/seo-enrich-runner/index.ts")).not.toContain("promptUsedCleanHash");
   });
+
+  it("same first 200 chars, different end: an old prompt never marks the new version current", () => {
+    expect(oldText.slice(0, 200)).toBe(newText.slice(0, 200));
+    const oldProv = seoInputProvenance({ cleanText: oldText, cleanHash: "hash-old", cleanMethod: "deterministic_v4" });
+    // the live version is the new one: the pre-built prompt must be rebuilt before any paid call
+    expect(prebuiltPromptDecision(oldProv, { hash: "hash-new", usable: true })).toBe("rebuild");
+    // and if it were sent anyway, it is recorded against the OLD version only
+    expect(seoUsedCleanHash(oldProv)).toBe("hash-old");
+    expect(prebuiltPromptDecision(oldProv, { hash: "hash-old", usable: true })).toBe("use");
+  });
+
+  it("legacy prompts without provenance keep unknown freshness", () => {
+    expect(prebuiltPromptDecision(undefined, { hash: "h", usable: true })).toBe("use_unknown");
+    expect(prebuiltPromptDecision({ policy: "other" }, { hash: "h", usable: true })).toBe("use_unknown");
+    expect(seoUsedCleanHash(null)).toBeNull();
+    expect(seoPrimary(null)).toBe("unknown");
+  });
+
+  it("a description-only prompt is rebuilt once usable clean text exists", () => {
+    const prov = seoInputProvenance({ cleanText: "", description: "RSS leírás" });
+    expect(prov.primary).toBe("description");
+    expect(prebuiltPromptDecision(prov, { hash: "h", usable: true })).toBe("rebuild");
+    expect(prebuiltPromptDecision(prov, { hash: null, usable: false })).toBe("use");
+  });
+
+  it("transcript-primary: clean text is a dependency only when it actually went into the prompt", () => {
+    const transcript = "átirat ".repeat(60);
+    const withClean = seoInputProvenance({ transcript, cleanText: newText, cleanHash: "hash-new" });
+    expect(withClean.primary).toBe("transcript");
+    expect(seoUsedCleanHash(withClean)).toBe("hash-new");
+    const noClean = seoInputProvenance({ transcript, cleanText: "rövid", cleanHash: "hash-short" });
+    expect(noClean.clean_used).toBe(false);
+    expect(seoUsedCleanHash(noClean)).toBeNull();
+    expect(noClean.policy).toBe(SEO_INPUT_POLICY);
+  });
+
   it("one SEO job per clean-text version", () => {
     expect(derivationSeoJobKey("abc")).toBe(derivationSeoJobKey("abc"));
     expect(derivationSeoJobKey("abc")).not.toBe(derivationSeoJobKey("abd"));
+  });
+
+  it("results are persisted only through the atomic apply RPCs", () => {
+    const seo = read("supabase/functions/seo-enrich-runner/index.ts");
+    expect(seo).toContain("apply_episode_seo_result_v1");
+    expect(seo).toMatch(/if \(applyErr\) throw/);
+    const ent = read("supabase/functions/entity-backfill-runner/index.ts");
+    expect(ent).toContain("apply_episode_entities_v1");
+    expect(ent).not.toMatch(/from\("episodes"\)\.update\(/);
+    const top = read("supabase/functions/episode-topic-extractor/index.ts");
+    expect(top).toContain("apply_episode_topics_v1");
+    expect(top).not.toMatch(/from\("episode_extracted_topics"\)\.(insert|delete)/);
+  });
+});
+
+describe("person extractor: no-op on unchanged inputs, reviewed rows protected", () => {
+  const ep = { id: "e1", title: "Cím", ai_summary: "Összefoglaló", clean_text: "Tiszta  szöveg", people: ["Kovács Anna"], mentioned: [], topics: ["lakás"], published_at: "2026-10-01", entity_extraction_evidence: { person_mentions: [{ name: "Kovács Anna", role: "speaker", confidence: 0.8, evidence: "Kovács Anna", source: "v5" }] } };
+  const pod = { id: "p1", hosts: ["Host Béla"], language_decision: "accept_hungarian", title: "Pod" };
+  it("same inputs give the same fingerprint (second sweep skips), any real change differs", async () => {
+    const a = await personExtractorInputFingerprint(ep, pod, "al1");
+    expect(await personExtractorInputFingerprint({ ...ep, clean_text: "Tiszta szöveg " }, pod, "al1")).toBe(a);
+    expect(await personExtractorInputFingerprint({ ...ep, clean_text: "Más szöveg" }, pod, "al1")).not.toBe(a);
+    expect(await personExtractorInputFingerprint(ep, { ...pod, hosts: ["Más Host"] }, "al1")).not.toBe(a);
+    expect(await personExtractorInputFingerprint(ep, pod, "al2")).not.toBe(a);
+  });
+  it("alias-set fingerprint is order independent", async () => {
+    const r = [{ topic_id: "t1", normalized_alias: "a", weight: 1 }, { topic_id: "t2", normalized_alias: "b", weight: 2 }];
+    expect(await aliasSetFingerprint(r)).toBe(await aliasSetFingerprint([...r].reverse()));
+  });
+  it("judged/manual mention rows are never rewritten", () => {
+    expect(isReviewedMention({ validation_source: "manual" })).toBe(true);
+    expect(isReviewedMention({ validation_source: "person_openai_batch_v1" })).toBe(true);
+    expect(isReviewedMention({ validation_source: null })).toBe(false);
   });
 });
 
