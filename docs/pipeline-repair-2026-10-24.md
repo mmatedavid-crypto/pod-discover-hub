@@ -149,3 +149,14 @@ Catch-up progress 15:47: eligible 2 763, entity current 343, SEO current 323 (12
 queued), topic current 304; one 15:45 cron dispatch did not land (pg_net DNS timeout on the
 cron call), the next call dispatched 60 normally.
 
+Security fix 15:50 (`0088`, `0089`): `start_/end_pipeline_catchup_v1` had checked `current_user`,
+which inside SECURITY DEFINER is always the owner, and were executable by `authenticated` —
+any signed-in user could have changed the global catch-up. Now EXECUTE is service-role only
+(also revoked from `readonly_codex`) and `pipeline_catchup_caller_allowed_v1` identifies the
+caller from the request JWT (service_role / admin) or a JWT-less postgres session (pg_cron).
+Rolled-back tests: non-admin and admin API callers denied (no EXECUTE), guard false for
+non-admin/anon, true for admin/service/cron; service end allowed. The live catch-up state was
+unchanged (started 15:32:42, never ended). Restore semantics: the derivation part ends only when
+nothing is dispatch-eligible AND nothing dispatched is still queued in a runner; the
+YouTube/Spotify part ends only at expiry (no complete count of remaining verified gains).
+

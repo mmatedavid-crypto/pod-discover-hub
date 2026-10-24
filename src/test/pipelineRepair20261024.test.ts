@@ -252,3 +252,17 @@ describe("catch-up follow-up 2026-10-24", () => {
     expect(disp).toContain("pg_advisory_xact_lock(hashtext('dispatch_stale_derivations_v1'))");
   });
 });
+
+describe("catch-up caller guard (security fix)", () => {
+  it("never trusts the definer's current_user; execute is service-only", () => {
+    const sql = readFileSync("drizzle/migrations/0088_pipeline_catchup_caller_guard.sql", "utf8");
+    expect(sql).toContain("IF v_role = 'service_role' THEN RETURN true; END IF;");
+    expect(sql).toContain("v_role IS NULL AND v_sub IS NULL AND session_user IN ('postgres', 'supabase_admin')");
+    expect(sql).toContain("RETURN public.has_role(v_sub, 'admin'::public.app_role);");
+    expect(sql).toContain("REVOKE ALL ON FUNCTION public.start_pipeline_catchup_v1(integer, text) FROM PUBLIC, anon, authenticated;");
+    expect(sql).toContain("REVOKE ALL ON FUNCTION public.end_pipeline_catchup_v1() FROM PUBLIC, anon, authenticated;");
+    expect(sql).not.toMatch(/GRANT EXECUTE ON FUNCTION public\.(start|end)_pipeline_catchup_v1[^;]*authenticated/);
+    expect(sql).toContain("'eligible_and_queued_backlog_empty'");
+  });
+});
+
