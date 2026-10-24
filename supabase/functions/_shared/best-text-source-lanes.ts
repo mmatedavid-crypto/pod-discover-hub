@@ -13,6 +13,10 @@ const clamp = (v: unknown, lo: number, hi: number, dflt: number) => {
 };
 
 export const FEED_MIN_PER_RUN = 8;
+// Hard upper bounds for the daily re-clean caps (stored controls can only lower these).
+// Raised 2026-10-24 for the owner-approved, time-limited catch-up (pipeline_catchup_v1).
+export const YOUTUBE_RECLEAN_DAILY_MAX = 1000;
+export const SPOTIFY_RECLEAN_DAILY_MAX = 500;
 
 export function laneBudgets(limit: number, ctrl: any, maxTargets = 60) {
   const max = Math.max(1, Math.min(60, maxTargets));
@@ -29,16 +33,16 @@ export function laneBudgets(limit: number, ctrl: any, maxTargets = 60) {
 
 /** Spotify re-clean: own small per-run limit and daily cap (default 0 = off). */
 export function spotifyRecleanAllowance(ctrl: any, usedToday: number) {
-  const cap = clamp(ctrl?.spotify_reclean_daily_cap, 0, 300, 0);
+  const cap = clamp(ctrl?.spotify_reclean_daily_cap, 0, SPOTIFY_RECLEAN_DAILY_MAX, 0);
   const perRun = clamp(ctrl?.spotify_reclean_per_run, 0, 20, 5);
   const remaining = Math.max(0, cap - Math.max(0, Number(usedToday) || 0));
   return { cap, perRun, allowed: ctrl?.spotify_reclean_enabled === true ? Math.min(perRun, remaining) : 0 };
 }
 
 export function recleanAllowances(ctrl: any, usedToday: number) {
-  const cap = clamp(ctrl?.youtube_reclean_daily_cap, 0, 500, 0);
+  const cap = clamp(ctrl?.youtube_reclean_daily_cap, 0, YOUTUBE_RECLEAN_DAILY_MAX, 0);
   const perRun = clamp(ctrl?.youtube_reclean_per_run, 0, 25, 10);
-  const reserve = Math.min(cap, clamp(ctrl?.youtube_reclean_fast_reserve, 0, 500, 30));
+  const reserve = Math.min(cap, clamp(ctrl?.youtube_reclean_fast_reserve, 0, YOUTUBE_RECLEAN_DAILY_MAX, 30));
   const remaining = Math.max(0, cap - Math.max(0, Number(usedToday) || 0));
   return {
     cap,

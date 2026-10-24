@@ -51,6 +51,9 @@ describe("re-clean daily cap with a fast-lane reserve", () => {
   });
   it("is off when no cap is configured", () => {
     expect(recleanAllowances({}, 0)).toMatchObject({ cap: 0, fast: 0, archive: 0 });
+    // catch-up bounds: stored caps above the hard maximum are clamped
+    expect(recleanAllowances({ youtube_reclean_daily_cap: 1000, youtube_reclean_per_run: 15 }, 0)).toMatchObject({ cap: 1000, perRun: 15 });
+    expect(recleanAllowances({ youtube_reclean_daily_cap: 5000, youtube_reclean_per_run: 99 }, 0)).toMatchObject({ cap: 1000, perRun: 25 });
   });
 });
 
