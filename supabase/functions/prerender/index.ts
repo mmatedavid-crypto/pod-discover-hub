@@ -841,32 +841,25 @@ async function buildEpisode(
     ? (ep.people as unknown[]).filter((n) => typeof n === "string" && (n as string).trim()).slice(0, 20) as string[]
     : [];
   let safeEpisodePeople: Array<Record<string, any>> = [];
+  const verifiedEpisodePersonIds = new Set<string>();
   const PERSON_PRERENDER_SELECT =
     "id,name,slug,image_url,wikipedia_url,wikidata_id,wikipedia_match_status,wikipedia_match_confidence,is_public,is_indexable,activation_status,ai_recommended_action,ai_review_status,identity_status,identity_ambiguous,manual_approved,is_deceased,is_historical,has_archival_evidence,persona,date_of_death,is_living,gated_episode_count,episode_count,short_description_hu,wikipedia_description,ai_bio,ai_bio_status,ai_bio_confidence";
   if (isAcceptedHungarianPrerenderPodcast(pod)) {
-    // Two resolution paths, unioned: (a) raw people[] names matched on people.name,
-    // (b) canonical person_episode_mentions rows (alias-resolved by the extractor),
-    // which cover episodes where the raw name string differs from the canonical name.
-    const [byName, byMention] = await Promise.all([
-      episodePeopleNames.length
-        ? (supabase as any).from("people").select(PERSON_PRERENDER_SELECT).in("name", episodePeopleNames)
-        : Promise.resolve({ data: [] }),
-      (supabase as any)
-        .from("person_episode_mentions")
-        .select(`person_id, people!inner(${PERSON_PRERENDER_SELECT})`)
-        .eq("episode_id", ep.id)
-        .limit(40),
-    ]);
-    const merged = new Map<string, Record<string, any>>();
-    for (const row of ((byName as any)?.data || []) as any[]) if (row?.id) merged.set(row.id, row);
-    for (const row of ((byMention as any)?.data || []) as any[]) {
-      const p = row?.people;
-      if (p?.id && !merged.has(p.id)) merged.set(p.id, p);
+    // A matching display name is not an identity: people come only from this episode's
+    // person links (get_episode_person_links_v1: never rejected/needs_review, and an
+    // unreviewed namesake is never attached to an already verified person).
+    const { data: linkRows } = await (supabase as any).rpc("get_episode_person_links_v1", { p_episode_id: ep.id });
+    const links = ((linkRows || []) as any[]).filter((r) => r?.person_id);
+    for (const r of links) if (r.verified === true) verifiedEpisodePersonIds.add(String(r.person_id));
+    if (links.length) {
+      const { data: personRows } = await (supabase as any)
+        .from("people").select(PERSON_PRERENDER_SELECT).in("id", links.map((r) => r.person_id).slice(0, 40));
+      safeEpisodePeople = ((personRows || []) as any[]).filter(isSafePublicPerson).slice(0, 25);
     }
-    safeEpisodePeople = [...merged.values()].filter(isSafePublicPerson).slice(0, 25);
   }
 
-  const episodePersonJsonLd = safeEpisodePeople.map((p) => {
+  // Structured data (Person + sameAs) only for accepted, reviewed person links.
+  const episodePersonJsonLd = safeEpisodePeople.filter((p) => verifiedEpisodePersonIds.has(String(p.id))).map((p) => {
     const sameAs: string[] = [];
     if (typeof p.wikipedia_url === "string" && p.wikipedia_url) sameAs.push(p.wikipedia_url);
     if (typeof p.wikidata_id === "string" && p.wikidata_id) sameAs.push(`https://www.wikidata.org/wiki/${p.wikidata_id}`);

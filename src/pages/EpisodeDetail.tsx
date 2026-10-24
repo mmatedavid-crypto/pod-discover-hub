@@ -164,11 +164,7 @@ export default function EpisodeDetail() {
       const origin = typeof window !== "undefined" ? window.location.origin : "https://podiverzum.hu";
       const isAcceptedHungarian = p.language_decision === "accept_hungarian";
 
-      // Person JSON-LD: look up the episode's people[] names in the canonical
-      // `people` table, apply the same safety gate as the prerender, and emit
-      // both a top-level Person node (with sameAs → Wikipedia/Wikidata) and a
-      // compact ref that goes into PodcastEpisode.about.
-      // This is the single biggest missing signal on "<person name>" queries.
+      // Person JSON-LD (Person node with sameAs + PodcastEpisode.about), same gate as the prerender.
       // A matching display name is not an identity: people are resolved only from this
       // episode's person links (never rejected/needs_review; an unreviewed namesake is
       // never attached to an already verified person). Person JSON-LD / `about` only for
