@@ -75,3 +75,11 @@
 - [ ] 9 YouTube + 38 Spotify re-cleans left; they go through on the normal daily caps (runs on its own).
 - [x] Legacy review rows (499): 3-step resolution 2026-10-21 (merge 59, RSS replace 10, attribution 129, safe-internal/kept 251, protected 16, quarantine 3; one-off AI $0.41, switched off).
 - [ ] 31 legacy rows still need_review (19 texts with URL fragments need a YouTube re-clean, 9 AI-uncertain, 2 unverified names, 1 low-info) + ≈150 gated RSS rows + quarantine (blocked: owner review).
+
+## Pipeline repair (2026-10-24, owner "Rendbe tudod hozni?")
+- [ ] A: best-source CPU root cause fixed, run heartbeat/stages, isolation + finite retry, 36 dead re-queued once, ≥2 real successful runs.
+- [ ] B: clean-text content fingerprint → per-episode derivation state (entity/topic/SEO/public), bounded stale dispatch in existing runners.
+- [ ] C: 10–20 mixed real episodes through clean → entity/topic/SEO with hash; second run no-op.
+- [ ] D: bot HTML = visitor description (no transcript excerpt), snippet/schema consistent.
+- [ ] E: Google Indexing API safe no-op for unsupported pages; no indexed=true from submission.
+- [ ] Docs: docs/pipeline-repair-2026-10-24.md, AGENTS.md rules.
