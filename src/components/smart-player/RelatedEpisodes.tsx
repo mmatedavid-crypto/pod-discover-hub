@@ -118,6 +118,23 @@ function fallbackRelatedReason(source: RecommendationContext, row: Row): string 
   return null;
 }
 
+/** Names of people verified as the same identity on the source and each candidate episode. */
+async function sharedVerifiedPeople(episodeId: string, candidateIds: string[]): Promise<Map<string, string[]>> {
+  const out = new Map<string, string[]>();
+  if (!candidateIds.length) return out;
+  const { data } = await supabase.rpc("get_shared_verified_people_v1", {
+    p_episode_id: episodeId,
+    p_candidate_ids: candidateIds,
+    p_limit: 100,
+  });
+  for (const r of (data || []) as any[]) {
+    const list = out.get(r.episode_id) || [];
+    if (r.person_name && !list.includes(r.person_name)) list.push(r.person_name);
+    out.set(r.episode_id, list);
+  }
+  return out;
+}
+
 function hasSafeRelatedReason(row: Row): boolean {
   return sanitizeHungarianPublicText(row.related_reason).length >= 12;
 }
@@ -157,9 +174,14 @@ export function RelatedEpisodes({ episodeIdOverride, podcastIdOverride, variant 
         p_limit: 12,
       });
       if (!rpcErr && rpcData && (rpcData as any[]).length > 0) {
+        const rpcRows = rpcData as Row[];
+        const shared = await sharedVerifiedPeople(episodeId!, rpcRows.map((r) => r.episode_id));
         return filterSafeRelatedEpisodes(
           source,
-          (rpcData as Row[]).filter(hasSafeRelatedReason).map(rowToCandidate),
+          rpcRows
+            .map((r) => ({ ...r, shared_people: shared.get(r.episode_id) || [] }))
+            .filter(hasSafeRelatedReason)
+            .map(rowToCandidate),
           12,
         ) as Row[];
       }
@@ -186,20 +208,7 @@ export function RelatedEpisodes({ episodeIdOverride, podcastIdOverride, variant 
         if (!candidates.has(row.id)) candidates.set(row.id, row);
       }));
 
-      const candidateIds = Array.from(candidates.keys());
-      const sharedById = new Map<string, string[]>();
-      if (candidateIds.length) {
-        const { data: shared } = await supabase.rpc("get_shared_verified_people_v1", {
-          p_episode_id: episodeId!,
-          p_candidate_ids: candidateIds,
-          p_limit: 100,
-        });
-        for (const r of (shared || []) as any[]) {
-          const list = sharedById.get(r.episode_id) || [];
-          if (r.person_name && !list.includes(r.person_name)) list.push(r.person_name);
-          sharedById.set(r.episode_id, list);
-        }
-      }
+      const sharedById = await sharedVerifiedPeople(episodeId!, Array.from(candidates.keys()));
 
       const rows = Array.from(candidates.values()).map((r) => {
         const row = {

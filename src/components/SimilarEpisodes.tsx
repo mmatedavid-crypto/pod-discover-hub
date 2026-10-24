@@ -32,6 +32,7 @@ type Row = {
   podiverzum_rank: number | null;
   rank_label: string | null;
   related_reason: string | null;
+  shared_people?: string[] | null;
 };
 
 function rowToEpisode(r: Row): EpisodeLite {
@@ -84,6 +85,8 @@ function rowToCandidate(row: Row) {
     category: row.podcast_category || null,
     topics: row.topics || [],
     people: [...(row.people || []), ...(row.mentioned || [])],
+    // Raw names never bridge; only people verified on both episodes do.
+    sharedPeople: row.shared_people || [],
     companies: row.companies || [],
   };
 }
@@ -92,19 +95,30 @@ function hasSafeRelatedReason(row: Row): boolean {
   return sanitizeHungarianPublicText(row.related_reason).length >= 12;
 }
 
-async function hydrateRows(rows: Row[]): Promise<Row[]> {
+async function hydrateRows(sourceEpisodeId: string, rows: Row[]): Promise<Row[]> {
   const ids = rows.map((r) => r.episode_id).filter(Boolean);
   if (!ids.length) return rows;
-  const { data } = await supabase
-    .from("episodes")
-    .select("id,image_url,topics,people,mentioned,companies")
-    .in("id", ids);
+  const [{ data }, { data: shared }] = await Promise.all([
+    supabase
+      .from("episodes")
+      .select("id,image_url,topics,people,mentioned,companies")
+      .in("id", ids),
+    supabase.rpc("get_shared_verified_people_v1", { p_episode_id: sourceEpisodeId, p_candidate_ids: ids, p_limit: 100 }),
+  ]);
+  const sharedById = new Map<string, string[]>();
+  for (const r of (shared || []) as any[]) {
+    const list = sharedById.get(r.episode_id) || [];
+    if (r.person_name && !list.includes(r.person_name)) list.push(r.person_name);
+    sharedById.set(r.episode_id, list);
+  }
   const byId = new Map((data || []).map((r: any) => [r.id, r]));
   return rows.map((row) => {
     const full = byId.get(row.episode_id);
-    if (!full) return row;
+    const shared_people = sharedById.get(row.episode_id) || [];
+    if (!full) return { ...row, shared_people };
     return {
       ...row,
+      shared_people,
       image_url: full.image_url || row.image_url || null,
       topics: full.topics || row.topics || [],
       people: full.people || [],
@@ -140,7 +154,7 @@ export function SimilarEpisodes({ episodeId, limit = 8 }: { episodeId: string; l
       if (error || !Array.isArray(data)) {
         setItems([]);
       } else {
-        const hydrated = await hydrateRows(data as Row[]);
+        const hydrated = await hydrateRows(episodeId, data as Row[]);
         if (cancelled) return;
         const safeRows = filterSafeRelatedEpisodes(
           sourceFromEpisode(cur),
