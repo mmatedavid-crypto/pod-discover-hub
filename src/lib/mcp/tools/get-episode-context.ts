@@ -15,6 +15,10 @@ import {
   stripForbidden,
   topicUrl,
 } from "../entityResolve";
+import {
+  isExcludedPersonMention,
+  isVerifiedPersonMention,
+} from "../../../../supabase/functions/_shared/person-link-trust";
 
 const EPISODE_SELECT =
   "id,title,display_title,slug,published_at,duration_seconds,summary,ai_summary,description,podcast_id,podcasts!inner(id,slug,title,display_title,language,language_decision,rss_status)";
@@ -55,12 +59,12 @@ export default defineTool({
       if (!row) return err(`Epizód nem található: ${episode}`);
       if (!isPublicHungarianPodcast(row.podcasts)) return err("Az epizód nem része a publikus magyar katalógusnak.");
 
-      const [{ data: personRows }, { data: orgRows }, { data: topicRows }, { data: transcriptRows }] =
+      const [{ data: personRows }, { data: orgRows }, { data: topicRows }, { data: transcriptRows }, { data: linkRows }] =
         await Promise.all([
           sb
             .from("person_episode_mentions")
             .select(
-              `mention_type,role_type,confidence,role_confidence,final_relevance_score,relevance_status,evidence,people!inner(${PERSON_JSONLD_SELECT})`,
+              `mention_type,role_type,confidence,role_confidence,final_relevance_score,relevance_status,validation_source,evidence,people!inner(${PERSON_JSONLD_SELECT})`,
             )
             .eq("episode_id", row.id)
             .or("relevance_status.is.null,relevance_status.neq.rejected")
@@ -81,21 +85,33 @@ export default defineTool({
             .order("confidence", { ascending: false, nullsFirst: false })
             .limit(20),
           sb.from("episode_transcripts").select("public_display").eq("episode_id", row.id).limit(1),
+          // Same per-episode identity gate as the public episode page: a name match is not
+          // the same person; only people this RPC returns may be linked, verified flag says
+          // whether the link was reviewed.
+          sb.rpc("get_episode_person_links_v1", { p_episode_id: row.id }),
         ]);
 
+      const linkable = new Map<string, boolean>(
+        ((linkRows as any[]) || []).map((l) => [String(l.person_id), l.verified === true]),
+      );
       const people = ((personRows as any[]) || [])
-        .filter((m) => isSafePersonMentionRow(m) && isSafeIndexablePerson(m.people))
-        .map((m) => ({
-          id: m.people.id,
-          name: m.people.name,
-          slug: m.people.slug,
-          url: personUrl(m.people.slug),
-          mention_type: m.mention_type,
-          role_type: m.role_type,
-          confidence: m.role_confidence ?? m.confidence ?? null,
-          evidence_phrase: clampEvidencePhrase(m.evidence, 160),
-          evidence_kind: "extracted_metadata",
-        }));
+        .filter((m) => isSafePersonMentionRow(m) && !isExcludedPersonMention(m) && isSafeIndexablePerson(m.people))
+        .filter((m) => linkable.has(String(m.people.id)))
+        .map((m) => {
+          const verified = linkable.get(String(m.people.id)) === true && isVerifiedPersonMention(m);
+          return {
+            id: m.people.id,
+            name: m.people.name,
+            slug: m.people.slug,
+            url: personUrl(m.people.slug),
+            mention_type: verified ? m.mention_type : "mention",
+            role_type: verified ? m.role_type : "mention",
+            identity_verified: verified,
+            confidence: m.role_confidence ?? m.confidence ?? null,
+            evidence_phrase: clampEvidencePhrase(m.evidence, 160),
+            evidence_kind: "extracted_metadata",
+          };
+        });
 
       const organizations = ((orgRows as any[]) || [])
         .filter((m) => isPublicOrganizationRow(m.organizations))

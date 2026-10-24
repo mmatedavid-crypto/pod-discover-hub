@@ -11518,6 +11518,10 @@ export type Database = {
         }
         Returns: Json[]
       }
+      classify_ai_referral_v1: {
+        Args: { p_referrer: string; p_utm_source: string }
+        Returns: string
+      }
       clean_slug: { Args: { fallback: string; input: string }; Returns: string }
       clean_text_content_hash: { Args: { p_text: string }; Returns: string }
       clean_text_quality_audit_v1: { Args: never; Returns: Json }
@@ -11722,6 +11726,7 @@ export type Database = {
           topic_tags: string[]
         }[]
       }
+      get_ai_referral_stats_v1: { Args: { p_days?: number }; Returns: Json }
       get_cron_health: { Args: never; Returns: Json }
       get_data_quality_snapshot_v1: {
         Args: { _recent_days?: number; _sample_limit?: number }

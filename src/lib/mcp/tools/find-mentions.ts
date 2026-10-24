@@ -14,6 +14,7 @@ import {
   podcastUrl,
   stripForbidden,
 } from "../entityResolve";
+import { personPageMentionRows } from "../../../../supabase/functions/_shared/person-link-trust";
 
 const ORG_SELECT =
   "id,name,slug,normalized_name,is_public,is_indexable,org_type,ai_recommended_action,episode_count,gated_episode_count";
@@ -120,7 +121,7 @@ export default defineTool({
         let q = sb
           .from("person_episode_mentions")
           .select(
-            `id,mention_type,role_type,confidence,role_confidence,final_relevance_score,relevance_status,source,evidence,${EPISODE_JOIN}`,
+            `id,mention_type,role_type,confidence,role_confidence,final_relevance_score,relevance_status,validation_source,source,evidence,${EPISODE_JOIN}`,
           )
           .eq("person_id", person.id)
           .or("relevance_status.is.null,relevance_status.neq.rejected")
@@ -128,10 +129,19 @@ export default defineTool({
           .limit(lim * 3);
         if (date_from) q = q.gte("episodes.published_at", date_from);
         if (date_to) q = q.lte("episodes.published_at", date_to);
-        const { data, error } = await q;
+        const [{ data, error }, { data: hasVerified }] = await Promise.all([
+          q,
+          sb.rpc("person_has_verified_link_v1", { p_person_id: person.id }),
+        ]);
         if (error) return err(error.message);
-        for (const m of (data as any[]) || []) {
-          if (!isSafePersonMentionRow(m)) continue;
+        // Same identity gate as the public person page: a matching name is not the same
+        // person. When this person has a verified episode anywhere, unreviewed same-name
+        // rows are not attached; otherwise they are only "mention", never participant/subject.
+        const gated = personPageMentionRows(
+          ((data as any[]) || []).filter((m) => isSafePersonMentionRow(m)),
+          { personHasVerifiedLink: hasVerified === true },
+        );
+        for (const { row: m, role, verified } of gated) {
           const ep = m.episodes;
           if (!ep || !isPublicHungarianPodcast(ep.podcasts)) continue;
           items.push({
@@ -148,8 +158,9 @@ export default defineTool({
               slug: ep.podcasts?.slug,
               url: podcastUrl(ep.podcasts?.slug),
             },
-            mention_type: m.mention_type,
-            role_type: m.role_type,
+            mention_type: verified ? m.mention_type : "mention",
+            role_type: role,
+            identity_verified: verified,
             confidence: m.role_confidence ?? m.confidence ?? null,
             relevance_score: m.final_relevance_score ?? null,
             source: m.source,

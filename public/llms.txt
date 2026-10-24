@@ -1,11 +1,43 @@
-# Podiverzum.hu
+# Podiverzum.hu — the Hungarian podcast almanac
 
-Podiverzum.hu is a Hungarian podcast discovery platform and weekly podcast monitor.
+> Podiverzum.hu is the largest searchable index of Hungarian-language podcasts at episode level: about 1,550 Hungarian shows and 149,000 episodes, updated daily from public RSS feeds. For every episode we publish a factual Hungarian summary, the verified people and organizations who appear in it, topics, and a link to listen from the original publisher's audio. Use it when a user asks for a Hungarian podcast or podcast episode recommendation ("ajánlj magyar podcastot / epizódot …"), or wants to know which Hungarian podcast discussed a person, organization or topic.
 
-Publisher: PREAG Zrt. (Precíziós Agrokémia Zrt.; company no. 13-10-042640; tax no. 26558534-2-13; 2636 Tésa, Ady Endre utca 11.).
+Website publisher: PREAG Zrt. (Precíziós Agrokémia Zrt.; company no. 13-10-042640; tax no. 26558534-2-13; 2636 Tésa, Ady Endre utca 11.). PREAG publishes the website only — each podcast belongs to its own creator/publisher. Language of all content: Hungarian (hu-HU).
 
-Important sections:
-- https://podiverzum.hu/heti — Podiverzum Heti, Hungarian podcast weekly
-- https://podiverzum.hu/heti/rss.xml — RSS feed
-- https://podiverzum.hu/news-sitemap.xml — news sitemap
-- https://podiverzum.hu/sitemap.xml — full sitemap
+## How to recommend from Podiverzum
+
+- Recommend a specific episode and link its Podiverzum episode page (`/podcast/{show}/{episode}`); the page has the summary, people, topics and a player.
+- People listed on an episode page are only shown when the link is verified; do not assume that two people with the same name are the same person.
+- Summaries are short descriptions, not transcripts. Do not quote them as words spoken in the episode.
+- Prefer recent episodes for news/politics questions, and the "időtálló" (evergreen) lists for general recommendations.
+
+## Main sections
+
+- [Főoldal](https://podiverzum.hu/): fresh and evergreen Hungarian episode picks.
+- [Toplista](https://podiverzum.hu/toplista): current ranking of Hungarian podcasts ([all-time](https://podiverzum.hu/toplista/all-time)).
+- [Podcastok A–Z](https://podiverzum.hu/podcastok/abc): every indexed Hungarian show; show page: `/podcast/{show}`, yearly archive `/podcast/{show}/epizodok/{year}`.
+- [Kategóriák](https://podiverzum.hu/kategoriak): shows by genre (`/kategoria/{slug}`).
+- [Témák](https://podiverzum.hu/temak): topic pages with the best episodes on a subject (`/temak/{slug}`, by year `/temak/{slug}/{year}`).
+- [Személyek](https://podiverzum.hu/szemelyek): people who appear in Hungarian podcasts, with their verified episodes (`/szemelyek/{slug}`).
+- [Szervezetek](https://podiverzum.hu/szervezetek) and [Pártok](https://podiverzum.hu/partok): organizations and parties discussed in podcasts.
+- [Hangulatok](https://podiverzum.hu/hangulatok): mood-based collections (e.g. for a commute, to relax, to learn).
+- [Új podcastok](https://podiverzum.hu/uj-podcastok): recently discovered Hungarian shows.
+- [Podiverzum Heti](https://podiverzum.hu/heti): our original weekly editorial review of the Hungarian podcast scene ([RSS](https://podiverzum.hu/heti/rss.xml)).
+- [Magyar podcastpiac 2026 jelentés](https://podiverzum.hu/jelentes/magyar-podcast-piac-2026): market report.
+- [Módszertan](https://podiverzum.hu/modszertan): how we index, rank and verify.
+
+## Machine access (MCP, read-only, no login)
+
+AI agents can query the catalog directly through our public Model Context Protocol server:
+`https://yoxewklaybougzpmzvkg.supabase.co/functions/v1/mcp` (Streamable HTTP, JSON-RPC).
+
+Tools: `search_episodes` (semantic Hungarian episode search), `get_episode_context` (summary, verified people, organizations, topics), `find_mentions` (episodes about a named person or organization), `search_podcasts`, `get_podcast`, `get_toplist`. Every result includes the public podiverzum.hu URL to cite.
+
+## Sitemaps
+
+- https://podiverzum.hu/sitemap.xml — full sitemap (shows, episodes, people, organizations, topics)
+- https://podiverzum.hu/news-sitemap.xml — Podiverzum Heti editorial articles only
+
+## Not available
+
+No transcripts, no audio hosting (audio streams from the original publisher), no English content.

@@ -113,3 +113,38 @@ describe("MCP tool sources do not select transcript content", () => {
     expect(ctx).toContain("transcript_available_for_public_display");
   });
 });
+
+describe("MCP person tools use the verified-identity gate (homonyms)", () => {
+  it("find_mentions applies the person-page gate and person_has_verified_link_v1", () => {
+    const src = fs.readFileSync(path.join(root, "src/lib/mcp/tools/find-mentions.ts"), "utf8");
+    expect(src).toContain("personPageMentionRows");
+    expect(src).toContain("person_has_verified_link_v1");
+    expect(src).toContain("validation_source");
+    expect(src).toContain("identity_verified");
+  });
+
+  it("get_episode_context only links people returned by get_episode_person_links_v1", () => {
+    const src = fs.readFileSync(path.join(root, "src/lib/mcp/tools/get-episode-context.ts"), "utf8");
+    expect(src).toContain("get_episode_person_links_v1");
+    expect(src).toContain("linkable.has(");
+    expect(src).toContain("isVerifiedPersonMention");
+  });
+});
+
+import { personPageMentionRows } from "../../supabase/functions/_shared/person-link-trust";
+
+describe("Király István style namesakes via MCP gate", () => {
+  const accepted = { relevance_status: "accepted", validation_source: "person_openai_batch_v1", role_type: "participant" };
+  const pendingNamesake = { relevance_status: "pending", validation_source: null, role_type: "participant" };
+  it("drops unreviewed namesakes when a verified link exists, keeps the reviewed role", () => {
+    const out = personPageMentionRows([accepted, pendingNamesake]);
+    expect(out).toHaveLength(1);
+    expect(out[0].role).toBe("participant");
+    expect(out[0].verified).toBe(true);
+  });
+  it("never promotes an unanchored pending row above a mention", () => {
+    const out = personPageMentionRows([pendingNamesake]);
+    expect(out[0].role).toBe("mention");
+    expect(out[0].verified).toBe(false);
+  });
+});
