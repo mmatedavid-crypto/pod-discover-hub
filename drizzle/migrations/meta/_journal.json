@@ -575,6 +575,13 @@
       "when": 1792854383757,
       "tag": "0081_pipeline_health_fast_cron_lookup",
       "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "7",
+      "when": 1792854518310,
+      "tag": "0082_pipeline_runner_health_light_rpc",
+      "breakpoints": true
     }
   ]
 }
