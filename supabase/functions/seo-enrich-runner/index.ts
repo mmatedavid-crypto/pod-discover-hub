@@ -10,7 +10,7 @@ import { SYSTEM_PROMPT, PODCAST_SEO_TOOL, EPISODE_SEO_TOOL, podcastUserPrompt, e
 import { chatTokenCostUsd } from "../_shared/ai-pricing.ts";
 import { assertHungarianPublicFields, isHungarianish } from "../_shared/hu-language-guard.ts";
 import { callLovableAI } from "../_shared/lovable-ai.ts";
-import { loadDerivationInputs, markDerivation, prebuiltPromptDecision, seoInputProvenance, seoPrimary, seoUsedCleanHash, terminalSeoFailureMark, type SeoInputProvenance } from "../_shared/derivation-state.ts";
+import { loadDerivationInputs, markDerivation, persistSeoJobFailure, prebuiltPromptDecision, seoInputProvenance, seoPrimary, seoUsedCleanHash, terminalSeoFailureMark, type SeoInputProvenance } from "../_shared/derivation-state.ts";
 import { runLog } from "../_shared/runner-run-log.ts";
 
 const HU_REINFORCE = "KRITIKUS NYELVI SZABÁLY: A seo_title, seo_description ÉS ai_summary mezőket KIZÁRÓLAG MAGYARUL írd. A Podiverzum magyar oldal, angol publikus szöveg nem kerülhet ki. NE keverd a nyelveket. Ha az előző válaszod angol volt, ez hiba volt — most magyarul írj. TÉNYSZABÁLY: számot, évszámot, évfordulót, dátumot vagy statisztikát CSAK akkor írj, ha szó szerint szerepel a forrásszövegben; ne következtess és ne egészíts ki saját tudásból.";
@@ -143,7 +143,7 @@ Deno.serve(async (req) => {
     log = runLog(admin, "seo-enrich-runner");
     await log.start({ model, daily_budget_usd: dailyBudget, spend_before_usd: spend });
 
-    let processed = 0, succeeded = 0, failed = 0, skipped = 0, rate_limited = 0;
+    let processed = 0, succeeded = 0, failed = 0, skipped = 0, rate_limited = 0, failure_bookkeeping_errors = 0;
     let stop = false;
     let total_claimed = 0;
     let drain_loops = 0;
@@ -455,18 +455,19 @@ Deno.serve(async (req) => {
         const rejected = msg.startsWith("hu_language_guard_failed") && candidate
           ? { rejected_output: { at: new Date().toISOString(), attempt: job.attempts || 0, reason: msg, ...candidate } }
           : {};
-        await admin.from("ai_enrichment_jobs").update({
+        // Job row first (confirmed), then — only on terminal failure and only if that write
+        // succeeded — the matching clean-text version's stage is marked blocked (never current;
+        // a newer version is left untouched). Retried only by a clean-text change or the bounded
+        // admin retry RPC. A failed write is reported, never counted as done bookkeeping.
+        const outcome = await persistSeoJobFailure(admin, job.id, {
           status: giveUp ? "failed" : "pending",
           locked_until: null,
           last_error: msg,
           ...(Object.keys(rejected).length ? { result: { ...(job.result || {}), ...rejected } } : {}),
-        }).eq("id", job.id);
-        // Exhausted terminal failure: the stage is truthfully "blocked" for exactly the clean-text
-        // version this job was for (never current; a newer version is left untouched). It is
-        // retried only by a clean-text change or the bounded admin retry RPC.
-        if (giveUp) {
-          const mark = terminalSeoFailureMark(job, (job as any).__prov ?? job.result?.input_provenance ?? null, msg);
-          if (mark) await markDerivation(admin, "seo", [mark]);
+        }, giveUp ? terminalSeoFailureMark(job, (job as any).__prov ?? job.result?.input_provenance ?? null, msg) : null);
+        if (!outcome.ok) {
+          failure_bookkeeping_errors++;
+          console.error("seo job failure bookkeeping failed", job.id, outcome.step, outcome.error);
         }
       }
     };
@@ -537,8 +538,10 @@ Deno.serve(async (req) => {
       try { await admin.rpc("set_seo_enrich_runner_schedule" as any, { _schedule: next_schedule }); } catch { /* ignore */ }
     } catch { /* ignore */ }
 
-    const summary = { ok: true, claimed: total_claimed, drain_loops, processed, succeeded, failed, skipped, rate_limited, concurrency, spend_usd: spend, run_increment_usd: runIncrement, reaped_stale_locks, next_schedule, elapsed_ms: Date.now() - startedAt };
-    await log?.finish("ok", summary);
+    const summary = { ok: failure_bookkeeping_errors === 0, claimed: total_claimed, drain_loops, processed, succeeded, failed, failure_bookkeeping_errors, skipped, rate_limited, concurrency, spend_usd: spend, run_increment_usd: runIncrement, reaped_stale_locks, next_schedule, elapsed_ms: Date.now() - startedAt };
+    // A failed job/stage write is not successful bookkeeping: the run is logged as an error.
+    await log?.finish(failure_bookkeeping_errors === 0 ? "ok" : "error", summary,
+      failure_bookkeeping_errors ? `failure_bookkeeping_errors:${failure_bookkeeping_errors}` : null);
     return json(summary);
   } catch (e: any) {
     await log?.finish("error", { elapsed_ms: Date.now() - startedAt }, e?.message || "error");

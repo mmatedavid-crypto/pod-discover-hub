@@ -278,7 +278,8 @@ describe("terminal SEO job failures are reported truthfully", () => {
   });
   it("runner marks only on exhausted attempts and keeps the rejected candidate internally", () => {
     const src = readFileSync("supabase/functions/seo-enrich-runner/index.ts", "utf8");
-    expect(src).toContain("if (giveUp) {\n          const mark = terminalSeoFailureMark(");
+    expect(src).toContain("giveUp ? terminalSeoFailureMark(job,");
+    expect(src).toContain("persistSeoJobFailure(admin, job.id,");
     expect(src).toContain('msg.startsWith("hu_language_guard_failed") && candidate');
     const sql = readFileSync("drizzle/migrations/0090_seo_terminal_failure_retry_rpc.sql", "utf8");
     expect(sql).toContain("(coalesce(p_episode_ids, '{}'::uuid[]))[1:50]");
@@ -299,5 +300,66 @@ describe("adaptive stale-derivation dispatch batch", () => {
     const src = readFileSync("supabase/functions/seo-enrich-enqueue/index.ts", "utf8");
     expect(src).toContain("eff = dispatchBatchClamp(Math.floor(eff / 2));");
     expect(src).not.toMatch(/statement_timeout/);
+  });
+});
+
+describe("SEO job failure bookkeeping (failure injection, no paid AI)", () => {
+  const h = "a".repeat(64);
+  const mark = { episode_id: "ep1", result: "blocked", used_hash: h, reason: "terminal_job_failed:x" } as any;
+  function fakeAdmin(opts: { updateError?: string; rows?: number; rpcError?: string }) {
+    const calls: string[] = [];
+    const admin = {
+      from: () => ({
+        update: () => ({
+          eq: () => ({
+            select: async () => {
+              calls.push("job_update");
+              return opts.updateError
+                ? { data: null, error: { message: opts.updateError } }
+                : { data: Array.from({ length: opts.rows ?? 1 }, () => ({ id: "j1" })), error: null };
+            },
+          }),
+        }),
+      }),
+      rpc: async (name: string) => {
+        calls.push(name);
+        return { data: null, error: opts.rpcError ? { message: opts.rpcError } : null };
+      },
+    };
+    return { admin, calls };
+  }
+  it("failed job write never marks the stage blocked", async () => {
+    const { persistSeoJobFailure } = await import("../../supabase/functions/_shared/derivation-state");
+    const { admin, calls } = fakeAdmin({ updateError: "connection reset" });
+    const r = await persistSeoJobFailure(admin, "j1", { status: "failed" }, mark);
+    expect(r).toEqual({ ok: false, step: "job_update", error: "connection reset" });
+    expect(calls).toEqual(["job_update"]);
+  });
+  it("zero rows updated is not success and does not mark", async () => {
+    const { persistSeoJobFailure } = await import("../../supabase/functions/_shared/derivation-state");
+    const { admin, calls } = fakeAdmin({ rows: 0 });
+    const r = await persistSeoJobFailure(admin, "j1", { status: "failed" }, mark);
+    expect(r.ok).toBe(false);
+    expect(calls).toEqual(["job_update"]);
+  });
+  it("stage-mark RPC error is reported, not swallowed", async () => {
+    const { persistSeoJobFailure } = await import("../../supabase/functions/_shared/derivation-state");
+    const { admin, calls } = fakeAdmin({ rpcError: "statement timeout" });
+    const r = await persistSeoJobFailure(admin, "j1", { status: "failed" }, mark);
+    expect(r).toEqual({ ok: false, step: "stage_mark", error: "statement timeout" });
+    expect(calls).toEqual(["job_update", "mark_episode_derivation_v1"]);
+  });
+  it("terminal success marks once; non-terminal retry never marks", async () => {
+    const { persistSeoJobFailure } = await import("../../supabase/functions/_shared/derivation-state");
+    const a = fakeAdmin({});
+    expect(await persistSeoJobFailure(a.admin, "j1", { status: "failed" }, mark)).toEqual({ ok: true, terminal: true, stage_marked: true });
+    expect(a.calls).toEqual(["job_update", "mark_episode_derivation_v1"]);
+    const b = fakeAdmin({});
+    expect(await persistSeoJobFailure(b.admin, "j1", { status: "pending" }, null)).toEqual({ ok: true, terminal: false, stage_marked: false });
+    expect(b.calls).toEqual(["job_update"]);
+  });
+  it("runner logs a bookkeeping failure as an error run", () => {
+    const src = readFileSync("supabase/functions/seo-enrich-runner/index.ts", "utf8");
+    expect(src).toContain('failure_bookkeeping_errors === 0 ? "ok" : "error"');
   });
 });
