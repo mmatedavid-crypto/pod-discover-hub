@@ -405,7 +405,7 @@ function notFound(path: string, resolvedMissing = false) {
 // AGENT_SEARCH_KEY, other crawlers the cheap lexical path. Result pages are
 // noindex,follow: they help agents answer, but must not become indexed thin pages.
 const SEARCH_RESULTS_SHOWN = 30;
-export function normalizeSearchQuery(raw: string | null | undefined): string {
+function normalizeSearchQuery(raw: string | null | undefined): string {
   return String(raw || "").replace(/\s+/g, " ").trim().slice(0, 200);
 }
 
@@ -3450,6 +3450,10 @@ Deno.serve(async (req) => {
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
 
     if (path === "/") return await buildHome(supabase);
+    if (path === "/kereses") {
+      const tier = url.searchParams.get("tier") === "ai" ? "ai" : "basic";
+      return await buildSearch(supabase, url.searchParams.get("q"), tier);
+    }
 
     const parts = path.split("/").filter(Boolean);
 
