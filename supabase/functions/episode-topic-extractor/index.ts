@@ -206,14 +206,17 @@ Deno.serve(async (req) => {
       const claimIds = epsRaw.map((e: any) => e.id);
       await admin.from("episodes").update({ topic_extraction_status: "in_progress" }).in("id", claimIds);
 
-      // Fetch only promoted deterministic_v4 clean text. Older cleaner rows must
-      // wait; otherwise we would extract topics from polluted descriptions.
-      const { data: cts } = await admin
-        .from("episode_clean_text")
-        .select("episode_id, cleaned_text")
-        .in("episode_id", claimIds)
-        .like("cleaner_method", "deterministic_v4%");
-      const ctMap = new Map<string, string>((cts || []).map((r: any) => [r.episode_id, r.cleaned_text || ""]));
+      // Fetch only promoted deterministic_v4 clean text (with its content fingerprint).
+      // Older cleaner rows must wait; otherwise we would extract topics from polluted descriptions.
+      const batchStartIso = new Date().toISOString();
+      const inputs = await loadDerivationInputs(admin, claimIds);
+      const ctMap = new Map<string, string>();
+      const hashMap = new Map<string, string | null>();
+      for (const [id, inp] of inputs) {
+        if (!inp.method.startsWith("deterministic_v4")) continue;
+        ctMap.set(id, inp.text);
+        hashMap.set(id, inp.hash);
+      }
 
       // Pre-filter short ones
       const skipIds: string[] = [];
@@ -268,10 +271,18 @@ Deno.serve(async (req) => {
       }
 
       // Persist this batch
+      let insertsOk = true;
       if (inserts.length > 0) {
         for (let i = 0; i < inserts.length; i += 500) {
           const { error: insErr } = await admin.from("episode_extracted_topics").insert(inserts.slice(i, i + 500));
-          if (insErr) console.warn("insert error", insErr.message);
+          if (insErr) { insertsOk = false; console.warn("insert error", insErr.message); }
+        }
+      }
+      // Re-extraction after a clean-text change replaces the machine topics built from
+      // the older text (only once the new rows are safely in).
+      if (insertsOk && doneIds.length > 0) {
+        for (let i = 0; i < doneIds.length; i += 150) {
+          await admin.from("episode_extracted_topics").delete().in("episode_id", doneIds.slice(i, i + 150)).lt("created_at", batchStartIso);
         }
       }
       if (doneIds.length > 0) {
@@ -298,6 +309,11 @@ Deno.serve(async (req) => {
           await admin.from("episodes").update({ topic_extraction_status: "error" }).in("id", errIds.slice(i, i + 150));
         }
       }
+      await markDerivation(admin, "topic", [
+        ...(insertsOk ? doneIds : []).map((id) => ({ episode_id: id, used_hash: hashMap.get(id) || null, result: "done" as const })),
+        ...skipIds.map((id) => ({ episode_id: id, used_hash: hashMap.get(id) || null, result: "not_applicable" as const, reason: "clean_text_below_topic_min" })),
+        ...errIds.map((id) => ({ episode_id: id, used_hash: hashMap.get(id) || null, result: "error" as const, reason: "topic_extraction_empty_or_failed" })),
+      ]);
 
       totalProcessed += epsRaw.length;
       totalWritten += doneIds.length;
