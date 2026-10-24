@@ -87,7 +87,7 @@ assert.equal((await ep(id(1))).seo_title, 't-B', 'newer result is never clobbere
 assert.deepEqual((await ep(id(1))).people, null, 'SEO never rewrites entities of an evidence-extracted (v5) episode');
 
 // 2) Race: result marking holds the clean row; a concurrent clean-text update waits and then invalidates.
-await A`INSERT INTO public.episode_derivation_state(episode_id, clean_hash, clean_usable, seo_status, baseline) VALUES (${id(2)}, ${hA}, true, 'queued', 'test')`;
+await A`UPDATE public.episode_derivation_state SET seo_status = 'queued' WHERE episode_id = ${id(2)}`;
 await A`BEGIN`;
 assert.equal((await A`SELECT public.apply_episode_seo_result_v1(${id(2)}::uuid, ${hA}, 'clean_text', ${A.json({ seo_title: 'race-A', seo_description: 'd', ai_summary: 's' })}) r`)[0].r, 'applied_current');
 let bDone = false;
@@ -101,7 +101,7 @@ assert.equal(s.seo_status, 'stale', 'newer invalidation wins after the mark comm
 assert.equal(s.clean_hash, hB);
 
 // Reverse order: clean-text update first (uncommitted), the mark waits and then sees the new version.
-await A`INSERT INTO public.episode_derivation_state(episode_id, clean_hash, clean_usable, seo_status, baseline) VALUES (${id(3)}, ${hA}, true, 'queued', 'test')`;
+await A`UPDATE public.episode_derivation_state SET seo_status = 'queued' WHERE episode_id = ${id(3)}`;
 await B`BEGIN`;
 await B`UPDATE public.episode_clean_text SET cleaned_text = ${textB} WHERE episode_id = ${id(3)}`;
 let aRes = null;
@@ -114,7 +114,7 @@ assert.equal(aRes, 'applied_older_version');
 assert.notEqual((await state(id(3))).seo_status, 'current', 'old version is never marked current after a concurrent change');
 
 // 3) Failed persistence: nothing is marked current, nothing is half-written.
-await A`INSERT INTO public.episode_derivation_state(episode_id, clean_hash, clean_usable, seo_status, entity_status, topic_status, baseline) VALUES (${id(4)}, ${hA}, true, 'queued', 'queued', 'queued', 'test')`;
+await A`UPDATE public.episode_derivation_state SET seo_status = 'queued', entity_status = 'queued', topic_status = 'queued' WHERE episode_id = ${id(4)}`;
 await assert.rejects(seo(id(4), hA, 'boom'), /hu_guard/);
 assert.equal((await state(id(4))).seo_status, 'queued', 'failed write leaves the stage queued');
 await A`UPDATE public.episodes SET topic_extraction_status = 'in_progress' WHERE id = ${id(4)}`;
@@ -144,8 +144,12 @@ assert.deepEqual(m, { ignored_other_version: 1 });
 assert.equal((await state(id(4))).topic_status, 'stale');
 
 // 5) Attribution/timestamp-only update: no dispatch. Dispatch is bounded and a second pass is a no-op.
+const before5 = await state(id(5));
 await A`UPDATE public.episode_clean_text SET source_type = 'youtube', cleaner_method = 'deterministic_v4+youtube' WHERE episode_id = ${id(5)}`;
-assert.equal(await state(id(5)), undefined, 'same content => no derivation work');
+const after5 = await state(id(5));
+assert.equal(after5.clean_change_count, before5.clean_change_count, 'same content => not a change');
+assert.deepEqual([after5.entity_status, after5.topic_status, after5.seo_status], [before5.entity_status, before5.topic_status, before5.seo_status]);
+assert.equal(after5.clean_source_type, 'youtube', 'attribution is recorded without invalidating');
 await A`UPDATE public.episode_clean_text SET cleaned_text = ${textB} WHERE episode_id = ${id(6)}`;
 const d1 = await A`SELECT * FROM public.dispatch_stale_derivations_v1(20, false)`;
 const d1ids = d1.map((r) => r.episode_id);
