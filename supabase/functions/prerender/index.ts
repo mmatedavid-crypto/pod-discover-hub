@@ -14,6 +14,7 @@
 //   /podcastok|szemelyek|szervezetek|cegek|partok|temak → Hub landing pages
 //   anything else                  → 404 (Worker will fall back to origin)
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { bodyParagraphs } from "../_shared/body-paragraphs.ts";
 import { categoryHeading, categoryIntro, categoryMetaDescription, categoryTitle } from "../_shared/category-copy.ts";
 import { CATEGORY_HUB_INTRO, DISCOVERY_LINKS, HOME_DESCRIPTION, HOME_INTRO, discoveryCategories } from "../_shared/discovery-navigation.ts";
 import { hetiLookupWindow, hetiSlug, isLiveHetiPost, isoWeek, parseHetiSlug, resolveHetiSlug } from "../_shared/heti-editorial.ts";
@@ -914,10 +915,9 @@ async function buildEpisode(
     ? bodyPrimary.slice(0, BODY_MAX).replace(/\s+\S*$/, "") + "…"
     : bodyPrimary;
 
-  const bodyParas = bodyChunk
-    .split(/\n{2,}|(?<=[.!?])\s+(?=[A-ZÁÉÍÓÖŐÚÜŰ])/)
-    .map((p) => p.trim())
-    .filter((p) => p.length >= 30);
+  // Same words as the visitor's description: no fragment is dropped (the old
+  // sentence split + length filter cut short pieces such as a leading "Dr.").
+  const bodyParas = bodyParagraphs(bodyChunk);
 
   // Chapter/timestamp extraction from raw description
   // (e.g. "(00:00) Intro" or "01:23 Guest arrives"). Free structured content

@@ -6503,6 +6503,24 @@ export type Database = {
           },
         ]
       }
+      person_extractor_episode_inputs: {
+        Row: {
+          episode_id: string
+          input_fp: string
+          processed_at: string
+        }
+        Insert: {
+          episode_id: string
+          input_fp: string
+          processed_at?: string
+        }
+        Update: {
+          episode_id?: string
+          input_fp?: string
+          processed_at?: string
+        }
+        Relationships: []
+      }
       person_faqs: {
         Row: {
           answer: string
@@ -11268,6 +11286,34 @@ export type Database = {
         Args: { p_batch_id: string; p_items: Json }
         Returns: Json
       }
+      apply_episode_entities_v1: {
+        Args: {
+          p_episode_id: string
+          p_fields: Json
+          p_reason?: string
+          p_result?: string
+          p_used_hash: string
+        }
+        Returns: string
+      }
+      apply_episode_seo_result_v1: {
+        Args: {
+          p_episode_id: string
+          p_fields: Json
+          p_primary: string
+          p_used_hash: string
+        }
+        Returns: string
+      }
+      apply_episode_topics_v1: {
+        Args: {
+          p_episode_id: string
+          p_rows: Json
+          p_used_hash: string
+          p_version: number
+        }
+        Returns: string
+      }
       apply_person_judge_pair: {
         Args: { _episode: string; _person: string; _token: string }
         Returns: Json
@@ -11559,6 +11605,30 @@ export type Database = {
         Args: never
         Returns: {
           demoted_count: number
+        }[]
+      }
+      derivation_apply_outcome_v1: {
+        Args: {
+          p_action: string
+          p_episode_id: string
+          p_live: string
+          p_reason: string
+          p_result: string
+          p_stage: string
+          p_usable: boolean
+          p_used_hash: string
+        }
+        Returns: string
+      }
+      derivation_health_item_v1: { Args: never; Returns: Json }
+      derivation_lock_decide_v1: {
+        Args: { p_episode_id: string; p_stage: string; p_used_hash: string }
+        Returns: {
+          action: string
+          clean_usable: boolean
+          has_state: boolean
+          live_hash: string
+          stage_status: string
         }[]
       }
       derivation_stage_after_change: {
@@ -12252,6 +12322,18 @@ export type Database = {
           p_cron_pattern: string
           p_name: string
           p_progress_key: string
+        }
+        Returns: Json
+      }
+      pipeline_runner_health_item_v1: {
+        Args: {
+          p_backlog: number
+          p_backlog_label: string
+          p_cron_pattern: string
+          p_expected_every: string
+          p_name: string
+          p_paused_reason?: string
+          p_runner: string
         }
         Returns: Json
       }

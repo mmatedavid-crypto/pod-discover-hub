@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
 import { Activity, Play, RefreshCw, Save } from "lucide-react";
+import PipelineHealthPanel from "@/components/admin/PipelineHealthPanel";
 
 const TEMP_ADMIN_USER_ID = "7b92654a-2b5d-438c-ad67-7ad5f6709483";
 
@@ -133,6 +134,8 @@ export default function AdminQueueHealthPage() {
             </Button>
           </div>
         </div>
+
+        <PipelineHealthPanel />
 
         <Card>
           <CardHeader><CardTitle>Globális állapot</CardTitle></CardHeader>

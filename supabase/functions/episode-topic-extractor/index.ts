@@ -10,6 +10,7 @@ import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 import { chatTokenCostUsd } from "../_shared/ai-pricing.ts";
 import { callLovableAI } from "../_shared/lovable-ai.ts";
 import { loadDerivationInputs, markDerivation } from "../_shared/derivation-state.ts";
+import { runLog } from "../_shared/runner-run-log.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -153,6 +154,9 @@ Deno.serve(async (req) => {
       return json({ ok: true, paused: true, reason: "daily_budget_exhausted", spent_today: spentToday });
     }
 
+    let totalSuperseded = 0, totalPersistFailures = 0;
+    const log = runLog(admin, "episode-topic-extractor");
+    await log.start({ model, tiers: tierFilter, daily_budget_usd: dailyBudget, spent_before_usd: spentToday });
     let totalProcessed = 0, totalWritten = 0, totalSkipped = 0, totalErrors = 0, totalWaitingCleanText = 0, runCost = 0, batches = 0;
 
     // Ready-state repair (bounded, no AI): (a) claims left in_progress by a killed run
@@ -208,7 +212,6 @@ Deno.serve(async (req) => {
 
       // Fetch only promoted deterministic_v4 clean text (with its content fingerprint).
       // Older cleaner rows must wait; otherwise we would extract topics from polluted descriptions.
-      const batchStartIso = new Date().toISOString();
       const inputs = await loadDerivationInputs(admin, claimIds);
       const ctMap = new Map<string, string>();
       const hashMap = new Map<string, string | null>();
@@ -229,9 +232,9 @@ Deno.serve(async (req) => {
         work.push({ ep, text });
       }
 
-      const inserts: any[] = [];
       const doneIds: string[] = [];
       const errIds: string[] = [];
+      const errReason = new Map<string, string>();
 
       // Process in parallel chunks
       for (let i = 0; i < work.length; i += concurrency) {
@@ -247,53 +250,31 @@ Deno.serve(async (req) => {
         const results = await Promise.all(
           slice.map(({ ep, text }) => extract(model, text, String(ep.title || ""), ep.id).then((ai) => ({ ep, text, ai })))
         );
-        for (const { ep, text, ai } of results) {
-          if (!ai || ai.topics.length === 0) { errIds.push(ep.id); continue; }
+        // Per episode, one transaction (apply_episode_topics_v1): insert the new machine
+        // topics, replace only older machine rows, mark done + record the clean-text
+        // version. A failed write leaves no "done" without persisted topics.
+        await Promise.all(results.map(async ({ ep, text, ai }) => {
+          if (!ai || ai.topics.length === 0) { errIds.push(ep.id); return; }
           const inTok = Number(ai.usage?.prompt_tokens || Math.ceil(text.length / 4));
           const outTok = Number(ai.usage?.completion_tokens || 200) + Number(ai.usage?.completion_tokens_details?.reasoning_tokens || 0);
           runCost += chatTokenCostUsd(model, inTok, outTok);
-          for (const t of ai.topics) {
-            const rawLabel = String(t.label || "").trim();
-            if (!rawLabel) continue;
-            inserts.push({
-              episode_id: ep.id,
-              raw_label: rawLabel,
-              normalized_label: normalize(rawLabel),
-              kind: String(t.kind || "subject"),
-              confidence: Math.max(0, Math.min(1, Number(t.confidence || 0.7))),
-              rationale: String(t.evidence || "").slice(0, 500),
-              model,
-              extractor_version: version,
-            });
-          }
+          const rows = ai.topics.map((t: any) => ({
+            raw_label: String(t.label || "").trim(),
+            normalized_label: normalize(String(t.label || "").trim()),
+            kind: String(t.kind || "subject"),
+            confidence: Math.max(0, Math.min(1, Number(t.confidence || 0.7))),
+            rationale: String(t.evidence || "").slice(0, 500),
+            model,
+          })).filter((r: any) => r.raw_label);
+          const { data: applied, error } = await admin.rpc("apply_episode_topics_v1", {
+            p_episode_id: ep.id, p_used_hash: hashMap.get(ep.id) || null, p_rows: rows, p_version: version,
+          });
+          if (error) { totalPersistFailures++; errIds.push(ep.id); errReason.set(ep.id, `persist_failed:${error.message}`); return; }
+          if (applied === "superseded") totalSuperseded++;
           doneIds.push(ep.id);
-        }
+        }));
       }
 
-      // Persist this batch
-      let insertsOk = true;
-      if (inserts.length > 0) {
-        for (let i = 0; i < inserts.length; i += 500) {
-          const { error: insErr } = await admin.from("episode_extracted_topics").insert(inserts.slice(i, i + 500));
-          if (insErr) { insertsOk = false; console.warn("insert error", insErr.message); }
-        }
-      }
-      // Re-extraction after a clean-text change replaces the machine topics built from
-      // the older text (only once the new rows are safely in).
-      if (insertsOk && doneIds.length > 0) {
-        for (let i = 0; i < doneIds.length; i += 150) {
-          await admin.from("episode_extracted_topics").delete().in("episode_id", doneIds.slice(i, i + 150)).lt("created_at", batchStartIso);
-        }
-      }
-      if (doneIds.length > 0) {
-        for (let i = 0; i < doneIds.length; i += 150) {
-          await admin.from("episodes").update({
-            topic_extraction_status: "done",
-            topic_extraction_version: version,
-            topic_extracted_at: new Date().toISOString(),
-          }).in("id", doneIds.slice(i, i + 150));
-        }
-      }
       if (skipIds.length > 0) {
         for (let i = 0; i < skipIds.length; i += 150) {
           await admin.from("episodes").update({ topic_extraction_status: "skipped_short" }).in("id", skipIds.slice(i, i + 150));
@@ -310,9 +291,8 @@ Deno.serve(async (req) => {
         }
       }
       await markDerivation(admin, "topic", [
-        ...(insertsOk ? doneIds : []).map((id) => ({ episode_id: id, used_hash: hashMap.get(id) || null, result: "done" as const })),
         ...skipIds.map((id) => ({ episode_id: id, used_hash: hashMap.get(id) || null, result: "not_applicable" as const, reason: "clean_text_below_topic_min" })),
-        ...errIds.map((id) => ({ episode_id: id, used_hash: hashMap.get(id) || null, result: "error" as const, reason: "topic_extraction_empty_or_failed" })),
+        ...errIds.map((id) => ({ episode_id: id, used_hash: hashMap.get(id) || null, result: "error" as const, reason: errReason.get(id) || "topic_extraction_empty_or_failed" })),
       ]);
 
       totalProcessed += epsRaw.length;
@@ -333,9 +313,11 @@ Deno.serve(async (req) => {
       });
     } catch (_) { /* table optional */ }
 
-    return json({
+    const summary = {
       ok: true,
       batches,
+      superseded: totalSuperseded,
+      persist_failures: totalPersistFailures,
       processed: totalProcessed,
       written: totalWritten,
       skipped: totalSkipped,
@@ -347,7 +329,9 @@ Deno.serve(async (req) => {
       spent_today: Number((spentToday + runCost).toFixed(4)),
       daily_budget_usd: dailyBudget,
       runtime_ms: Date.now() - startedAt,
-    });
+    };
+    await log.finish("ok", summary);
+    return json(summary);
   } catch (e) {
     console.error("episode-topic-extractor err", e);
     return json({ ok: false, error: e instanceof Error ? e.message : "Unknown" }, 500);

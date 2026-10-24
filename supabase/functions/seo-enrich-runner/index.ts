@@ -10,7 +10,8 @@ import { SYSTEM_PROMPT, PODCAST_SEO_TOOL, EPISODE_SEO_TOOL, podcastUserPrompt, e
 import { chatTokenCostUsd } from "../_shared/ai-pricing.ts";
 import { assertHungarianPublicFields, isHungarianish } from "../_shared/hu-language-guard.ts";
 import { callLovableAI } from "../_shared/lovable-ai.ts";
-import { loadDerivationInputs, markDerivation, promptUsedCleanHash } from "../_shared/derivation-state.ts";
+import { loadDerivationInputs, prebuiltPromptDecision, seoInputProvenance, seoPrimary, seoUsedCleanHash, type SeoInputProvenance } from "../_shared/derivation-state.ts";
+import { runLog } from "../_shared/runner-run-log.ts";
 
 const HU_REINFORCE = "KRITIKUS NYELVI SZABÁLY: A seo_title, seo_description ÉS ai_summary mezőket KIZÁRÓLAG MAGYARUL írd. A Podiverzum magyar oldal, angol publikus szöveg nem kerülhet ki. NE keverd a nyelveket. Ha az előző válaszod angol volt, ez hiba volt — most magyarul írj. TÉNYSZABÁLY: számot, évszámot, évfordulót, dátumot vagy statisztikát CSAK akkor írj, ha szó szerint szerepel a forrásszövegben; ne következtess és ne egészíts ki saját tudásból.";
 
@@ -90,6 +91,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const startedAt = Date.now();
   const TIME_BUDGET_MS = 80_000;
+  let log: ReturnType<typeof runLog> | null = null;
 
   try {
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
@@ -138,6 +140,9 @@ Deno.serve(async (req) => {
       return json({ ok: true, budget_reached: true, spend });
     }
 
+    log = runLog(admin, "seo-enrich-runner");
+    await log.start({ model, daily_budget_usd: dailyBudget, spend_before_usd: spend });
+
     let processed = 0, succeeded = 0, failed = 0, skipped = 0, rate_limited = 0;
     let stop = false;
     let total_claimed = 0;
@@ -156,6 +161,16 @@ Deno.serve(async (req) => {
       try {
         const isPodcast = job.kind === "seo_podcast";
         let prompt = job.result?.prompt as string | undefined;
+        (job as any).__prov = null;
+        if (!isPodcast && prompt) {
+          // Pre-built prompt: used only with recorded provenance still matching the live
+          // approved input; otherwise rebuilt now. Legacy prompts keep unknown freshness.
+          const live = (await loadDerivationInputs(admin, [job.target_id])).get(String(job.target_id));
+          const liveUsable = !!live && live.method.startsWith("deterministic_v4") && live.text.trim().length >= 80;
+          const decision = prebuiltPromptDecision(job.result?.input_provenance, { hash: live?.hash ?? null, usable: liveUsable });
+          if (decision === "rebuild") prompt = undefined;
+          else if (decision === "use") (job as any).__prov = job.result.input_provenance;
+        }
         if (!prompt) {
           if (isPodcast) {
             const { data: p } = await admin.from("podcasts").select("title,display_title,description,category,language,language_decision").eq("id", job.target_id).maybeSingle();
@@ -181,11 +196,12 @@ Deno.serve(async (req) => {
             // Episode SEO/summary/entity input policy:
             // transcript wins; otherwise require promoted deterministic clean text.
             // Never spend AI on raw RSS/YT descriptions directly.
-            // Clean text is read with its content fingerprint (recorded after success).
+            // Clean text is read with its content fingerprint; the exact version that goes
+            // into the prompt is recorded as provenance.
             const inp = (await loadDerivationInputs(admin, [job.target_id])).get(String(job.target_id));
             const v4 = inp && inp.method.startsWith("deterministic_v4") ? inp : null;
             (e as any).clean_text = v4?.text || null;
-            (job as any).__clean_hash = v4 && v4.text.trim().length >= 80 ? v4.hash : null;
+            (job as any).__prov = seoInputProvenance({ transcript, cleanText: v4?.text, cleanHash: v4?.hash, cleanMethod: v4?.method, description: (e as any).description });
             if (!(job as any).__has_transcript && String((e as any).clean_text || "").trim().length < 80) {
               // No transcript AND no usable text. Waiting forever leaves the episode
               // with NO meta at all (bad for indexing). After a 24h grace period we
@@ -246,6 +262,27 @@ Deno.serve(async (req) => {
             }
 
             prompt = episodeUserPrompt(e as any, podName, podLanguage, podHosts, transcript);
+          }
+        }
+        // No paid call for a result that could not become current: a newer SEO result for
+        // the live clean-text version already exists (old/unknown-provenance jobs).
+        if (!isPodcast) {
+          const prov = (job as any).__prov as SeoInputProvenance | null;
+          const used = seoUsedCleanHash(prov);
+          const independent = seoPrimary(prov) === "transcript" && !used;
+          if (!independent) {
+            const { data: ds } = await admin.from("episode_derivation_state").select("seo_status, seo_hash, clean_hash").eq("episode_id", job.target_id).maybeSingle();
+            const settled = ds && ["current", "not_applicable", "blocked"].includes(String(ds.seo_status)) && ds.seo_hash && ds.seo_hash === ds.clean_hash;
+            // Same version already current (and this is not a transcript upgrade) → a second run is a no-op.
+            const sameVersionDone = settled && used === ds.clean_hash && ds.seo_status === "current" && seoPrimary(prov) !== "transcript";
+            if (settled && (used !== ds.clean_hash || sameVersionDone)) {
+              await admin.from("ai_enrichment_jobs").update({
+                status: "done", completed_at: new Date().toISOString(), cost_usd: 0, locked_until: null,
+                last_error: sameVersionDone ? "already_current_same_version_no_ai_call" : "superseded_by_current_version_no_ai_call",
+              }).eq("id", job.id);
+              skipped++;
+              return;
+            }
           }
         }
         const tool = isPodcast ? PODCAST_SEO_TOOL : EPISODE_SEO_TOOL;
@@ -362,23 +399,25 @@ Deno.serve(async (req) => {
           const fromTranscript = !!(job as any).__has_transcript || job.result?.source === "transcript";
           // CTR experiment: prefix "🎧▶️ Hallgasd ingyen:" for episodes published on/after cutoff.
           const seo_description_final = applyCtaPrefix(seo_description, epPublishedAt);
-          await admin.from("episodes").update({
-            seo_title, seo_description: seo_description_final, ai_summary,
-            people, mentioned, companies, tickers, topics,
-            ai_entities_version: fromTranscript ? 3 : 2,
-            ai_summary_source: fromTranscript ? "transcript" : "description",
-            ai_enriched_at: new Date().toISOString(),
-          }).eq("id", job.target_id);
-          // Record the clean-text version this SEO result was built from. Pre-built
-          // (enqueue-time) prompts count only when they contain the live clean text.
-          {
-            let usedHash: string | null = (job as any).__clean_hash ?? null;
-            if (!usedHash && job.result?.prompt) {
-              const inp = (await loadDerivationInputs(admin, [job.target_id])).get(String(job.target_id));
-              usedHash = inp ? promptUsedCleanHash(String(job.result.prompt), inp.text, inp.hash) : null;
-            }
-            await markDerivation(admin, "seo", [{ episode_id: job.target_id, used_hash: usedHash, result: "done" }]);
-          }
+          // Result write + derivation state in one transaction (apply_episode_seo_result_v1):
+          // recorded against the exact clean-text version that went into the prompt; an
+          // older version never becomes current and never overwrites a newer result; a
+          // failed write throws (job retried), it is never marked done. Entity arrays are
+          // written only to episodes without entity extraction (evidence entities kept).
+          const prov = (job as any).__prov as SeoInputProvenance | null;
+          const { data: applied, error: applyErr } = await admin.rpc("apply_episode_seo_result_v1", {
+            p_episode_id: job.target_id,
+            p_used_hash: seoUsedCleanHash(prov),
+            p_primary: seoPrimary(prov),
+            p_fields: {
+              seo_title, seo_description: seo_description_final, ai_summary,
+              people, mentioned, companies, tickers, topics,
+              ai_entities_version: fromTranscript ? 3 : 2,
+              ai_summary_source: fromTranscript ? "transcript" : "description",
+            },
+          });
+          if (applyErr) throw new Error(`persist_failed:${applyErr.message}`);
+          (job as any).__applied = applied;
           // If a real (non-mul) language is detected for the episode and it disagrees with
           // the parent podcast's tag, fix the parent. Handles both wrong-EN→other AND wrong-HU→EN.
           if (detectedLang && detectedLang !== "mul" && !isAcceptedHungarian(epPodcastMeta)) {
@@ -397,8 +436,8 @@ Deno.serve(async (req) => {
           status: "done",
           completed_at: new Date().toISOString(),
           model, cost_usd: cost, input_tokens: inTok, output_tokens: outTok,
-          result: { ...job.result, parsed },
-          last_error: null,
+          result: { ...job.result, parsed, input_provenance: (job as any).__prov ?? job.result?.input_provenance ?? null, applied: (job as any).__applied ?? null },
+          last_error: (job as any).__applied === "superseded" ? "superseded_by_newer_version" : null,
         }).eq("id", job.id);
 
         succeeded++;
@@ -482,8 +521,11 @@ Deno.serve(async (req) => {
       try { await admin.rpc("set_seo_enrich_runner_schedule" as any, { _schedule: next_schedule }); } catch { /* ignore */ }
     } catch { /* ignore */ }
 
-    return json({ ok: true, claimed: total_claimed, drain_loops, processed, succeeded, failed, skipped, rate_limited, concurrency, spend_usd: spend, reaped_stale_locks, next_schedule, elapsed_ms: Date.now() - startedAt });
+    const summary = { ok: true, claimed: total_claimed, drain_loops, processed, succeeded, failed, skipped, rate_limited, concurrency, spend_usd: spend, run_increment_usd: runIncrement, reaped_stale_locks, next_schedule, elapsed_ms: Date.now() - startedAt };
+    await log?.finish("ok", summary);
+    return json(summary);
   } catch (e: any) {
+    await log?.finish("error", { elapsed_ms: Date.now() - startedAt }, e?.message || "error");
     return json({ error: e?.message || "error" }, 500);
   }
 });
