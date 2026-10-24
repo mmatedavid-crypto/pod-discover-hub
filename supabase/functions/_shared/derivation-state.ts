@@ -119,16 +119,6 @@ export function nextDispatchBatch(current: number, ms: number): number {
   return dispatchBatchClamp(current);
 }
 
-/** Like markDerivation, but reports the first RPC error instead of only logging it. */
-export async function markDerivationStrict(admin: any, stage: DerivationStage, items: DerivationMark[]): Promise<string | null> {
-  const list = items.filter((i) => i.episode_id && (i.used_hash || i.result === "not_applicable" || i.result === "blocked" || i.result === "error"));
-  for (let i = 0; i < list.length; i += 200) {
-    const { error } = await admin.rpc("mark_episode_derivation_v1", { p_stage: stage, p_items: list.slice(i, i + 200) });
-    if (error) return error.message || "mark_failed";
-  }
-  return null;
-}
-
 export type SeoJobFailureOutcome =
   | { ok: true; terminal: boolean; stage_marked: boolean }
   | { ok: false; step: "job_update" | "terminal_atomic"; error: string };
