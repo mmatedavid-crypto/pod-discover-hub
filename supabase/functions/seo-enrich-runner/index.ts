@@ -10,7 +10,7 @@ import { SYSTEM_PROMPT, PODCAST_SEO_TOOL, EPISODE_SEO_TOOL, podcastUserPrompt, e
 import { chatTokenCostUsd } from "../_shared/ai-pricing.ts";
 import { assertHungarianPublicFields, isHungarianish } from "../_shared/hu-language-guard.ts";
 import { callLovableAI } from "../_shared/lovable-ai.ts";
-import { loadDerivationInputs, prebuiltPromptDecision, seoInputProvenance, seoPrimary, seoUsedCleanHash, type SeoInputProvenance } from "../_shared/derivation-state.ts";
+import { loadDerivationInputs, markDerivation, prebuiltPromptDecision, seoInputProvenance, seoPrimary, seoUsedCleanHash, terminalSeoFailureMark, type SeoInputProvenance } from "../_shared/derivation-state.ts";
 import { runLog } from "../_shared/runner-run-log.ts";
 
 const HU_REINFORCE = "KRITIKUS NYELVI SZABÁLY: A seo_title, seo_description ÉS ai_summary mezőket KIZÁRÓLAG MAGYARUL írd. A Podiverzum magyar oldal, angol publikus szöveg nem kerülhet ki. NE keverd a nyelveket. Ha az előző válaszod angol volt, ez hiba volt — most magyarul írj. TÉNYSZABÁLY: számot, évszámot, évfordulót, dátumot vagy statisztikát CSAK akkor írj, ha szó szerint szerepel a forrásszövegben; ne következtess és ne egészíts ki saját tudásból.";
@@ -350,6 +350,7 @@ Deno.serve(async (req) => {
         if (isPodcast) {
           const seo_title = trim(String(parsed.seo_title || ""), 65, false);
           const seo_description = trim(String(parsed.seo_description || ""), 160);
+          (job as any).__candidate = { seo_title, seo_description };
           assertHungarianPublicFields({ seo_title, seo_description });
           const { data: pLang } = await admin.from("podcasts").select("language,language_decision").eq("id", job.target_id).maybeSingle();
           const update: any = { seo_title, seo_description, ai_enriched_at: new Date().toISOString() };
@@ -388,6 +389,7 @@ Deno.serve(async (req) => {
             epPodcastMeta = (ep2 as any)?.podcasts || null;
             epPublishedAt = (ep2 as any)?.published_at || null;
           }
+          (job as any).__candidate = { seo_title, seo_description, ai_summary };
           assertHungarianPublicFields({ seo_title, seo_description, ai_summary });
           const people = filterHosts(cleanArr(parsed.people), epHosts);
           const mentioned = filterHosts(cleanArr(parsed.mentioned), epHosts);
@@ -447,11 +449,25 @@ Deno.serve(async (req) => {
         const msg = err?.message || "error";
         if (msg === "rate_limited" || msg === "budget_exhausted_provider") { rate_limited++; stop = true; }
         const giveUp = (job.attempts || 0) >= maxAttempts;
+        // Keep the rejected candidate (internal job row only) so a guard rejection can be told
+        // apart from a proper-name false positive; it is never written to the episode.
+        const candidate = (job as any).__candidate;
+        const rejected = msg.startsWith("hu_language_guard_failed") && candidate
+          ? { rejected_output: { at: new Date().toISOString(), attempt: job.attempts || 0, reason: msg, ...candidate } }
+          : {};
         await admin.from("ai_enrichment_jobs").update({
           status: giveUp ? "failed" : "pending",
           locked_until: null,
           last_error: msg,
+          ...(Object.keys(rejected).length ? { result: { ...(job.result || {}), ...rejected } } : {}),
         }).eq("id", job.id);
+        // Exhausted terminal failure: the stage is truthfully "blocked" for exactly the clean-text
+        // version this job was for (never current; a newer version is left untouched). It is
+        // retried only by a clean-text change or the bounded admin retry RPC.
+        if (giveUp) {
+          const mark = terminalSeoFailureMark(job, (job as any).__prov ?? job.result?.input_provenance ?? null, msg);
+          if (mark) await markDerivation(admin, "seo", [mark]);
+        }
       }
     };
 
