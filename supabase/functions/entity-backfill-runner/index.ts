@@ -6,6 +6,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 import { filterHosts } from "../_shared/seo-prompt.ts";
+import { loadDerivationInputs, markDerivation } from "../_shared/derivation-state.ts";
 import { canonicalizeHungarianPersonName } from "../_shared/hu-person-name.ts";
 import {
   callGeminiOpenAI,

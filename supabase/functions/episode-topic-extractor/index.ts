@@ -9,6 +9,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 import { chatTokenCostUsd } from "../_shared/ai-pricing.ts";
 import { callLovableAI } from "../_shared/lovable-ai.ts";
+import { loadDerivationInputs, markDerivation } from "../_shared/derivation-state.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -153,6 +154,34 @@ Deno.serve(async (req) => {
     }
 
     let totalProcessed = 0, totalWritten = 0, totalSkipped = 0, totalErrors = 0, totalWaitingCleanText = 0, runCost = 0, batches = 0;
+
+    // Ready-state repair (bounded, no AI): (a) claims left in_progress by a killed run
+    // (>30 min untouched) go back to pending; (b) waiting_clean_text episodes whose
+    // promoted deterministic_v4 clean text now exists (e.g. written by the repair queue,
+    // which never notified this runner) become pending again.
+    let releasedStale = 0, promotedWaiting = 0;
+    {
+      const cutoff = new Date(Date.now() - 30 * 60_000).toISOString();
+      const { data: stuck } = await admin.from("episodes").select("id")
+        .eq("topic_extraction_status", "in_progress").lt("updated_at", cutoff).limit(100);
+      const stuckIds = (stuck || []).map((r: any) => r.id);
+      if (stuckIds.length) {
+        await admin.from("episodes").update({ topic_extraction_status: "pending" }).in("id", stuckIds).eq("topic_extraction_status", "in_progress");
+        releasedStale = stuckIds.length;
+      }
+      const { data: waiting } = await admin.from("episodes").select("id")
+        .eq("topic_extraction_status", "waiting_clean_text").eq("clean_text_status", "done").limit(200);
+      const waitIds = (waiting || []).map((r: any) => r.id);
+      if (waitIds.length) {
+        const { data: ready } = await admin.from("episode_clean_text").select("episode_id")
+          .in("episode_id", waitIds).like("cleaner_method", "deterministic_v4%");
+        const readyIds = (ready || []).map((r: any) => r.episode_id);
+        if (readyIds.length) {
+          await admin.from("episodes").update({ topic_extraction_status: "pending" }).in("id", readyIds).eq("topic_extraction_status", "waiting_clean_text");
+          promotedWaiting = readyIds.length;
+        }
+      }
+    }
 
     // Drain loop: keep claiming batches until time budget exhausted, queue empty, or budget exhausted
     while (Date.now() - startedAt < maxRuntimeMs) {
