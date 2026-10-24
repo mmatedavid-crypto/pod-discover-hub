@@ -268,10 +268,13 @@ Deno.serve(async (req) => {
           const independent = seoPrimary(prov) === "transcript" && !used;
           if (!independent) {
             const { data: ds } = await admin.from("episode_derivation_state").select("seo_status, seo_hash, clean_hash").eq("episode_id", job.target_id).maybeSingle();
-            if (ds && ["current", "not_applicable", "blocked"].includes(String(ds.seo_status)) && ds.seo_hash && ds.seo_hash === ds.clean_hash && used !== ds.clean_hash) {
+            const settled = ds && ["current", "not_applicable", "blocked"].includes(String(ds.seo_status)) && ds.seo_hash && ds.seo_hash === ds.clean_hash;
+            // Same version already current (and this is not a transcript upgrade) → a second run is a no-op.
+            const sameVersionDone = settled && used === ds.clean_hash && ds.seo_status === "current" && seoPrimary(prov) !== "transcript";
+            if (settled && (used !== ds.clean_hash || sameVersionDone)) {
               await admin.from("ai_enrichment_jobs").update({
                 status: "done", completed_at: new Date().toISOString(), cost_usd: 0, locked_until: null,
-                last_error: "superseded_by_current_version_no_ai_call",
+                last_error: sameVersionDone ? "already_current_same_version_no_ai_call" : "superseded_by_current_version_no_ai_call",
               }).eq("id", job.id);
               skipped++;
               return;
