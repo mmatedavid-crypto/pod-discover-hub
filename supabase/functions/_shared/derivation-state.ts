@@ -2,9 +2,10 @@
 // The DB owns the fingerprint (public.clean_text_content_hash: whitespace-normalized
 // sha256 of cleaned_text) and per-episode state (episode_derivation_state, maintained
 // by a trigger on episode_clean_text). Runners read text + hash in one consistent
-// call and report which hash a result was built from; the DB marks it "current"
-// only when that hash still equals the live clean text, so a change that lands
-// while a run is in flight is never lost.
+// call, record the exact input version they used, and persist results only through
+// the apply_episode_*_v1 RPCs: result write and state change happen in one transaction
+// serialized against clean-text updates, so a change that lands while a run is in
+// flight is never lost and an older result never overwrites a newer one.
 
 export type DerivationInput = { text: string; method: string; hash: string | null };
 export type DerivationStage = "entity" | "topic" | "seo";
@@ -23,7 +24,7 @@ export async function loadDerivationInputs(admin: any, ids: string[]): Promise<M
   return out;
 }
 
-/** Best-effort: a failed mark leaves the episode stale (re-dispatched later), never wrongly current. */
+/** Skips / errors only (no result write). Best-effort: a failed mark leaves the stage stale/queued, never wrongly current. */
 export async function markDerivation(admin: any, stage: DerivationStage, items: DerivationMark[]): Promise<void> {
   const list = items.filter((i) => i.episode_id && (i.used_hash || i.result === "not_applicable" || i.result === "blocked" || i.result === "error"));
   for (let i = 0; i < list.length; i += 200) {
@@ -32,20 +33,56 @@ export async function markDerivation(admin: any, stage: DerivationStage, items: 
   }
 }
 
-export function normalizeForPrompt(text: string): string {
-  return String(text || "").replace(/\s+/g, " ").trim();
+// ---------------- SEO input provenance (exact, recorded when the prompt is built) ----------------
+
+export const SEO_INPUT_POLICY = "seo-input-v1";
+
+export type SeoInputProvenance = {
+  policy: typeof SEO_INPUT_POLICY;
+  /** What the prompt is primarily built from. */
+  primary: "transcript" | "clean_text" | "description" | "none";
+  /** True when the clean text actually went into the prompt (mirrors episodeUserPrompt: ≥80 chars). */
+  clean_used: boolean;
+  /** Fingerprint of the clean-text version that went into the prompt (from the same DB read). */
+  clean_hash: string | null;
+  clean_method: string | null;
+};
+
+/** Mirrors the input rules of episodeUserPrompt (_shared/seo-prompt.ts). */
+export function seoInputProvenance(a: { transcript?: string | null; cleanText?: string | null; cleanHash?: string | null; cleanMethod?: string | null; description?: string | null }): SeoInputProvenance {
+  const hasTranscript = typeof a.transcript === "string" && a.transcript.trim().length > 200;
+  const cleanUsed = String(a.cleanText || "").trim().length >= 80;
+  const primary = hasTranscript ? "transcript" : cleanUsed ? "clean_text" : String(a.description || "").trim() ? "description" : "none";
+  return {
+    policy: SEO_INPUT_POLICY,
+    primary,
+    clean_used: cleanUsed,
+    clean_hash: cleanUsed ? (a.cleanHash ?? null) : null,
+    clean_method: cleanUsed ? (a.cleanMethod ?? null) : null,
+  };
 }
 
 /**
- * Which clean-text version a pre-built SEO prompt used: the live hash only when the
- * prompt actually contains the start of the live clean text (enqueue-time prompts can
- * be older than the current text). Otherwise null = not built from the current version.
+ * May a pre-built (enqueue-time) prompt be sent? Never infer a version from prompt text:
+ * - recorded provenance whose clean version is still live → use it;
+ * - recorded provenance from an older clean version, or a prompt without clean text while
+ *   usable clean text now exists → rebuild from the current approved input first;
+ * - legacy prompt without provenance → may run, but its freshness stays unknown (never current).
  */
-export function promptUsedCleanHash(prompt: string, cleanText: string, hash: string | null): string | null {
-  if (!hash) return null;
-  const norm = normalizeForPrompt(cleanText);
-  if (norm.length < 80) return null;
-  return String(prompt || "").includes(norm.slice(0, 200)) ? hash : null;
+export function prebuiltPromptDecision(prov: any, live: { hash: string | null; usable: boolean }): "use" | "rebuild" | "use_unknown" {
+  if (!prov || prov.policy !== SEO_INPUT_POLICY) return "use_unknown";
+  if (prov.clean_used) return prov.clean_hash && live.hash && prov.clean_hash === live.hash ? "use" : "rebuild";
+  return live.usable ? "rebuild" : "use";
+}
+
+/** The clean-text version a finished SEO result is recorded against: only the one that went into the prompt. */
+export function seoUsedCleanHash(prov: SeoInputProvenance | null | undefined): string | null {
+  return prov && prov.policy === SEO_INPUT_POLICY && prov.clean_used ? prov.clean_hash : null;
+}
+
+/** RPC "primary" argument: legacy jobs without provenance are "unknown". */
+export function seoPrimary(prov: SeoInputProvenance | null | undefined): string {
+  return prov && prov.policy === SEO_INPUT_POLICY ? prov.primary : "unknown";
 }
 
 /** ai_enrichment_jobs input_hash for a stale-derivation SEO job: one job per clean-text version. */
