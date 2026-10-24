@@ -211,14 +211,21 @@ var search_episodes_default = defineTool3({
       const key = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY;
       if (!url || !key) return err("Missing SUPABASE env");
       const lim = limit ?? 10;
+      const headers = {
+        "Content-Type": "application/json",
+        apikey: key,
+        Authorization: `Bearer ${key}`
+      };
+      const agentKey = process.env.AGENT_SEARCH_KEY;
+      if (agentKey) {
+        headers["x-podiverzum-agent-key"] = agentKey;
+        headers["x-podiverzum-agent"] = "mcp-search-episodes";
+      }
       const res = await fetch(`${url}/functions/v1/search-hybrid`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          apikey: key,
-          Authorization: `Bearer ${key}`
-        },
-        body: JSON.stringify({ q: query, limit: lim, rerank: false })
+        headers,
+        // Same request as the human search page; only the shown count is limited.
+        body: JSON.stringify({ q: query, limit: 80, rerank: true, lang: "hu", latency_mode: "quality", soft_budget_ms: 13500 })
       });
       if (!res.ok) return err(`search-hybrid ${res.status}: ${(await res.text()).slice(0, 300)}`);
       const data = await res.json();

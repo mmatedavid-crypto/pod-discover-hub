@@ -26,6 +26,10 @@ Website publisher: PREAG Zrt. (Precíziós Agrokémia Zrt.; company no. 13-10-04
 - [Magyar podcastpiac 2026 jelentés](https://podiverzum.hu/jelentes/magyar-podcast-piac-2026): market report.
 - [Módszertan](https://podiverzum.hu/modszertan): how we index, rank and verify.
 
+## Search
+
+Fetch `https://podiverzum.hu/kereses?q={query}` (URL-encoded Hungarian query) to get a plain HTML list of up to 30 matching Hungarian episodes, ranked by the same semantic + keyword search our visitors use, each with its episode page link. Put a phrase in quotes ("…") for exact matches. Example: https://podiverzum.hu/kereses?q=mesters%C3%A9ges%20intelligencia
+
 ## Machine access (MCP, read-only, no login)
 
 AI agents can query the catalog directly through our public Model Context Protocol server:

@@ -133,8 +133,25 @@ function isBot(ua) {
 }
 
 // Routes we know how to prerender. Anything else falls back to origin.
+// AI assistants that fetch pages for a person's question (not training crawlers):
+// on /kereses they get the same full-quality search as people.
+const AI_ASSISTANT_UAS = [
+  "chatgpt-user", "oai-searchbot", "claude-user", "claude-searchbot", "claude-web",
+  "perplexity-user", "perplexitybot", "youbot", "duckassistbot", "mistralai-user",
+  "meta-externalfetcher", "googleagent", "google-notebooklm", "gemini",
+];
+function isAiAssistant(ua) {
+  const s = (ua || "").toLowerCase();
+  return AI_ASSISTANT_UAS.some((b) => s.includes(b));
+}
+function normalizeSearchQ(raw) {
+  return String(raw || "").replace(/\s+/g, " ").trim().slice(0, 200);
+}
+
 function shouldPrerender(pathname) {
   if (pathname === "/" || pathname === "") return true;
+  // Search results (?q=) for agents/crawlers: noindex,follow list of episodes.
+  if (pathname === "/kereses" || pathname === "/kereses/") return true;
   // /podcast/:slug  or  /podcast/:slug/:episode  or  /podcast/:slug/epizodok/:year (Wave 3)
   if (/^\/podcast\/[^/]+(\/[^/]+)?\/?$/.test(pathname)) return true;
   if (/^\/podcast\/[^/]+\/epizodok\/\d{4}\/?$/.test(pathname)) return true;
@@ -595,8 +612,13 @@ export default {
     const cacheNs = /^\/podcast\/[^/]+\/[^/]+\/?$/.test(url.pathname) && !/\/epizodok\//.test(url.pathname)
       ? "20261020-episode-nonews"
       : "20260916-seo";
+    const isSearch = url.pathname === "/kereses" || url.pathname === "/kereses/";
+    const searchQ = isSearch ? normalizeSearchQ(url.searchParams.get("q")) : "";
+    const searchTier = isSearch && isAiAssistant(ua) ? "ai" : "basic";
     const cacheKey = new Request(
-      `${url.origin}${url.pathname}?__podi_prerender=${cacheNs}`,
+      isSearch
+        ? `${url.origin}/kereses?__podi_prerender=20261024-search&tier=${searchTier}&q=${encodeURIComponent(searchQ.toLowerCase())}`
+        : `${url.origin}${url.pathname}?__podi_prerender=${cacheNs}`,
       { method: "GET" },
     );
     const cache = caches.default;
@@ -613,7 +635,9 @@ export default {
     }
 
     // Fetch from Supabase prerender edge fn.
-    const prerenderUrl = `${PRERENDER_ENDPOINT}?path=${encodeURIComponent(url.pathname)}`;
+    const prerenderUrl = isSearch
+      ? `${PRERENDER_ENDPOINT}?path=/kereses&tier=${searchTier}&q=${encodeURIComponent(searchQ)}`
+      : `${PRERENDER_ENDPOINT}?path=${encodeURIComponent(url.pathname)}`;
     let upstream;
     try {
       upstream = await fetch(prerenderUrl, {
@@ -644,14 +668,28 @@ export default {
     const body = await upstream.text();
     const headers = new Headers(upstream.headers);
     headers.set("Content-Type", "text/html; charset=utf-8");
-    headers.set("Cache-Control", resolvedMissing ? "public, max-age=60" : "public, max-age=86400");
+    // Search pages keep the prerender's own shorter TTL (6h results / 1h empty).
+    if (!isSearch) headers.set("Cache-Control", resolvedMissing ? "public, max-age=60" : "public, max-age=86400");
+    else headers.delete("Set-Cookie");
     headers.set("X-Prerender-Cache", "MISS");
     headers.set("X-Prerender-UA", ua.slice(0, 80));
     if (resolvedMissing) headers.set("X-Robots-Tag", "noindex, nofollow");
     resp = new Response(body, { status: upstream.status, headers });
 
     // Cache successful pages for 24h; confirmed missing content for only 60s.
-    ctx.waitUntil(cache.put(cacheKey, resp.clone()));
+    if (isSearch) {
+      // The upstream Set-Cookie (__cf_bm) and "Vary: User-Agent" stop the Cache
+      // API from storing the copy; the search cache key already separates the AI
+      // and basic tiers, so drop both here only (other pages unchanged).
+      const cached = resp.clone();
+      const ch = new Headers(cached.headers);
+      ch.delete("Vary");
+      ch.delete("Set-Cookie");
+      ch.delete("X-Prerender-Cache");
+      ctx.waitUntil(cache.put(cacheKey, new Response(cached.body, { status: cached.status, headers: ch })));
+    } else {
+      ctx.waitUntil(cache.put(cacheKey, resp.clone()));
+    }
     return resp;
   },
 };

@@ -400,6 +400,143 @@ function notFound(path: string, resolvedMissing = false) {
 
 // ---------- builders ----------
 
+// /kereses?q=… for AI agents and crawlers. Same search engine and settings as
+// the human search page; AI assistants ("ai" tier) get the full quality path via
+// AGENT_SEARCH_KEY, other crawlers the cheap lexical path. Result pages are
+// noindex,follow: they help agents answer, but must not become indexed thin pages.
+const SEARCH_RESULTS_SHOWN = 30;
+function normalizeSearchQuery(raw: string | null | undefined): string {
+  return String(raw || "").replace(/\s+/g, " ").trim().slice(0, 200);
+}
+
+function searchResponse(body: string, status: number, maxAge: number, extra: Record<string, string> = {}) {
+  return new Response(new TextEncoder().encode(body), {
+    status,
+    headers: new Headers({
+      ...baseHeaders,
+      "Cache-Control": `public, max-age=${maxAge}, s-maxage=${maxAge}`,
+      ...extra,
+    }),
+  });
+}
+
+async function buildSearchLanding() {
+  const canonical = `${SITE}/kereses`;
+  return searchResponse(shell({
+    title: "Magyar podcast kereső — Podiverzum",
+    description: "Keress magyar podcast epizódokra téma, személy, szervezet vagy műsorcím alapján.",
+    canonical,
+    jsonLd: [],
+    bodyHtml: `<header><h1>Magyar podcast kereső</h1>
+<p>Keress a Podiverzum magyar podcast epizódjai között témára, személyre, szervezetre vagy műsorcímre. Idézőjelek között („…” vagy "…") pontos kifejezésre keres.</p></header>
+<main><form method="get" action="/kereses" role="search"><label for="q">Keresés</label> <input id="q" name="q" type="search" /> <button type="submit">Keresés</button></form>
+<p>AI-ügynököknek: a találati lista közvetlenül lekérhető a <code>${esc(SITE)}/kereses?q={keresőkifejezés}</code> címen.</p></main>`,
+  }), 200, 3600);
+}
+
+async function buildSearch(supabase: ReturnType<typeof createClient>, rawQ: string, tier: "ai" | "basic") {
+  const q = normalizeSearchQuery(rawQ);
+  if (!q) return buildSearchLanding();
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    apikey: SUPABASE_ANON,
+    Authorization: `Bearer ${SUPABASE_ANON}`,
+    "User-Agent": "podiverzum-prerender-search",
+  };
+  const agentKey = Deno.env.get("AGENT_SEARCH_KEY") || "";
+  if (tier === "ai" && agentKey) {
+    headers["x-podiverzum-agent-key"] = agentKey;
+    headers["x-podiverzum-agent"] = "prerender-search";
+  }
+  let data: any = null;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/search-hybrid`, {
+      method: "POST",
+      headers,
+      // Identical request to the human search page (SearchPage.tsx).
+      body: JSON.stringify({ q, limit: 80, rerank: true, lang: "hu", latency_mode: "quality", soft_budget_ms: 13500 }),
+      signal: AbortSignal.timeout(20000),
+    });
+    if (!res.ok) throw new Error(`search-hybrid ${res.status}`);
+    data = await res.json();
+  } catch (e) {
+    console.warn("prerender search failed", e instanceof Error ? e.message : e);
+    // Non-OK => the Worker falls back to origin and does not cache the failure.
+    return searchResponse("search unavailable", 503, 0, { "X-Robots-Tag": "noindex, follow" });
+  }
+
+  const raw: any[] = Array.isArray(data?.episodes) ? data.episodes : [];
+  const seen = new Set<string>();
+  const eps = raw.filter((e) => {
+    const p = e?.podcasts;
+    if (!e?.slug || !p?.slug || !isAcceptedHungarianPrerenderPodcast(p)) return false;
+    const key = String(e.id || `${p.slug}/${e.slug}`);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).slice(0, SEARCH_RESULTS_SHOWN);
+
+  // Public card summary only (RSS-derived card_summary, then RSS summary/description) —
+  // never AI, clean-text or transcript text. One batched query.
+  const cardSummaries = new Map<string, string>();
+  const ids = eps.map((e) => String(e.id || "")).filter((id) => /^[0-9a-f-]{36}$/i.test(id));
+  if (ids.length) {
+    try {
+      const { data: cards } = await (supabase as any)
+        .from("episode_cards").select("episode_id,card_summary").in("episode_id", ids);
+      for (const c of cards ?? []) {
+        if (typeof c.card_summary === "string" && c.card_summary.trim()) cardSummaries.set(String(c.episode_id), c.card_summary);
+      }
+    } catch { /* summaries are optional */ }
+  }
+
+  const canonical = `${SITE}/kereses?q=${encodeURIComponent(q)}`;
+  const items = eps.map((e) => {
+    const p = e.podcasts;
+    const url = `${SITE}/podcast/${p.slug}/${e.slug}`;
+    const sum = stripHtml(cardSummaries.get(String(e.id)) || e.summary || e.description || "");
+    const date = typeof e.published_at === "string" ? e.published_at.slice(0, 10) : "";
+    return `<li><a href="${esc(url)}"><strong>${esc(e.display_title || e.title || "")}</strong></a> — <a href="${SITE}/podcast/${esc(p.slug)}"><em>${esc(p.display_title || p.title || "")}</em></a>${date ? ` <time datetime="${esc(date)}">${esc(date)}</time>` : ""}${sum ? `<p>${esc(truncate(sum, 280))}</p>` : ""}</li>`;
+  }).join("");
+
+  const pin = data?.podcast_pin;
+  const pinHtml = pin?.slug
+    ? `<section><h2>Műsor</h2><p><a href="${SITE}/podcast/${esc(String(pin.slug))}"><strong>${esc(String(pin.title || pin.slug))}</strong></a>${pin.description ? ` — ${esc(truncate(stripHtml(String(pin.description)), 220))}` : ""}</p></section>`
+    : "";
+
+  const itemList = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name: `Keresési találatok: ${q}`,
+    itemListElement: eps.map((e, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      url: `${SITE}/podcast/${e.podcasts.slug}/${e.slug}`,
+      name: e.display_title || e.title,
+    })),
+  };
+
+  const body = shell({
+    title: `„${q}” — magyar podcast epizódok | Podiverzum`,
+    description: truncate(eps.length
+      ? `${eps.length} magyar podcast epizód a(z) „${q}” keresésre, műsorokkal és rövid leírásokkal.`
+      : `Nincs magyar podcast találat a(z) „${q}” keresésre.`, 160),
+    canonical,
+    jsonLd: eps.length ? [itemList] : [],
+    noindex: true,
+    bodyHtml: `<header><h1>Keresés: „${esc(q)}”</h1>
+<p>${eps.length ? `${eps.length} magyar podcast epizód, relevancia szerint rendezve.` : "Erre a keresésre nincs találat. Próbálj rövidebb vagy más kifejezést."}</p></header>
+<main>${pinHtml}${eps.length ? `<h2>Epizódok</h2><ol>${items}</ol>` : ""}
+<form method="get" action="/kereses" role="search"><label for="q">Új keresés</label> <input id="q" name="q" type="search" value="${esc(q)}" /> <button type="submit">Keresés</button></form></main>`,
+  }).replace('content="noindex,nofollow"', 'content="noindex,follow"');
+
+  return searchResponse(body, 200, eps.length ? 21600 : 3600, {
+    "X-Robots-Tag": "noindex, follow",
+    "X-Search-Tier": tier,
+  });
+}
+
 async function buildHome(supabase: ReturnType<typeof createClient>) {
   const { data: rails } = await (supabase as any)
     .rpc("get_homepage_rails_v1", {
@@ -3313,6 +3450,10 @@ Deno.serve(async (req) => {
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
 
     if (path === "/") return await buildHome(supabase);
+    if (path === "/kereses") {
+      const tier = url.searchParams.get("tier") === "ai" ? "ai" : "basic";
+      return await buildSearch(supabase, url.searchParams.get("q"), tier);
+    }
 
     const parts = path.split("/").filter(Boolean);
 
