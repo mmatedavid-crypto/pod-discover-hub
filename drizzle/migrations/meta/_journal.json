@@ -659,6 +659,13 @@
       "when": 1792858572134,
       "tag": "0093_seo_job_terminal_failure_atomic_fix_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 94,
+      "version": "7",
+      "when": 1792858870387,
+      "tag": "0094_derivation_mutators_revoke_readonly",
+      "breakpoints": true
     }
   ]
 }
