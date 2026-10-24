@@ -52,7 +52,7 @@ All numbers below were measured on production on 2026-10-24 (UTC).
 ## Remaining / blocked (not done)
 
 - ~3 000 tracked episodes have stale derived results; they drain at the existing dispatch cap (300/day) and runner budgets. No completion date is promised.
-- 626 topic rows awaiting first extraction and D/E-tier topics: blocked by the current tier policy (S/A/B/C); widening is an owner decision.
+- 626 tracked episodes have no topic extraction yet (in the normal topic queue, or outside the S/A/B/C tier policy); D/E tiers stay excluded unless the owner widens the policy.
 - Paid person relevance review (cron 189) paused by the owner: extracted evidence is recorded, the identity review is `blocked`; ambiguous/homonym links stay pending/needs_review.
 - 8 800 older topic extraction errors were not re-run (would be a broad AI backfill).
 - `count_pipeline_pending('entity_backfill')` (queue-health controller) counts differently from the runner's own selection, so the controller sometimes pauses/resumes the entity runner; a paused tick writes no run row.
