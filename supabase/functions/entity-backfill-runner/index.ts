@@ -489,9 +489,12 @@ Deno.serve(async (req) => {
 
       let ids = list.map((r) => r.id).filter(Boolean);
       {
-        const { data: blk } = await admin.from("pipeline_item_blocks").select("item_id")
-          .eq("runner", "entity-backfill-runner").is("cleared_at", null).in("item_id", ids);
-        const blocked = new Set((blk || []).map((b: any) => String(b.item_id)));
+        const blocked = new Set<string>();
+        for (let c = 0; c < ids.length; c += 100) {
+          const { data: blk } = await admin.from("pipeline_item_blocks").select("item_id")
+            .eq("runner", "entity-backfill-runner").is("cleared_at", null).in("item_id", ids.slice(c, c + 100));
+          for (const b of blk || []) blocked.add(String((b as any).item_id));
+        }
         if (blocked.size) {
           for (let k = list.length - 1; k >= 0; k--) if (blocked.has(String(list[k].id))) list.splice(k, 1);
           ids = ids.filter((x) => !blocked.has(String(x)));
