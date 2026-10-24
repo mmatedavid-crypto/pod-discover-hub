@@ -112,11 +112,52 @@ export function dispatchBatchClamp(n: number): number {
   return Math.max(10, Math.min(60, Math.floor(Number.isFinite(n) ? n : 20)));
 }
 
-/** Next batch after a successful dispatch: grow when fast (<3 s), shrink when slow (>5 s). */
-export function nextDispatchBatch(current: number, ms: number): number {
-  if (ms < 3000) return dispatchBatchClamp(current + 10);
-  if (ms > 5000) return dispatchBatchClamp(current - 10);
+export type DispatchTuning = { start_limit: number; grow_below_ms: number; shrink_above_ms: number };
+
+/**
+ * Next batch after a successful dispatch: grow when fast, shrink when slow.
+ * Default thresholds 3 s / 5 s; an active catch-up may pass its own (bounded so the 8 s API
+ * statement timeout always keeps ≥1 s margin: grow < 6 s, shrink > 7 s at most).
+ */
+export function nextDispatchBatch(current: number, ms: number, t?: Partial<DispatchTuning> | null): number {
+  const grow = Math.max(1000, Math.min(6000, Number(t?.grow_below_ms) || 3000));
+  const shrink = Math.max(grow, Math.min(7000, Number(t?.shrink_above_ms) || 5000));
+  if (ms < grow) return dispatchBatchClamp(current + 10);
+  if (ms > shrink) return dispatchBatchClamp(current - 10);
   return dispatchBatchClamp(current);
+}
+
+/** Active catch-up (derivation part not yet restored) from pipeline_catchup_state, else null. */
+export function activeDerivationCatchup(st: any, now = Date.now()): { started_at: string; tuning: DispatchTuning | null; runner_cadence: Record<string, string> } | null {
+  if (!st || st.active !== true) return null;
+  if (!st.expires_at || now >= new Date(st.expires_at).getTime()) return null;
+  const restored = Array.isArray(st.restored) ? st.restored : [];
+  if (restored.some((r: any) => r?.group === "derivation")) return null;
+  const t = st.dispatch_tuning;
+  return {
+    started_at: String(st.started_at || ""),
+    tuning: t ? { start_limit: dispatchBatchClamp(Number(t.start_limit)), grow_below_ms: Number(t.grow_below_ms), shrink_above_ms: Number(t.shrink_above_ms) } : null,
+    runner_cadence: st.runner_cadence && typeof st.runner_cadence === "object" ? st.runner_cadence : {},
+  };
+}
+
+/**
+ * Effective batch at the start of a run. During a catch-up with tuning, the start limit is
+ * applied ONCE per tuning version (marker), afterwards the measured adaptive value rules (so
+ * a slow/error shrink is never undone by the floor).
+ */
+export function startDispatchBatch(tune: any, cu: ReturnType<typeof activeDerivationCatchup>): { limit: number; marker: string | null } {
+  const stored = dispatchBatchClamp(Number(tune?.effective_limit ?? 20));
+  if (!cu?.tuning) return { limit: stored, marker: tune?.catchup_marker ?? null };
+  const marker = `${cu.started_at}|${cu.tuning.start_limit}|${cu.tuning.grow_below_ms}|${cu.tuning.shrink_above_ms}`;
+  if (tune?.catchup_marker === marker) return { limit: stored, marker };
+  return { limit: Math.max(stored, cu.tuning.start_limit), marker };
+}
+
+/** Full (non-derivation) enqueue passes: every call normally; during catch-up only on 5-minute marks. */
+export function runFullEnqueuePass(cu: unknown, now: Date, forced = false): boolean {
+  if (forced || !cu) return true;
+  return now.getUTCMinutes() % 5 === 0;
 }
 
 export type SeoJobFailureOutcome =
