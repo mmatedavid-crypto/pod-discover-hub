@@ -831,9 +831,6 @@ async function buildEpisode(
   const cleanText = cleanSource === "youtube" || cleanSource === "spotify" ? stripHtml((cleanRow as any)?.text || "") : "";
   const cleanSourceUrl = String((cleanRow as any)?.source_url || "");
   const cleanSourceLabel = cleanSource === "youtube" ? "YouTube-videó leírása" : cleanSource === "spotify" ? "Spotify-epizód leírása" : "";
-  const transcriptText = stripHtml(
-    typeof transcriptRow === "string" ? transcriptRow : ((transcriptRow as any)?.transcript || ""),
-  );
   const rawDescText = stripHtml(ep.description);
 
   // Person JSON-LD: resolve episode.people[] names to canonical `people` rows,
@@ -1157,7 +1154,6 @@ async function buildEpisode(
     ...(durationHuman ? [["Hossz", durationHuman] as [string, string]] : []),
     ...(peopleNamesForFacts.length ? [["Szereplők, említett nevek", peopleNamesForFacts.join(", ")] as [string, string]] : []),
     ...(topicNamesForFacts.length ? [["Témák", topicNamesForFacts.join(", ")] as [string, string]] : []),
-    ...(transcriptBacked ? [["Átirat", "Az epizód beszélt szövege alapján indexelve"] as [string, string]] : []),
   ];
   const factsHtml = `<section aria-label="Röviden"><h2>Röviden</h2><dl>${factRows
     .map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`)
