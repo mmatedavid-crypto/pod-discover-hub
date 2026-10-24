@@ -160,3 +160,15 @@ unchanged (started 15:32:42, never ended). Restore semantics: the derivation par
 nothing is dispatch-eligible AND nothing dispatched is still queued in a runner; the
 YouTube/Spotify part ends only at expiry (no complete count of remaining verified gains).
 
+Terminal SEO failures (15:55, `0090`, seo-enrich-runner `2f0a6b71…`): an exhausted job
+(attempts ≥ max) left the stage `queued`. Now the runner marks the stage `blocked`
+(`seo_job_failed:<error>`) for exactly the job's clean-text version via
+`mark_episode_derivation_v1` (newer version untouched, never current); the rejected candidate
+title/description is kept on the internal job row (`result.rejected_output`) for diagnosis;
+retry only by a clean-text change or `retry_failed_seo_derivations_v1` (service-only, ≤50).
+Existing case: Tears of Jordan #217 (job 19705d29…) marked blocked; its rejected title was not
+retained, so whether it was a bad title or a proper-name false positive is unknown. Counts at
+15:56: SEO blocked 42 (41 empty/short clean text + 1 job failure), topic blocked 39, entity
+blocked 41; failed SEO jobs in 24 h: 17 (all `hu_language_guard_failed:seo_title`; 1
+stale-derivation job, 16 normal jobs of which 6 are tracked episodes still `awaiting_initial`).
+
