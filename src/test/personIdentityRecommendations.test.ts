@@ -53,17 +53,32 @@ describe("verified person identity in recommendations", () => {
 });
 
 describe("person page link trust", () => {
-  it("never promotes pending / rejected / unreviewed rows to participant", () => {
-    const rows = personPageMentionRows([
-      { relevance_status: "accepted", validation_source: "person_openai_batch_v1", role_type: "participant" },
-      { relevance_status: "pending", validation_source: null, role_type: "participant" },
-      { relevance_status: "accepted", validation_source: null, role_type: "participant" },
-      { relevance_status: "rejected", validation_source: "ai", role_type: "participant" },
-      { relevance_status: "needs_review", validation_source: "person_openai_batch_v1", role_type: "subject" },
-      { relevance_status: null, validation_source: null, mention_type: "guest" },
-    ]);
-    expect(rows.map((r) => r.role)).toEqual(["participant", "mention", "mention", "mention"]);
-    expect(rows.map((r) => r.verified)).toEqual([true, false, false, false]);
+  const rows = [
+    { id: "uro", relevance_status: "accepted", validation_source: "person_openai_batch_v1", role_type: "participant" },
+    { id: "music-director", relevance_status: "pending", validation_source: null, role_type: "participant" },
+    { id: "chamber-music", relevance_status: "pending", validation_source: null, role_type: "participant" },
+    { id: "accepted-unreviewed", relevance_status: "accepted", validation_source: "   ", role_type: "participant" },
+    { id: "rejected", relevance_status: "rejected", validation_source: "ai", role_type: "participant" },
+    { id: "needs-review", relevance_status: "needs_review", validation_source: "person_openai_batch_v1", role_type: "subject" },
+    { id: "reviewed-mention", relevance_status: "accepted", validation_source: "ai", role_type: "mention" },
+  ];
+
+  it("keeps known namesakes off a person verified elsewhere (absent, not demoted)", () => {
+    const out = personPageMentionRows(rows, { personHasVerifiedLink: true });
+    expect(out.map((r) => r.row.id)).toEqual(["uro", "reviewed-mention"]);
+    expect(out.map((r) => r.role)).toEqual(["participant", "mention"]);
+    expect(out.map((r) => r.row.id)).not.toContain("music-director");
+    expect(out.map((r) => r.row.id)).not.toContain("chamber-music");
+  });
+
+  it("treats a blank review record as unreviewed", () => {
+    const out = personPageMentionRows([rows[3]], { personHasVerifiedLink: false });
+    expect(out).toEqual([{ row: rows[3], role: "mention", verified: false }]);
+  });
+
+  it("without any verified link, unreviewed rows are mentions only, never participants", () => {
+    const out = personPageMentionRows(rows.filter((r) => r.relevance_status !== "accepted"), { personHasVerifiedLink: false });
+    expect(out.map((r) => [r.row.id, r.role])).toEqual([["music-director", "mention"], ["chamber-music", "mention"]]);
   });
 });
 
@@ -86,6 +101,21 @@ describe("raw names never create person links (static)", () => {
     const guards = read("src/lib/recommendationGuards.ts");
     expect(guards).not.toContain("overlaps(source.people");
     expect(guards).not.toContain("...(ctx.people || [])");
+  });
+
+  it("episode-card person chips resolve per episode in one batch", () => {
+    const hook = read("src/hooks/useLinkableEntities.ts");
+    expect(hook).toContain('rpc("get_linkable_episode_people_v1", { p_episode_ids: episodeIds })');
+    expect(hook).toContain("pendingEpisodePeople");
+    const card = read("src/components/EpisodeCard.tsx");
+    expect(card.match(/\{ episodeId: e\.id \}/g)?.length).toBe(2);
+    const prerender = read("supabase/functions/prerender/index.ts");
+    expect(prerender).toContain("{ personHasVerifiedLink: hasVerified === true }");
+    const page = read("src/pages/PersonDetailPage.tsx");
+    expect(page).toContain('rpc("person_has_verified_link_v1"');
+    const sql = read("drizzle/migrations/0087_person_link_review_nonblank_and_episode_chips.sql");
+    expect(sql).toContain("nullif(btrim(coalesce(p_validation_source, '')), '') IS NOT NULL");
+    expect(sql).toContain("NOT public.person_has_verified_link_v1(m.person_id, m.episode_id)");
   });
 
   it("recommendation RPCs score and explain only verified shared person ids", () => {
