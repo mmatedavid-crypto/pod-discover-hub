@@ -670,6 +670,7 @@ export default {
     headers.set("Content-Type", "text/html; charset=utf-8");
     // Search pages keep the prerender's own shorter TTL (6h results / 1h empty).
     if (!isSearch) headers.set("Cache-Control", resolvedMissing ? "public, max-age=60" : "public, max-age=86400");
+    else headers.delete("Set-Cookie");
     headers.set("X-Prerender-Cache", "MISS");
     headers.set("X-Prerender-UA", ua.slice(0, 80));
     if (resolvedMissing) headers.set("X-Robots-Tag", "noindex, nofollow");
@@ -684,6 +685,7 @@ export default {
       const ch = new Headers(cached.headers);
       ch.delete("Vary");
       ch.delete("Set-Cookie");
+      ch.delete("X-Prerender-Cache");
       ctx.waitUntil(cache.put(cacheKey, new Response(cached.body, { status: cached.status, headers: ch })));
     } else {
       ctx.waitUntil(cache.put(cacheKey, resp.clone()));
