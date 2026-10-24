@@ -15,6 +15,10 @@ import {
   stripForbidden,
   topicUrl,
 } from "../entityResolve";
+import {
+  isExcludedPersonMention,
+  isVerifiedPersonMention,
+} from "../../../../supabase/functions/_shared/person-link-trust";
 
 const EPISODE_SELECT =
   "id,title,display_title,slug,published_at,duration_seconds,summary,ai_summary,description,podcast_id,podcasts!inner(id,slug,title,display_title,language,language_decision,rss_status)";
@@ -68,14 +72,15 @@ export default defineTool({
             .limit(40),
           sb
             .from("episode_organization_map")
-            .select("role,confidence,source_evidence,organizations!inner(id,name,slug,org_type,is_public,is_indexable,ai_recommended_action)")
+            .select(
+              "role,confidence,source_evidence,organizations!inner(id,name,slug,org_type,is_public,is_indexable,ai_recommended_action)",
+            )
             .eq("episode_id", row.id)
-            .gte("confidence", 0.6)
             .order("confidence", { ascending: false, nullsFirst: false })
-            .limit(20),
+            .limit(40),
           sb
             .from("episode_topic_map")
-            .select("confidence,topics!inner(id,name,slug,is_public)")
+            .select("confidence,topics!inner(id,name,slug,is_public,is_indexable)")
             .eq("episode_id", row.id)
             .order("confidence", { ascending: false, nullsFirst: false })
             .limit(20),

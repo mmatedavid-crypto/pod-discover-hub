@@ -297,10 +297,10 @@ function isSafeIndexablePerson(p) {
 }
 
 // supabase/functions/_shared/person-link-trust.ts
-function isVerifiedPersonMention2(m) {
+function isVerifiedPersonMention(m) {
   return m.relevance_status === "accepted" && Boolean(String(m.validation_source || "").trim());
 }
-function isExcludedPersonMention2(m) {
+function isExcludedPersonMention(m) {
   return m.relevance_status === "rejected" || m.relevance_status === "needs_review";
 }
 function declaredRole(m) {
@@ -312,11 +312,11 @@ function declaredRole(m) {
   return "mention";
 }
 function personPageMentionRows(rows, opts = {}) {
-  const anchored = opts.personHasVerifiedLink === true || (rows || []).some((r) => r && isVerifiedPersonMention2(r));
+  const anchored = opts.personHasVerifiedLink === true || (rows || []).some((r) => r && isVerifiedPersonMention(r));
   const out = [];
   for (const row of rows || []) {
-    if (!row || isExcludedPersonMention2(row)) continue;
-    const verified = isVerifiedPersonMention2(row);
+    if (!row || isExcludedPersonMention(row)) continue;
+    const verified = isVerifiedPersonMention(row);
     if (!verified && anchored) continue;
     out.push({ row, role: verified ? declaredRole(row) : "mention", verified });
   }
@@ -524,8 +524,10 @@ var get_episode_context_default = defineTool6({
         sb.from("person_episode_mentions").select(
           `mention_type,role_type,confidence,role_confidence,final_relevance_score,relevance_status,validation_source,evidence,people!inner(${PERSON_JSONLD_SELECT})`
         ).eq("episode_id", row.id).or("relevance_status.is.null,relevance_status.neq.rejected").order("final_relevance_score", { ascending: false, nullsFirst: false }).limit(40),
-        sb.from("episode_organization_map").select("role,confidence,source_evidence,organizations!inner(id,name,slug,org_type,is_public,is_indexable,ai_recommended_action)").eq("episode_id", row.id).gte("confidence", 0.6).order("confidence", { ascending: false, nullsFirst: false }).limit(20),
-        sb.from("episode_topic_map").select("confidence,topics!inner(id,name,slug,is_public)").eq("episode_id", row.id).order("confidence", { ascending: false, nullsFirst: false }).limit(20),
+        sb.from("episode_organization_map").select(
+          "role,confidence,source_evidence,organizations!inner(id,name,slug,org_type,is_public,is_indexable,ai_recommended_action)"
+        ).eq("episode_id", row.id).order("confidence", { ascending: false, nullsFirst: false }).limit(40),
+        sb.from("episode_topic_map").select("confidence,topics!inner(id,name,slug,is_public,is_indexable)").eq("episode_id", row.id).order("confidence", { ascending: false, nullsFirst: false }).limit(20),
         sb.from("episode_transcripts").select("public_display").eq("episode_id", row.id).limit(1),
         // Same per-episode identity gate as the public episode page: a name match is not
         // the same person; only people this RPC returns may be linked, verified flag says
