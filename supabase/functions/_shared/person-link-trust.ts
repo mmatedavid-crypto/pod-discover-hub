@@ -29,15 +29,23 @@ function declaredRole(m: PersonMentionTrustRow): PersonPageRole {
 }
 
 /**
- * Rows a person page may show and the role it may claim: rejected / needs_review never;
- * verified links keep their reviewed role; anything unreviewed (pending, in_progress,
- * accepted without a review record) is only a name mention, never a participant/subject.
+ * Rows a person page may show and the role it may claim. Rejected / needs_review never;
+ * verified links keep their reviewed role. Unreviewed rows (pending, in_progress, accepted
+ * without a review record) are only name occurrences: when the person has a verified link
+ * anywhere (`personHasVerifiedLink`), a same-name unreviewed episode is not attached to that
+ * identity at all (mirrors get_episode_person_links_v1); otherwise it is listed as a mention,
+ * never as participant/subject. DB review decisions are never changed by this.
  */
-export function personPageMentionRows<T extends PersonMentionTrustRow>(rows: T[]): Array<{ row: T; role: PersonPageRole; verified: boolean }> {
+export function personPageMentionRows<T extends PersonMentionTrustRow>(
+  rows: T[],
+  opts: { personHasVerifiedLink?: boolean } = {},
+): Array<{ row: T; role: PersonPageRole; verified: boolean }> {
+  const anchored = opts.personHasVerifiedLink === true || (rows || []).some((r) => r && isVerifiedPersonMention(r));
   const out: Array<{ row: T; role: PersonPageRole; verified: boolean }> = [];
   for (const row of rows || []) {
     if (!row || isExcludedPersonMention(row)) continue;
     const verified = isVerifiedPersonMention(row);
+    if (!verified && anchored) continue;
     out.push({ row, role: verified ? declaredRole(row) : "mention", verified });
   }
   return out;

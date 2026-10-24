@@ -305,10 +305,18 @@ export default function PersonDetailPage() {
 
 
 
+      // Is this person verified on any episode? Then same-name unreviewed episodes are not
+      // attached to this identity (same rule as episode person links).
+      const { data: hasVerified } = await (supabase as any).rpc("person_has_verified_link_v1", { p_person_id: (p as any).id });
+      const allowedRows = new Map(
+        personPageMentionRows((mentions || []) as any[], { personHasVerifiedLink: hasVerified === true }).map((x) => [x.row, x.role] as const),
+      );
+
       const epList: any[] = [];
       const podMap = new Map<string, any>();
       (mentions || []).forEach((m: any) => {
         if (!m.episodes) return;
+        if (!allowedRows.has(m)) return;
         const accepted = m.relevance_status === "accepted";
         const strongAi = Number(m.final_relevance_score || 0) >= 0.75;
         const manual = m.validation_source === "manual";
@@ -319,7 +327,7 @@ export default function PersonDetailPage() {
         if (!(accepted || strongAi || manual || legacyOk)) return;
         // A name match is not a verified identity: only reviewed accepted links keep their
         // participant/subject role; unreviewed rows are shown as mentions only.
-        const roleType = personPageMentionRows([m])[0]?.role ?? "mention";
+        const roleType = allowedRows.get(m) ?? "mention";
         epList.push({ ...m.episodes, mention_type: m.mention_type, role_type: roleType });
         if (m.episodes.podcasts) podMap.set(m.episodes.podcast_id, m.episodes.podcasts);
       });
