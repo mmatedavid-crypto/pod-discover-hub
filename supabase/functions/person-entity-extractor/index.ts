@@ -13,6 +13,8 @@ const cors = {
 
 import { slugify as sharedSlugify } from "../_shared/slug.ts";
 import { canonicalizeHungarianPersonName } from "../_shared/hu-person-name.ts";
+import { aliasSetFingerprint, isReviewedMention, personExtractorInputFingerprint } from "../_shared/person-extractor-fingerprint.ts";
+import { runLog } from "../_shared/runner-run-log.ts";
 // normalize() is kept as the comparison key for existing `people.normalized_name`
 // rows — changing it would re-bucket the entire people table. The slugify path
 // now uses the central HU-safe helper so new person slugs match site-wide rules.
@@ -118,6 +120,10 @@ Deno.serve(async (req) => {
   const runId = (runRow as any)?.id;
 
   let scanned = 0, peopleCreated = 0, peopleUpdated = 0, topicMaps = 0;
+  let skippedUnchanged = 0, reviewedMentionsKept = 0;
+  const changedFps: { episode_id: string; input_fp: string }[] = [];
+  const log = runLog(supabase, "person-entity-extractor");
+  await log.start({ mode: body.mode ?? null, limit });
   let cursorStart: string | null = null;
   let cursorEnd: string | null = null;
   let cycleCompleted = false;
@@ -125,9 +131,20 @@ Deno.serve(async (req) => {
 
   try {
     // ---------- Load topic aliases once ----------
-    const { data: aliasRows } = await supabase
-      .from("topic_aliases")
-      .select("topic_id, normalized_alias, weight");
+    // Paged + ordered: a bare select returned an arbitrary 1000-row subset of the
+    // 2000+ aliases, so matches (and the input fingerprint) changed run to run.
+    const aliasRows: any[] = [];
+    for (let off = 0; ; off += 1000) {
+      const { data: page, error: aErr } = await supabase
+        .from("topic_aliases")
+        .select("topic_id, normalized_alias, weight")
+        .order("topic_id", { ascending: true }).order("normalized_alias", { ascending: true })
+        .range(off, off + 999);
+      if (aErr) { errors.push(`topic_aliases: ${aErr.message}`); break; }
+      aliasRows.push(...(page || []));
+      if (!page || page.length < 1000) break;
+    }
+    const aliasFp = await aliasSetFingerprint(aliasRows as any);
     const aliasMap = new Map<string, { topic_id: string; weight: number }[]>();
     (aliasRows || []).forEach((a: any) => {
       const arr = aliasMap.get(a.normalized_alias) || [];
@@ -365,12 +382,23 @@ Deno.serve(async (req) => {
         if (ctChunk?.length) cleanRows.push(...ctChunk);
       }
       const cleanById = new Map(cleanRows.map((r: any) => [r.episode_id, r.cleaned_text || ""]));
+      // Previously processed input fingerprints for this page.
+      const prevFp = new Map<string, string>();
+      for (let c = 0; c < epIds.length; c += 100) {
+        const { data: fps } = await supabase.from("person_extractor_episode_inputs")
+          .select("episode_id, input_fp").in("episode_id", epIds.slice(c, c + 100));
+        for (const r of fps || []) prevFp.set(String((r as any).episode_id), String((r as any).input_fp));
+      }
 
       for (const e of eps as any[]) {
         e.clean_text = cleanById.get(e.id) || "";
         scanned++;
         const pod = e.podcasts;
         if (!pod) continue;
+        // Unchanged inputs since the last successful write: nothing to redo.
+        const fp = await personExtractorInputFingerprint(e, pod, aliasFp);
+        if (prevFp.get(String(e.id)) === fp) { skippedUnchanged++; continue; }
+        changedFps.push({ episode_id: e.id, input_fp: fp });
         const hosts: string[] = pod.hosts || [];
         const hostSet = new Set(hosts.map((host) => normalize(canonicalPersonInput(host).name)));
         const contextBucket = contextBucketFor(e, pod);
@@ -604,7 +632,20 @@ Deno.serve(async (req) => {
     const peopleResult = await chunkUpsert("people", peopleRowsUnique, "id");
     peopleCreated = peopleResult.inserted;
     await chunkUpsert("person_aliases", aliasRowsUnique, "person_id,normalized_alias");
-    await chunkUpsert("person_episode_mentions", mentionRowsUnique, "person_id,episode_id,mention_type");
+    // Mentions somebody already judged (AI judge, paid review, rule, manual) keep their
+    // role/evidence fields; only new and never-reviewed rows are written.
+    const reviewedKeys = new Set<string>();
+    const mentionEpIds = Array.from(new Set(mentionRowsUnique.map((r: any) => String(r.episode_id))));
+    for (let c = 0; c < mentionEpIds.length; c += 100) {
+      const { data: rv, error: rvErr } = await supabase.from("person_episode_mentions")
+        .select("person_id, episode_id, mention_type, validation_source")
+        .in("episode_id", mentionEpIds.slice(c, c + 100)).not("validation_source", "is", null);
+      if (rvErr) { errors.push(`reviewed_mentions: ${rvErr.message}`); writeErrors++; break; }
+      for (const r of rv || []) if (isReviewedMention(r as any)) reviewedKeys.add(`${(r as any).person_id}:${(r as any).episode_id}:${(r as any).mention_type}`);
+    }
+    const mentionRowsWritable = writeErrors ? [] : mentionRowsUnique.filter((r: any) => !reviewedKeys.has(`${r.person_id}:${r.episode_id}:${r.mention_type}`));
+    reviewedMentionsKept = mentionRowsUnique.length - mentionRowsWritable.length;
+    await chunkUpsert("person_episode_mentions", mentionRowsWritable, "person_id,episode_id,mention_type");
     await chunkUpsert("person_podcast_map", podcastRoleRowsUnique, "person_id,podcast_id,role");
 
     // ---------- Persist topic maps ----------
@@ -653,6 +694,15 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ---------- Input fingerprints (only after every write succeeded) ----------
+    if (writeErrors === 0 && changedFps.length) {
+      for (let i = 0; i < changedFps.length; i += 200) {
+        const { error: fpErr } = await supabase.from("person_extractor_episode_inputs")
+          .upsert(changedFps.slice(i, i + 200).map((r) => ({ ...r, processed_at: new Date().toISOString() })), { onConflict: "episode_id" });
+        if (fpErr) { errors.push(`fingerprints: ${fpErr.message}`); break; }
+      }
+    }
+
     // ---------- Cursor persistence + global person recount ----------
     if (cursorMode) {
       // Do not advance past a window whose writes partly failed — the next run
@@ -684,8 +734,10 @@ Deno.serve(async (req) => {
       finished_at: new Date().toISOString(),
     }).eq("id", runId);
 
+    await log.finish(errors.length ? "error" : "ok", { scanned, changed: changedFps.length, skipped_unchanged: skippedUnchanged, reviewed_mentions_kept: reviewedMentionsKept, mentions_written: mentionRows.length - reviewedMentionsKept, cycle_completed: cycleCompleted }, errors.slice(0, 3).join(" | ") || null);
     return new Response(JSON.stringify({
-      ok: true, runId, scanned, peopleAggregated: personAgg.size, peopleRows: peopleRows.length,
+      ok: true, runId, scanned, changed: changedFps.length, skipped_unchanged: skippedUnchanged, reviewed_mentions_kept: reviewedMentionsKept,
+      peopleAggregated: personAgg.size, peopleRows: peopleRows.length,
       mentions: mentionRows.length, podcastRoles: podcastRoleRows.length,
       episodeTopicMaps: episodeTopicRows.length, podcastTopicMaps: podcastTopicRows.length,
       cursor_mode: cursorMode, cursor_start: cursorStart, cursor_end: cursorEnd, cycle_completed: cycleCompleted,
@@ -693,6 +745,7 @@ Deno.serve(async (req) => {
     }), { headers: { ...cors, "Content-Type": "application/json" } });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
+    await log.finish("error", { scanned }, msg);
     await supabase.from("entity_extraction_runs").update({
       status: "failed", error_message: msg, finished_at: new Date().toISOString(),
     }).eq("id", runId);
