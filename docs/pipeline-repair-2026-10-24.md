@@ -242,3 +242,19 @@ Episode derivation state 17:06 → 17:17: SEO current 681 → 1 068, entity curr
 topic current 567 → 847 (+58 topic `blocked` = tiers outside the topic policy), any-stale
 2 578 → 2 140, queued 31 → 122. Runner runs 17:09–17:15: SEO 151 + 238, entity 149 + 120 + 120,
 topic 141 + 148, all `ok`; spend today SEO $0.37, entity $0.68, topic $0.03.
+
+Follow-ups found while measuring (17:17–17:28):
+- queue-health-controller paused the SEO runner as `queue_empty` between refills (17:12 run
+  skipped, hourly cron): during the catch-up a runner with a catch-up cadence is no longer
+  idle-paused and keeps that cadence (normal pause/ladder after the catch-up).
+- seo-enrich-runner run 17:21 was killed (`CPU Time exceeded`) while draining a refilled queue
+  (a kill costs claimed jobs one attempt and skips the spend merge). Per-run job cap 150
+  (hard max 250); 238/run had completed fine. 17:27 run: 150 claimed, 142 done, 17 s.
+- SEO job failures 17:13–17:28: 7 terminal + 4 retrying `hu_language_guard_failed:seo_title`
+  (guard unchanged; terminal → stage blocked), 2 `ai_err` exhausted.
+
+Totals 17:06 → 17:28 (22 min): SEO current 681 → 1 724 (+1 043), entity current 703 → 1 801
+(+1 098), topic current 567 → 1 214 (+647); any-stale 2 578 → 1 535; queued 31 → 157; blocked
+SEO 44 → 53, entity 41 → 41, topic 39 → 225 (tiers outside the topic policy S/A/B/C, not
+errors); dispatched today 750 → 1 880 of 5 000; effective batch 60. Before the raise the same
+stages completed ~120 per 30 min each.
