@@ -666,6 +666,20 @@
       "when": 1792858870387,
       "tag": "0094_derivation_mutators_revoke_readonly",
       "breakpoints": true
+    },
+    {
+      "idx": 95,
+      "version": "7",
+      "when": 1792861355148,
+      "tag": "0095_catchup_throughput_raise",
+      "breakpoints": true
+    },
+    {
+      "idx": 96,
+      "version": "7",
+      "when": 1792861444261,
+      "tag": "0096_dispatch_updates_index_driven",
+      "breakpoints": true
     }
   ]
 }

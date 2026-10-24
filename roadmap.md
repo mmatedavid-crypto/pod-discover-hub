@@ -93,5 +93,6 @@
 - [ ] Podcast-level chips (PodcastEntitiesCompact) and trending entities still resolve by name (aggregated, not per episode).
 - [ ] Publish the frontend (recommendation, person-link and admin panel changes) (waits on user publish).
 - [x] 24h catch-up mode (owner 2026-10-24): raised dispatch + verified YT/SP re-clean quotas with audited auto-restore; dispatcher set-based; topic waiting churn fixed.
-- [ ] Catch-up drains on its own until 2026-10-25 15:33 UTC (or earlier when nothing eligible is left).
+- [x] Owner throughput raise 17:06 UTC (enqueue every minute, batch 30–60 adaptive, SEO/entity every 3 min, topic/source every 5 min) inside the catch-up; dispatch query fixed (0095/0096).
+- [ ] Catch-up drains on its own until 2026-10-25 15:33 UTC (or earlier when nothing eligible or queued is left).
 

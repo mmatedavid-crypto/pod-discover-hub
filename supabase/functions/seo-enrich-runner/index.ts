@@ -10,7 +10,7 @@ import { SYSTEM_PROMPT, PODCAST_SEO_TOOL, EPISODE_SEO_TOOL, podcastUserPrompt, e
 import { chatTokenCostUsd } from "../_shared/ai-pricing.ts";
 import { assertHungarianPublicFields, isHungarianish } from "../_shared/hu-language-guard.ts";
 import { callLovableAI } from "../_shared/lovable-ai.ts";
-import { loadDerivationInputs, markDerivation, persistSeoJobFailure, prebuiltPromptDecision, seoInputProvenance, seoPrimary, seoUsedCleanHash, terminalSeoFailureMark, type SeoInputProvenance } from "../_shared/derivation-state.ts";
+import { activeDerivationCatchup, loadDerivationInputs, markDerivation, persistSeoJobFailure, prebuiltPromptDecision, seoInputProvenance, seoPrimary, seoUsedCleanHash, terminalSeoFailureMark, type SeoInputProvenance } from "../_shared/derivation-state.ts";
 import { runLog } from "../_shared/runner-run-log.ts";
 
 const HU_REINFORCE = "KRITIKUS NYELVI SZABÁLY: A seo_title, seo_description ÉS ai_summary mezőket KIZÁRÓLAG MAGYARUL írd. A Podiverzum magyar oldal, angol publikus szöveg nem kerülhet ki. NE keverd a nyelveket. Ha az előző válaszod angol volt, ez hiba volt — most magyarul írj. TÉNYSZABÁLY: számot, évszámot, évfordulót, dátumot vagy statisztikát CSAK akkor írj, ha szó szerint szerepel a forrásszövegben; ne következtess és ne egészíts ki saját tudásból.";
@@ -101,6 +101,7 @@ Deno.serve(async (req) => {
     const batch = Math.max(1, Math.min(150, Number(body.batch) || 100));
     // Keep concurrency high, but model policy below keeps this on flash-lite for batch cost control.
     const concurrency = Math.max(1, Math.min(28, Number(body.concurrency) || 20));
+    const maxJobsPerRun = Math.max(1, Math.min(250, Number(body.max_jobs_per_run) || 150));
 
     // Reap stale processing locks before claiming. Best-effort.
     let reaped_stale_locks = 0;
@@ -478,7 +479,12 @@ Deno.serve(async (req) => {
       if (Date.now() - startedAt > TIME_BUDGET_MS - TAIL_RESERVE_MS) break;
       if (spend >= dailyBudget) break;
 
-      const { data: claimed, error: cErr } = await admin.rpc("claim_ai_jobs", { _limit: batch, _lock_seconds: 120 });
+      // Per-run job cap: a 2026-10-24 17:21 catch-up run that kept draining a refilled queue hit
+      // the edge CPU limit (killed: claimed jobs lose an attempt, spend merge never runs).
+      // 238 jobs/run completed fine; 150 keeps margin. More throughput = more frequent runs.
+      const capLeft = maxJobsPerRun - total_claimed;
+      if (capLeft <= 0) break;
+      const { data: claimed, error: cErr } = await admin.rpc("claim_ai_jobs", { _limit: Math.min(batch, capLeft), _lock_seconds: 120 });
       if (cErr) throw cErr;
       const jobs = (claimed || []) as any[];
       if (!jobs.length) break;
@@ -535,7 +541,11 @@ Deno.serve(async (req) => {
         else if (p >= 1) next_schedule = "*/10 * * * *";
         else next_schedule = "*/30 * * * *";
       }
-      try { await admin.rpc("set_seo_enrich_runner_schedule" as any, { _schedule: next_schedule }); } catch { /* ignore */ }
+      // During an active catch-up the queue-health-controller owns this cron (catch-up cadence);
+      // a second writer would flap it.
+      const { data: cuRow } = await admin.from("app_settings").select("value").eq("key", "pipeline_catchup_state").maybeSingle();
+      if (activeDerivationCatchup(cuRow?.value)?.runner_cadence?.seo_enrich) next_schedule = `catchup:${next_schedule}`;
+      else try { await admin.rpc("set_seo_enrich_runner_schedule" as any, { _schedule: next_schedule }); } catch { /* ignore */ }
     } catch { /* ignore */ }
 
     const summary = { ok: failure_bookkeeping_errors === 0, claimed: total_claimed, drain_loops, processed, succeeded, failed, failure_bookkeeping_errors, skipped, rate_limited, concurrency, spend_usd: spend, run_increment_usd: runIncrement, reaped_stale_locks, next_schedule, elapsed_ms: Date.now() - startedAt };
