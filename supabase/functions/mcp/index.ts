@@ -297,10 +297,10 @@ function isSafeIndexablePerson(p) {
 }
 
 // supabase/functions/_shared/person-link-trust.ts
-function isVerifiedPersonMention(m) {
+function isVerifiedPersonMention2(m) {
   return m.relevance_status === "accepted" && Boolean(String(m.validation_source || "").trim());
 }
-function isExcludedPersonMention(m) {
+function isExcludedPersonMention2(m) {
   return m.relevance_status === "rejected" || m.relevance_status === "needs_review";
 }
 function declaredRole(m) {
@@ -312,11 +312,11 @@ function declaredRole(m) {
   return "mention";
 }
 function personPageMentionRows(rows, opts = {}) {
-  const anchored = opts.personHasVerifiedLink === true || (rows || []).some((r) => r && isVerifiedPersonMention(r));
+  const anchored = opts.personHasVerifiedLink === true || (rows || []).some((r) => r && isVerifiedPersonMention2(r));
   const out = [];
   for (const row of rows || []) {
-    if (!row || isExcludedPersonMention(row)) continue;
-    const verified = isVerifiedPersonMention(row);
+    if (!row || isExcludedPersonMention2(row)) continue;
+    const verified = isVerifiedPersonMention2(row);
     if (!verified && anchored) continue;
     out.push({ row, role: verified ? declaredRole(row) : "mention", verified });
   }
@@ -520,27 +520,36 @@ var get_episode_context_default = defineTool6({
       }
       if (!row) return err(`Epiz\xF3d nem tal\xE1lhat\xF3: ${episode}`);
       if (!isPublicHungarianPodcast(row.podcasts)) return err("Az epiz\xF3d nem r\xE9sze a publikus magyar katal\xF3gusnak.");
-      const [{ data: personRows }, { data: orgRows }, { data: topicRows }, { data: transcriptRows }] = await Promise.all([
+      const [{ data: personRows }, { data: orgRows }, { data: topicRows }, { data: transcriptRows }, { data: linkRows }] = await Promise.all([
         sb.from("person_episode_mentions").select(
-          `mention_type,role_type,confidence,role_confidence,final_relevance_score,relevance_status,evidence,people!inner(${PERSON_JSONLD_SELECT})`
+          `mention_type,role_type,confidence,role_confidence,final_relevance_score,relevance_status,validation_source,evidence,people!inner(${PERSON_JSONLD_SELECT})`
         ).eq("episode_id", row.id).or("relevance_status.is.null,relevance_status.neq.rejected").order("final_relevance_score", { ascending: false, nullsFirst: false }).limit(40),
-        sb.from("episode_organization_map").select(
-          "role,confidence,source_evidence,organizations!inner(id,name,slug,org_type,is_public,is_indexable,ai_recommended_action)"
-        ).eq("episode_id", row.id).order("confidence", { ascending: false, nullsFirst: false }).limit(40),
-        sb.from("episode_topic_map").select("confidence,topics!inner(id,name,slug,is_public,is_indexable)").eq("episode_id", row.id).order("confidence", { ascending: false, nullsFirst: false }).limit(20),
-        sb.from("episode_transcripts").select("public_display").eq("episode_id", row.id).limit(1)
+        sb.from("episode_organization_map").select("role,confidence,source_evidence,organizations!inner(id,name,slug,org_type,is_public,is_indexable,ai_recommended_action)").eq("episode_id", row.id).gte("confidence", 0.6).order("confidence", { ascending: false, nullsFirst: false }).limit(20),
+        sb.from("episode_topic_map").select("confidence,topics!inner(id,name,slug,is_public)").eq("episode_id", row.id).order("confidence", { ascending: false, nullsFirst: false }).limit(20),
+        sb.from("episode_transcripts").select("public_display").eq("episode_id", row.id).limit(1),
+        // Same per-episode identity gate as the public episode page: a name match is not
+        // the same person; only people this RPC returns may be linked, verified flag says
+        // whether the link was reviewed.
+        sb.rpc("get_episode_person_links_v1", { p_episode_id: row.id })
       ]);
-      const people = (personRows || []).filter((m) => isSafePersonMentionRow(m) && isSafeIndexablePerson(m.people)).map((m) => ({
-        id: m.people.id,
-        name: m.people.name,
-        slug: m.people.slug,
-        url: personUrl(m.people.slug),
-        mention_type: m.mention_type,
-        role_type: m.role_type,
-        confidence: m.role_confidence ?? m.confidence ?? null,
-        evidence_phrase: clampEvidencePhrase(m.evidence, 160),
-        evidence_kind: "extracted_metadata"
-      }));
+      const linkable = new Map(
+        (linkRows || []).map((l) => [String(l.person_id), l.verified === true])
+      );
+      const people = (personRows || []).filter((m) => isSafePersonMentionRow(m) && !isExcludedPersonMention(m) && isSafeIndexablePerson(m.people)).filter((m) => linkable.has(String(m.people.id))).map((m) => {
+        const verified = linkable.get(String(m.people.id)) === true && isVerifiedPersonMention(m);
+        return {
+          id: m.people.id,
+          name: m.people.name,
+          slug: m.people.slug,
+          url: personUrl(m.people.slug),
+          mention_type: verified ? m.mention_type : "mention",
+          role_type: verified ? m.role_type : "mention",
+          identity_verified: verified,
+          confidence: m.role_confidence ?? m.confidence ?? null,
+          evidence_phrase: clampEvidencePhrase(m.evidence, 160),
+          evidence_kind: "extracted_metadata"
+        };
+      });
       const organizations = (orgRows || []).filter((m) => isPublicOrganizationRow(m.organizations)).map((m) => ({
         id: m.organizations.id,
         name: m.organizations.name,
