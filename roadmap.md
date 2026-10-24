@@ -89,7 +89,8 @@
 - [ ] Older topic extraction errors (~8 800) not re-run (blocked: would be a broad AI backfill; owner decision).
 - [x] Homonym person links: recommendations, episode person links/JSON-LD and person-page roles use only verified identities (2026-10-24 follow-up).
 - [x] smart_player_discover ambiguity error fixed (player discovery no longer falls back to unrelated episodes).
-- [ ] Episode card person chips are still linkable by name (get_linkable_entities is not per episode).
+- [x] Episode card person chips resolve per episode (batched); verified people no longer list same-name unreviewed episodes.
+- [ ] Podcast-level chips (PodcastEntitiesCompact) and trending entities still resolve by name (aggregated, not per episode).
 - [ ] Publish the frontend (recommendation, person-link and admin panel changes) (waits on user publish).
 - [x] 24h catch-up mode (owner 2026-10-24): raised dispatch + verified YT/SP re-clean quotas with audited auto-restore; dispatcher set-based; topic waiting churn fixed.
 - [ ] Catch-up drains on its own until 2026-10-25 15:33 UTC (or earlier when nothing eligible is left).
