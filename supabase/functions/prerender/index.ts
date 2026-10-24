@@ -914,10 +914,9 @@ async function buildEpisode(
     ? bodyPrimary.slice(0, BODY_MAX).replace(/\s+\S*$/, "") + "…"
     : bodyPrimary;
 
-  const bodyParas = bodyChunk
-    .split(/\n{2,}|(?<=[.!?])\s+(?=[A-ZÁÉÍÓÖŐÚÜŰ])/)
-    .map((p) => p.trim())
-    .filter((p) => p.length >= 30);
+  // Same words as the visitor's description: no fragment is dropped (the old
+  // sentence split + length filter cut short pieces such as a leading "Dr.").
+  const bodyParas = bodyParagraphs(bodyChunk);
 
   // Chapter/timestamp extraction from raw description
   // (e.g. "(00:00) Intro" or "01:23 Guest arrives"). Free structured content
