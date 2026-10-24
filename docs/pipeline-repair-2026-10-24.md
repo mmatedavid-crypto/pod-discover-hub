@@ -104,3 +104,40 @@ no review decision was changed.
 Still open: episode cards' person chips (`get_linkable_entities`) are linkable by name, not per
 episode; 154 893 unreviewed mentions on 12 945 people with verified links remain "Említések"
 until reviewed (paid review paused).
+
+## Catch-up mode 2026-10-24 15:32 UTC (owner-approved, max 24 h)
+
+Started with `start_pipeline_catchup_v1(24)`; state, old/new values and restores in
+`app_settings.pipeline_catchup_state`; health item `catch_up` on `/admin/queue-health`.
+
+| Setting | Normal | Catch-up |
+|---|---|---|
+| derivation dispatch daily cap | 300 | 5000 (SQL hard max 5000) |
+| derivation dispatch per run | 20 | 60 (SQL hard max 60; caller default now 60, stored value decides) |
+| SEO enqueue cron (job 5) | */15 | */5 |
+| YouTube re-clean daily / per run | 150 / 10 | 1000 / 15 (code max 1000 / 25) |
+| Spotify re-clean daily / per run | 20 / 3 | 500 / 10 (code max 500 / 20) |
+
+Unchanged: money budgets (SEO $40, entity $40, topic $30), AI concurrency, source batch 40 +
+CPU budget/isolation, clean-text repair caps, topic tier S/A/B/C, quality/identity/protected
+gates, cron 189/74 off, runner crons (still tuned by queue-health-controller).
+
+Expiry/restore: one-shot cron `pipeline-catchup-expiry` (2026-10-25 15:33 UTC) and every
+dispatch call run `pipeline_catchup_tick_v1`; the derivation group restores as soon as nothing
+is eligible, everything at expiry. A value changed after start is kept (`kept_changed_value`);
+`end_pipeline_catchup_v1()` ends it early. Rehearsed in a rolled-back transaction (restore +
+kept owner change + expiry job removed).
+
+Fixes found while running it: the dispatcher's row-by-row writes took 6.8 s for 60 episodes and
+hit the API statement timeout → set-based (2.9 s incl. selection, `0086`), serialized with an
+advisory lock; the topic runner re-queued ~140 promoted-but-empty clean texts every run
+(waiting ↔ pending) → empty/short promoted text is final `not_applicable`.
+
+Measured 15:32 → 15:39 (2 manual rounds + cron): eligible stale 2 962 → 2 883 (re-cleans add
+new stale rows); entity current 203 → 343, SEO current 186 → 323, topic current 115 → 237;
+dispatched today 240 → 420; SEO run 141 processed (137 ok, 4 failed on the HU language guard),
+entity run 140/140, topic runs 122 + 64 written, 0 errors; best-source run: YouTube re-clean 12
+applied (15 planned, cap 1000), Spotify 10 applied (cap 500), backed up + CAS. Spend today:
+entity $0.22, SEO $0.11, topic $0.06. Throughput afterwards follows the controller's cadence
+(SEO/entity crons speed up as their queues grow); no completion time is promised.
+

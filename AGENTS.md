@@ -23,4 +23,5 @@
 - `person-entity-extractor` skips episodes whose input fingerprint (`_shared/person-extractor-fingerprint.ts`) is unchanged and never rewrites mentions that carry a `validation_source`, because full-catalog re-writes every sweep churned the tables and overwrote reviewed decisions.
 - `google-indexing-submit` stays a no-op (Indexing API is only for JobPosting/BroadcastEvent pages); discovery is sitemaps + internal links + IndexNow, and indexing is never inferred from a submission, HTTP 200 or missing impressions.
 - Shared-person recommendation bridges, scores, explanations, episode person links and Person JSON-LD use only verified identities (`person_link_trusted_v1` / `get_shared_verified_people_v1` / `get_episode_person_links_v1`, client mirror `_shared/person-link-trust.ts`), never raw `people[]`/`mentioned[]` names, because homonyms were presented as the same person.
+- Temporary quota raises go only through `start_pipeline_catchup_v1` / `pipeline_catchup_tick_v1` (≤24 h, audited old/new values, restore only values still equal to the catch-up value), because hand-edited raises were forgotten or clobbered later owner changes.
 
