@@ -172,3 +172,11 @@ retained, so whether it was a bad title or a proper-name false positive is unkno
 blocked 41; failed SEO jobs in 24 h: 17 (all `hu_language_guard_failed:seo_title`; 1
 stale-derivation job, 16 normal jobs of which 6 are tracked episodes still `awaiting_initial`).
 
+Dispatch throughput (16:00–16:10, `0091`, seo-enrich-enqueue `0ef178c0…`): scheduled dispatches
+at 15:45/15:50/15:55 timed out (8 s API limit; nothing half-written — the dispatch is one
+transaction) because the selection hashed the full clean text of all ~2 700 stale candidates
+each call (10 s for 60 under runner load). Now only the newest 2×limit locked candidates are
+hash-verified (3.5 s for 60 under the same load). The caller keeps an adaptive effective batch
+in `app_settings.derivation_dispatch_tuning` (10..60; halve + one retry on timeout, +10 when
+< 3 s, −10 when > 5 s), bounded by the stored per_run/daily cap; no timeout was raised.
+
