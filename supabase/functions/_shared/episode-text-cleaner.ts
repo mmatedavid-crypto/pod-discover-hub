@@ -847,3 +847,7 @@ export function chunkText(text: string, chunkChars: number, overlap: number): Ar
   }
   return out;
 }
+
+// Test-only access to the sentence-tail internals (regression tests compare the
+// linear-time stripSentenceFooterTail with the previous quadratic version).
+export const __cleanerInternals = { stripSentenceFooterTail, splitSentences, sentenceWordCount, isFooterishSentence, LEGAL_TAIL_RX };
