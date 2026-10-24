@@ -301,6 +301,58 @@ describe("adaptive stale-derivation dispatch batch", () => {
     expect(src).toContain("eff = dispatchBatchClamp(Math.floor(eff / 2));");
     expect(src).not.toMatch(/statement_timeout/);
   });
+
+  const cuState = {
+    active: true, started_at: "2026-10-24T15:32:42Z", expires_at: "2026-10-25T15:32:42Z", restored: [],
+    dispatch_tuning: { start_limit: 30, grow_below_ms: 5000, shrink_above_ms: 6500 },
+    runner_cadence: { seo_enrich: "*/3 * * * *", entity_backfill: "*/3 * * * *" },
+  };
+  const at = Date.parse("2026-10-24T17:10:00Z");
+
+  it("owner catch-up: starts at 30 once, grows to 60 below 5 s, shrinks above 6.5 s", async () => {
+    const { activeDerivationCatchup, startDispatchBatch, nextDispatchBatch } = await import("../../supabase/functions/_shared/derivation-state");
+    const cu = activeDerivationCatchup(cuState, at)!;
+    const first = startDispatchBatch({ effective_limit: 10 }, cu);
+    expect(first.limit).toBe(30);
+    // marker recorded → a later measured shrink to 20 is NOT bumped back to 30
+    expect(startDispatchBatch({ effective_limit: 20, catchup_marker: first.marker }, cu).limit).toBe(20);
+    expect(nextDispatchBatch(30, 4200, cu.tuning)).toBe(40);
+    expect(nextDispatchBatch(50, 4900, cu.tuning)).toBe(60);
+    expect(nextDispatchBatch(60, 4900, cu.tuning)).toBe(60);
+    expect(nextDispatchBatch(60, 6000, cu.tuning)).toBe(60);
+    expect(nextDispatchBatch(60, 6600, cu.tuning)).toBe(50);
+    // default (no catch-up) thresholds unchanged: 4.2 s holds, does not grow
+    expect(nextDispatchBatch(30, 4200)).toBe(30);
+    // tuning can never move thresholds past the 8 s timeout margin
+    expect(nextDispatchBatch(30, 6500, { grow_below_ms: 99999, shrink_above_ms: 99999 })).toBe(30);
+    expect(nextDispatchBatch(30, 7500, { grow_below_ms: 99999, shrink_above_ms: 99999 })).toBe(20);
+  });
+
+  it("catch-up overrides end when expired or the derivation part is restored", async () => {
+    const { activeDerivationCatchup, startDispatchBatch, runFullEnqueuePass } = await import("../../supabase/functions/_shared/derivation-state");
+    expect(activeDerivationCatchup({ ...cuState, expires_at: "2026-10-24T17:00:00Z" }, at)).toBeNull();
+    expect(activeDerivationCatchup({ ...cuState, restored: [{ group: "derivation" }] }, at)).toBeNull();
+    expect(activeDerivationCatchup({ ...cuState, active: false }, at)).toBeNull();
+    expect(activeDerivationCatchup({ ...cuState, restored: [{ group: "best_source" }] }, at)?.runner_cadence.seo_enrich).toBe("*/3 * * * *");
+    expect(startDispatchBatch({ effective_limit: 10 }, null).limit).toBe(10);
+    // full enqueue passes keep their 5-minute rhythm during catch-up; always outside it
+    const cu = activeDerivationCatchup(cuState, at);
+    expect(runFullEnqueuePass(cu, new Date("2026-10-24T17:10:00Z"))).toBe(true);
+    expect(runFullEnqueuePass(cu, new Date("2026-10-24T17:11:00Z"))).toBe(false);
+    expect(runFullEnqueuePass(null, new Date("2026-10-24T17:11:00Z"))).toBe(true);
+  });
+
+  it("dispatch never overlaps and controller honours the catch-up cadence", () => {
+    const sql = readFileSync("drizzle/migrations/0095_catchup_throughput_raise.sql", "utf8");
+    expect(sql).toContain("pg_try_advisory_xact_lock(hashtext('dispatch_stale_derivations_v1'))");
+    expect(sql).toContain("REVOKE EXECUTE ON FUNCTION public.extend_pipeline_catchup_v1(jsonb, jsonb, jsonb, jsonb, text) FROM readonly_codex;");
+    expect(sql).toContain("REVOKE ALL ON FUNCTION public.extend_pipeline_catchup_v1(jsonb, jsonb, jsonb, jsonb, text) FROM PUBLIC, anon, authenticated;");
+    expect(sql).toContain("changed after catch-up start; kept");
+    const enq = readFileSync("supabase/functions/seo-enrich-enqueue/index.ts", "utf8");
+    expect(enq).toContain("dispatch_busy");
+    const ctl = readFileSync("supabase/functions/queue-health-controller/index.ts", "utf8");
+    expect(ctl).toContain("override && pending > 0 && enabledNow ? override : pickSchedule(pending, r.cadence)");
+  });
 });
 
 describe("SEO job failure bookkeeping (failure injection, no paid AI)", () => {
