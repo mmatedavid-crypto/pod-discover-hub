@@ -177,20 +177,44 @@ export type SelectionStats = {
   spotify_gain: Record<string, number>;
 };
 
-/** Pick the best source per episode; returns upsert-ready rows for changed selections only. */
-export async function computeSelections(admin: any, targetIds: string[], ctrl: any) {
+/**
+ * Pick the best source per episode; returns upsert-ready rows for changed selections only.
+ * Episodes are evaluated in target order. With `cpuBudgetMs`, evaluation stops once the
+ * measured compute time is spent; the rest come back as `deferredIds` (processed next run,
+ * cursors stop before them) so one heavy batch cannot exceed the edge CPU limit.
+ */
+export async function computeSelections(admin: any, targetIds: string[], ctrl: any, opts: { cpuBudgetMs?: number } = {}) {
   const src = await loadEpisodeSources(admin, targetIds);
   const now = new Date().toISOString();
   const rows: any[] = [];
   const decisions: any[] = [];
-  const stats: SelectionStats = { scanned: src.episodes.length, unchanged: 0, rss_noop: 0, reclean_marked: 0, source_counts: {}, youtube_gain: {}, spotify_gain: {} };
-  for (const ep of src.episodes) {
+  const stats: SelectionStats = { scanned: 0, unchanged: 0, rss_noop: 0, reclean_marked: 0, source_counts: {}, youtube_gain: {}, spotify_gain: {} };
+  const epById = new Map<string, any>(src.episodes.map((e: any) => [String(e.id), e]));
+  const processedIds: string[] = [];
+  const deferredIds: string[] = [];
+  const slowest: Array<{ episode_id: string; ms: number; raw_len: number; source: string | null }> = [];
+  let computeMs = 0;
+  const budget = Number(opts.cpuBudgetMs || 0);
+  for (const id of targetIds) {
+    if (budget > 0 && computeMs >= budget) { deferredIds.push(id); continue; }
+    processedIds.push(id);
+    const ep = epById.get(String(id));
+    if (!ep) continue; // not an accepted-HU episode: nothing to select
+    stats.scanned++;
+    const t0 = performance.now();
     const ytRow = src.youtubeByEp.get(ep.id) || null;
     const recurring = recurringFor(src.recurringByPodcast.get(ep.podcast_id), ytRow?.youtube_description ?? null);
     const spRow = src.spotifyByEp.get(ep.id) || null;
     const spotifyRecurring = recurringFor(src.spotifyRecurringByPodcast.get(ep.podcast_id), spRow ? String(spRow.spotify_html_description || spRow.spotify_description || "") : null);
     const best = pickBest(ep, spRow, ytRow, src.articleByEp.get(ep.id) || null, src.transcriptByEp.get(ep.id) || null, ctrl, { recurring, spotifyRecurring });
-    if (!best) continue;
+    const track = (source: string | null, rawLen: number) => {
+      const ms = performance.now() - t0;
+      computeMs += ms;
+      slowest.push({ episode_id: ep.id, ms: Math.round(ms * 10) / 10, raw_len: rawLen, source });
+      slowest.sort((a, b) => b.ms - a.ms);
+      if (slowest.length > 5) slowest.length = 5;
+    };
+    if (!best) { track(null, 0); continue; }
     const gain = best.evidence?.youtube_gain || null;
     if (gain) stats.youtube_gain[gain.decision] = (stats.youtube_gain[gain.decision] || 0) + 1;
     const spGain = best.evidence?.spotify_gain || null;
@@ -198,14 +222,13 @@ export async function computeSelections(admin: any, targetIds: string[], ctrl: a
     const prev = src.prevByEp.get(ep.id) || null;
     const fingerprint = await sourceFingerprint(best);
     decisions.push({ episode_id: ep.id, podcast_id: ep.podcast_id, prev_source: prev?.source_type || null, next_source: best.source_type, gain, spotify_gain: spGain, raw_text: best.raw_text, source_fingerprint: fingerprint, evidence: { ...best.evidence, policy_version: BEST_SOURCE_POLICY_VERSION } });
-    if (prev?.source_fingerprint === fingerprint) { stats.unchanged++; continue; }
+    if (prev?.source_fingerprint === fingerprint) { stats.unchanged++; track(best.source_type, best.raw_text.length); continue; }
     // RSS remains the default without a row; only record RSS when a row exists, a transcript or a YouTube decision is available.
-    if (!prev && best.source_type === "rss" && !best.evidence?.transcript_available && !gain && !spGain) { stats.rss_noop++; continue; }
+    if (!prev && best.source_type === "rss" && !best.evidence?.transcript_available && !gain && !spGain) { stats.rss_noop++; track(best.source_type, best.raw_text.length); continue; }
     // A verified YouTube selection that was never re-clean-evaluated is evaluated once (gate decides).
     const reclean = needsReclean(prev, best) || ((best.source_type === "youtube" || best.source_type === "spotify") && !prev?.reclean_status);
     if (reclean) stats.reclean_marked++;
-    // Preview only (4000 chars stored). deterministic_v4 can take >2 s CPU on some
-    // 50k+ transcripts, so long texts are previewed from their first 12k chars.
+    // Preview only (4000 chars stored); long texts are previewed from their first 12k chars.
     const previewTruncated = best.raw_text.length > PREVIEW_INPUT_MAX;
     const cleaned = heuristicClean(previewTruncated ? best.raw_text.slice(0, PREVIEW_INPUT_MAX) : best.raw_text).text.trim();
     const row: any = {
@@ -228,8 +251,9 @@ export async function computeSelections(admin: any, targetIds: string[], ctrl: a
     if (reclean) row.reclean_marked_at = now;
     rows.push(row);
     stats.source_counts[best.source_type] = (stats.source_counts[best.source_type] || 0) + 1;
+    track(best.source_type, best.raw_text.length);
   }
-  return { rows, decisions, stats };
+  return { rows, decisions, stats, processedIds, deferredIds, computeMs: Math.round(computeMs), slowest };
 }
 
 export async function upsertSelections(admin: any, rows: any[]): Promise<number> {
