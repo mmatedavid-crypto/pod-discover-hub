@@ -676,7 +676,16 @@ export default {
     resp = new Response(body, { status: upstream.status, headers });
 
     // Cache successful pages for 24h; confirmed missing content for only 60s.
-    ctx.waitUntil(cache.put(cacheKey, resp.clone()));
+    if (isSearch) {
+      // "Vary: User-Agent" stops the Cache API from storing the copy; the search
+      // cache key already separates the AI and basic tiers, so drop it here only.
+      const cached = resp.clone();
+      const ch = new Headers(cached.headers);
+      ch.delete("Vary");
+      ctx.waitUntil(cache.put(cacheKey, new Response(cached.body, { status: cached.status, headers: ch })));
+    } else {
+      ctx.waitUntil(cache.put(cacheKey, resp.clone()));
+    }
     return resp;
   },
 };
