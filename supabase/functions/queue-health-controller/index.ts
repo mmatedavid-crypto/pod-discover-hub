@@ -251,7 +251,10 @@ Deno.serve(async (req) => {
       let action: "noop" | "pause_empty" | "resume" | "pause_stall" = "noop";
       let reason = "";
 
-      if (pending === 0 && ctrl.enabled !== false) {
+      // During an active catch-up with a cadence for this runner, the dispatcher refills its
+      // queue every minute: an empty moment is not idle (no pause_empty ↔ resume ping-pong).
+      const cuOverride = catchupCadence?.[r.name] || null;
+      if (pending === 0 && ctrl.enabled !== false && !cuOverride) {
         action = "pause_empty";
         reason = `pending=0 → idle pause`;
       } else if (
@@ -324,8 +327,8 @@ Deno.serve(async (req) => {
       let cadence: any = null;
       if (r.cron_job_name) {
         const enabledNow = action === "resume" || (ctrl.enabled !== false && action !== "pause_empty" && action !== "pause_stall");
-        const override = catchupCadence?.[r.name];
-        const wanted = override && pending > 0 && enabledNow ? override : pickSchedule(pending, r.cadence);
+        const override = cuOverride;
+        const wanted = override && enabledNow ? override : pickSchedule(pending, r.cadence);
         const { data: cronRes, error: cronErr } = await admin.rpc("set_runner_cron", {
           p_job_name: r.cron_job_name,
           p_schedule: wanted,

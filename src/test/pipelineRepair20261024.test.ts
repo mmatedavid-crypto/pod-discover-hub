@@ -351,7 +351,8 @@ describe("adaptive stale-derivation dispatch batch", () => {
     const enq = readFileSync("supabase/functions/seo-enrich-enqueue/index.ts", "utf8");
     expect(enq).toContain("dispatch_busy");
     const ctl = readFileSync("supabase/functions/queue-health-controller/index.ts", "utf8");
-    expect(ctl).toContain("override && pending > 0 && enabledNow ? override : pickSchedule(pending, r.cadence)");
+    expect(ctl).toContain("override && enabledNow ? override : pickSchedule(pending, r.cadence)");
+    expect(ctl).toContain("pending === 0 && ctrl.enabled !== false && !cuOverride");
   });
 });
 
