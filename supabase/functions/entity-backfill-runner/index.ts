@@ -497,6 +497,7 @@ Deno.serve(async (req) => {
           ids = ids.filter((x) => !blocked.has(String(x)));
           isolatedSkipped += blocked.size;
         }
+        if (!list.length) break;
       }
       // Clean text + its content fingerprint in one consistent read; the hash is
       // recorded so a later clean-text change marks this result stale.
