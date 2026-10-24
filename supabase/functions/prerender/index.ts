@@ -1431,9 +1431,11 @@ async function buildPerson(
     .order("created_at", { ascending: false })
     .limit(120);
 
-  // Rejected / needs_review links never appear; unreviewed name matches only as mentions,
-  // never as participant/subject (shared policy in _shared/person-link-trust.ts).
-  const eps = personPageMentionRows((rows ?? []) as Array<any>)
+  // Rejected / needs_review links never appear; for a person verified anywhere, unreviewed
+  // same-name episodes are not listed at all; otherwise only as mentions (shared policy in
+  // _shared/person-link-trust.ts).
+  const { data: hasVerified } = await (supabase as any).rpc("person_has_verified_link_v1", { p_person_id: person.id });
+  const eps = personPageMentionRows((rows ?? []) as Array<any>, { personHasVerifiedLink: hasVerified === true })
     .map(({ row, role }) => ({ ...row.episodes, mention_role: role }))
     .filter((e) => e && e.slug && isAcceptedHungarianPrerenderPodcast(e.podcast))
     .sort((a, b) => String(b.published_at || "").localeCompare(String(a.published_at || "")))

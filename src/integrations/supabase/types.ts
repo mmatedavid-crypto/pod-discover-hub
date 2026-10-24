@@ -11770,6 +11770,13 @@ export type Database = {
           slug: string
         }[]
       }
+      get_linkable_episode_people_v1: {
+        Args: { p_episode_ids: string[] }
+        Returns: {
+          episode_id: string
+          slug: string
+        }[]
+      }
       get_mood_episode_recommendations: {
         Args: { p_exclude?: string[]; p_limit?: number; p_mood_slug: string }
         Returns: {
@@ -12311,6 +12318,10 @@ export type Database = {
           validation_source: string
         }[]
       }
+      person_has_verified_link_v1: {
+        Args: { p_except_episode_id?: string; p_person_id: string }
+        Returns: boolean
+      }
       person_judge_run_lease: {
         Args: { _release?: boolean; _token: string }
         Returns: boolean
@@ -12342,6 +12353,10 @@ export type Database = {
           person_id: string
           published_at: string
         }[]
+      }
+      person_review_recorded_v1: {
+        Args: { p_validation_source: string }
+        Returns: boolean
       }
       person_review_tick_active: { Args: never; Returns: boolean }
       pipeline_catchup_plan_v1: { Args: never; Returns: Json }

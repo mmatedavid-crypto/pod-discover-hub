@@ -202,7 +202,8 @@ export function EpisodeCard({
     }, { startAt: chunkStart });
   };
   const allEnts = entityChips(e, showEntities);
-  const canLink = useLinkableEntities(allEnts.map((x) => ({ kind: x.kind, value: x.v })));
+  // Person chips: per-episode trusted identity (batched), never by display name alone.
+  const canLink = useLinkableEntities(allEnts.map((x) => ({ kind: x.kind, value: x.v })), { episodeId: e.id });
   return (
     <article className="group flex gap-3 sm:gap-4 p-4 sm:p-5 hover:bg-secondary/40 transition-colors">
       <Link to={`/podcast/${p.slug}`} className="shrink-0 w-16 sm:w-20">
@@ -391,7 +392,8 @@ function EpisodeRailCard({
     }, { resume: true });
   };
   const allEnts = entityChips(e, showEntities, { max: 4, kinds: ["person", "company"] });
-  const canLink = useLinkableEntities(allEnts.map((x) => ({ kind: x.kind, value: x.v })));
+  // Person chips: per-episode trusted identity (batched), never by display name alone.
+  const canLink = useLinkableEntities(allEnts.map((x) => ({ kind: x.kind, value: x.v })), { episodeId: e.id });
   const fr = e.published_at ? freshnessOf(e.published_at) : null;
 
   return (

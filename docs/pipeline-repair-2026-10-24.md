@@ -101,9 +101,13 @@ only under "Említések"; verified same-person case (Magyar Péter) still return
 "Kapcsolódó személyek alapján." (RPCs 20–30 ms; discover 360 ms). No person split/merge and
 no review decision was changed.
 
-Still open: episode cards' person chips (`get_linkable_entities`) are linkable by name, not per
-episode; 154 893 unreviewed mentions on 12 945 people with verified links remain "Említések"
-until reviewed (paid review paused).
+Follow-up (`0087`, prerender `26f611ba…`): a review record = non-blank trimmed
+`validation_source` in SQL and TS; episode-card person chips resolve per episode in one
+batched `get_linkable_episode_people_v1` call; a person verified anywhere
+(`person_has_verified_link_v1`) no longer lists same-name unreviewed episodes at all (visitor
+and crawler page; DB review rows unchanged). Live: `/szemelyek/kiraly-istvan` crawler HTML has
+0 Hermann/Kamarazene/IoT episodes, urology episode kept as participant. People without any
+verified link still list unreviewed rows as mentions only.
 
 ## Catch-up mode 2026-10-24 15:32 UTC (owner-approved, max 24 h)
 
@@ -140,4 +144,8 @@ entity run 140/140, topic runs 122 + 64 written, 0 errors; best-source run: YouT
 applied (15 planned, cap 1000), Spotify 10 applied (cap 500), backed up + CAS. Spend today:
 entity $0.22, SEO $0.11, topic $0.06. Throughput afterwards follows the controller's cadence
 (SEO/entity crons speed up as their queues grow); no completion time is promised.
+
+Catch-up progress 15:47: eligible 2 763, entity current 343, SEO current 323 (121 SEO jobs
+queued), topic current 304; one 15:45 cron dispatch did not land (pg_net DNS timeout on the
+cron call), the next call dispatched 60 normally.
 
