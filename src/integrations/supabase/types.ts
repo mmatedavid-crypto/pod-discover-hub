@@ -12562,6 +12562,10 @@ export type Database = {
           slug: string
         }[]
       }
+      retry_failed_seo_derivations_v1: {
+        Args: { p_episode_ids: string[] }
+        Returns: Json
+      }
       rollback_clean_text_repair_v1: {
         Args: { p_batch_id: string }
         Returns: Json
