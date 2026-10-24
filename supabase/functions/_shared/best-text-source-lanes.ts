@@ -48,3 +48,47 @@ export function recleanAllowances(ctrl: any, usedToday: number) {
     archive: Math.min(perRun, Math.max(0, remaining - reserve)),
   };
 }
+
+// ---- Isolation after killed runs (edge CPU / wall limit kills the worker: no catch runs) ----
+// A run is "killed" when its run-log row is still `running` with a stale heartbeat.
+// Each consecutive kill divides the per-run target count by 4 (40 → 10 → 2 → 1);
+// a kill while working on exactly one item isolates (blocks) that item so the rest
+// of the pipeline moves on. Blocks are visible and cleared only by an admin.
+
+export type RunLogRow = { id: string; outcome: string; stage?: string | null; target_ids?: string[] | null; meta?: any };
+
+/** Consecutive killed runs, newest first, stopping at the first completed (ok/error) run. */
+export function consecutiveKills(runs: RunLogRow[]): number {
+  let n = 0;
+  for (const r of runs) {
+    if (r.outcome === "killed") n++;
+    else if (r.outcome === "ok" || r.outcome === "error") break;
+  }
+  return n;
+}
+
+export function isolationLimit(baseLimit: number, kills: number): number {
+  const base = Math.max(1, Math.floor(Number(baseLimit) || 1));
+  const k = Math.max(0, Math.min(8, Math.floor(Number(kills) || 0)));
+  return Math.max(1, Math.floor(base / Math.pow(4, k)));
+}
+
+/** The single item a killed run was working on, if it was working on exactly one. */
+export function itemToIsolate(lastKilled: RunLogRow | null | undefined): string | null {
+  if (!lastKilled || lastKilled.outcome !== "killed") return null;
+  const ids = Array.isArray(lastKilled.target_ids) ? lastKilled.target_ids.filter(Boolean) : [];
+  return ids.length === 1 ? String(ids[0]) : null;
+}
+
+/**
+ * Split a lane's ids (in processing order) at the first deferred one: everything before
+ * is processed, the first deferred id and all after it wait for the next run.
+ */
+export function processedPrefix<T>(items: T[], idOf: (t: T) => string, deferred: Set<string>): { done: T[]; stoppedEarly: boolean } {
+  const done: T[] = [];
+  for (const it of items) {
+    if (deferred.has(idOf(it))) return { done, stoppedEarly: true };
+    done.push(it);
+  }
+  return { done, stoppedEarly: false };
+}
