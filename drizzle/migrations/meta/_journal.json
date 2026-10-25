@@ -729,6 +729,13 @@
       "when": 1792972718333,
       "tag": "0103_recommendation_cross_group_strong_bridge",
       "breakpoints": true
+    },
+    {
+      "idx": 104,
+      "version": "7",
+      "when": 1792972766917,
+      "tag": "0104_recommendation_self_help_as_health",
+      "breakpoints": true
     }
   ]
 }
