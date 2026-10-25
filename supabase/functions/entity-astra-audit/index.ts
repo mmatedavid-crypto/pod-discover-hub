@@ -53,13 +53,21 @@ FONTOS: a tudásod lehet elavult. Friss eseményt (választás, tisztségváltá
 A confidence 0 és 1 közötti szám. Csak akkor adj 0.85 fölötti értéket, ha biztos vagy. Ha kétséges, legyen "ok" alacsonyabb bizonyossággal.
 A reason legyen egy rövid magyar mondat. Minden bemeneti id-re pontosan egy tétel.`;
 
+// Owner decision (2026-10-25): Astra is too expensive for a general sweep; it only reviews
+// entities that a cheaper check already flagged as problematic.
+export const ASTRA_PROBLEM_FILTER: Record<Kind, string> = {
+  person: "ai_review_status.eq.needs_human_review,needs_human_review_identity.is.true,ai_bio_status.in.(needs_review,insufficient_evidence,error),wikipedia_match_status.eq.needs_review",
+  organization: "ai_review_status.eq.needs_human_review,ai_bio_status.in.(needs_review,insufficient_evidence,error),wikipedia_match_status.eq.needs_review",
+};
+
 async function loadBatch(kind: Kind, limit: number, offset: number): Promise<Entity[]> {
   const table = kind === "person" ? "people" : "organizations";
   const extra = kind === "person" ? ",manual_approved,manually_seeded,editorial_priority" : ",manually_seeded,editorial_priority";
-  // Public pages first; hidden pages retain the same eventual eligibility.
+  // Problem cases only; public pages first.
   const { data, error } = await sb.from(table)
     .select(`id,name,ai_bio,wikipedia_description,is_public${extra}`)
     .is("astra_reviewed_at", null).or("is_public.eq.true,episode_count.gt.0")
+    .or(ASTRA_PROBLEM_FILTER[kind])
     .order("is_public", { ascending: false })
     .order("is_indexable", { ascending: false }).order("episode_count", { ascending: false })
     .range(offset, offset + limit - 1);
