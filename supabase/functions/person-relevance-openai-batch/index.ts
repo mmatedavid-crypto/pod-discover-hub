@@ -205,7 +205,7 @@ async function submitAction(db: any, controls: Controls, userId: string, body: a
   const { data: open } = await db.from("person_relevance_batch_jobs").select("id").in("status", OPEN_STATUSES);
   const blockers = submitBlockers(controls, {
     keyPresent: !!Deno.env.get("OPENAI_API_KEY"), backgroundEnabled: await backgroundEnabled(db),
-    priorityBlocker: tier === "golden_eval" ? null : await checkProcessingPriority(db, "person_relevance"),
+    priorityBlocker: tier === "golden_eval" ? null : await checkProcessingPriority(db, "person_relevance_openai_batch"),
     openJobs: (open || []).length, requestedCount: requested, model, tier,
   });
   if (blockers.length) return json({ ok: false, submitted: false, blockers });

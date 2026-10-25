@@ -1,5 +1,11 @@
 // Scheduling only: never changes model selection, prompts or acceptance gates.
+// Owner decision (2026-10-25): work that runs on a dedicated external API used by no visitor-facing
+// process does not compete with visitor work, so the visitor-first gate does not hold it back.
+// Its own cost caps, leases and acceptance policy still apply.
+export const EXTERNAL_API_JOBS = new Set(["person_relevance_openai_batch"]);
+
 export function priorityBlocker(job: string, counts: Record<string, number>): string | null {
+  if (EXTERNAL_API_JOBS.has(job)) return null;
   const first = ["clean_text_pending", "seo_jobs_pending", "embed_podcast_pending", "embed_chunks_missing", "episode_classifier_pending"];
   for (const kind of first) if ((counts[kind] ?? 0) > 0) return kind;
   if (job === "entity_astra_audit" && (counts.public_person_mentions_pending ?? 0) > 0) return "public_person_mentions_pending";
@@ -12,6 +18,7 @@ export function boundedWork(requested: unknown, configured: unknown, fallback: n
 }
 
 export async function checkProcessingPriority(admin: any, job: string): Promise<string | null> {
+  if (EXTERNAL_API_JOBS.has(job)) return null;
   const { data: row, error } = await admin.from("app_settings").select("value").eq("key", "processing_priority").maybeSingle();
   if (error) return "priority_check_failed";
   if (row?.value?.enabled !== true) return null;
