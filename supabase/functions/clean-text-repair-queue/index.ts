@@ -20,6 +20,38 @@ import { LEGACY_PROTECTED_BATCHES, LEGACY_YTDESC_METHOD, planLegacyYtdesc, type 
 import { LEGACY_AI_CONFIRM, LEGACY_RESOLVE_CONFIRM, legacyAiReview, legacyResolveApply, legacyResolveDryRun, planResolve } from "./legacy-resolve.ts";
 import { astraReview } from "./astra-review.ts";
 const ASTRA_REVIEW_CONFIRM = "ASTRA_REVIEW_ADVISORY";
+const ASTRA_REVIEW_PV = "clean-text-astra-review-v1";
+
+async function internalTokenOk(admin: any, given: string | null, job: string): Promise<boolean> {
+  const g = String(given || "");
+  if (g.length < 32) return false;
+  const { data } = await admin.from("internal_job_tokens").select("token").eq("job", job).maybeSingle();
+  const want = String(data?.token || "");
+  if (want.length < 32 || want.length !== g.length) return false;
+  let diff = 0;
+  for (let i = 0; i < want.length; i++) diff |= want.charCodeAt(i) ^ g.charCodeAt(i);
+  return diff === 0;
+}
+
+/** Waiting rows without a finished Astra recommendation; a failed one is retried after an hour. */
+async function nextAstraReviewIds(admin: any, limit: number): Promise<string[]> {
+  const { data: q, error } = await admin.from("clean_text_repair_queue").select("episode_id")
+    .in("status", ["needs_review", "quarantine"]).order("episode_id").limit(2000);
+  if (error) throw error;
+  const ids = ((q || []) as any[]).map((r) => String(r.episode_id));
+  if (!ids.length) return [];
+  const done = new Set<string>();
+  const hourAgo = Date.now() - 3600_000;
+  for (let i = 0; i < ids.length; i += 200) {
+    const { data: rv, error: rErr } = await admin.from("clean_text_astra_reviews").select("episode_id,status,updated_at")
+      .eq("prompt_version", ASTRA_REVIEW_PV).in("episode_id", ids.slice(i, i + 200));
+    if (rErr) throw rErr;
+    for (const r of (rv || []) as any[]) {
+      if (r.status !== "failed" || Date.parse(r.updated_at) > hourAgo) done.add(String(r.episode_id));
+    }
+  }
+  return ids.filter((id) => !done.has(id)).slice(0, limit);
+}
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
