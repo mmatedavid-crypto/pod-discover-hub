@@ -17,7 +17,9 @@ import { autoApplySafetyReasons, backoffSeconds, recurringSentenceKeys, resolveR
 import { lostNamedTokens } from "../_shared/clean-text-validation.ts";
 import { unitKey } from "../_shared/youtube-source-gain.ts";
 import { LEGACY_PROTECTED_BATCHES, LEGACY_YTDESC_METHOD, planLegacyYtdesc, type LegacyPlan } from "../_shared/clean-text-legacy-ytdesc.ts";
-import { LEGACY_AI_CONFIRM, LEGACY_RESOLVE_CONFIRM, legacyAiReview, legacyResolveApply, legacyResolveDryRun } from "./legacy-resolve.ts";
+import { LEGACY_AI_CONFIRM, LEGACY_RESOLVE_CONFIRM, legacyAiReview, legacyResolveApply, legacyResolveDryRun, planResolve } from "./legacy-resolve.ts";
+import { astraReview } from "./astra-review.ts";
+const ASTRA_REVIEW_CONFIRM = "ASTRA_REVIEW_ADVISORY";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -276,6 +278,19 @@ Deno.serve(async (req) => {
       // ≤20 per apply call: larger backup batches hit the database statement timeout (2026-10-21).
       const out = await legacyResolveApply(admin, deps, owner, ids.slice(0, 20), method, Number(ctrl.lease_seconds));
       return json({ ok: true, action, ...out });
+    }
+    if (action === "astra_review") {
+      // Advisory only (owner 2026-10-25): records Astra's recommendation, never writes text or queue status.
+      if (!adminCall) return json({ ok: false, error: "admin only" }, 403);
+      if (body.confirm !== ASTRA_REVIEW_CONFIRM) return json({ ok: false, error: `confirm must be ${ASTRA_REVIEW_CONFIRM}` }, 400);
+      const ids = Array.isArray(body.episode_ids) ? body.episode_ids.map(String).slice(0, 12) : [];
+      if (!ids.length) return json({ ok: false, error: "episode_ids required (≤12)" }, 400);
+      const g = await checkBackgroundJobsAllowed(admin, "clean-text-repair-queue");
+      if (g.blocked) return json({ ok: true, skipped: true, reason: g.reason });
+      const ct = await readSetting(admin, "episode_clean_text_controls");
+      const method = String(ct.method_version || "deterministic_v4");
+      const deps = { loadLegacyInputs, loadRecurringRssByEpisode, applyLegacy, readSetting, patchSetting, planResolve };
+      return json({ action, ...(await astraReview(admin, deps, ids, method)) });
     }
     if (action !== "tick") return json({ ok: false, error: "unknown action" }, 400);
 

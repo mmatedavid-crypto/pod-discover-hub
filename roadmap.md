@@ -103,3 +103,9 @@
 - [x] (2) MCP élesben működik (6 eszköz, public read-only); find_mentions / get_episode_context névrokon-kapu a személyoldallal egyezően.
 - [ ] Publikálás szükséges (llms.txt, admin panel, MCP névrokon-javítás) — tulajdonosi publish.
 - [ ] Később: botoknak a /kereses oldal csak üres vázat ad; válaszra kész oldalak (3); gazdagabb háttéradatok (4); AI-crawler látogatások mérése a CF workerben.
+
+## Owner requests 2026-10-25 20:10 UTC
+- [x] Lock Astra start to scheduler/admin only.
+- [x] Person-check budget +$10 (total $20.09, 240k requests, daily $10).
+- [ ] Astra advisory review of the ~302 waiting clean-text rows, then owner list.
+- [ ] Publish the frontend.
