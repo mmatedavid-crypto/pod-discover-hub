@@ -722,6 +722,13 @@
       "when": 1792972614126,
       "tag": "0102_recommendation_science_dominant_topics",
       "breakpoints": true
+    },
+    {
+      "idx": 103,
+      "version": "7",
+      "when": 1792972718333,
+      "tag": "0103_recommendation_cross_group_strong_bridge",
+      "breakpoints": true
     }
   ]
 }
