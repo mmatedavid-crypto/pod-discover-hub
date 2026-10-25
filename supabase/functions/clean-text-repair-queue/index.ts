@@ -281,10 +281,13 @@ Deno.serve(async (req) => {
     }
     if (action === "astra_review") {
       // Advisory only (owner 2026-10-25): records Astra's recommendation, never writes text or queue status.
-      if (!adminCall) return json({ ok: false, error: "admin only" }, 403);
+      // Admin with explicit ids, or the temporary scheduler (internal token) picking the next unreviewed rows.
+      const scheduled = !adminCall && await internalTokenOk(admin, req.headers.get("x-internal-token"), "clean-text-astra-review");
+      if (!adminCall && !scheduled) return json({ ok: false, error: "admin only" }, 403);
       if (body.confirm !== ASTRA_REVIEW_CONFIRM) return json({ ok: false, error: `confirm must be ${ASTRA_REVIEW_CONFIRM}` }, 400);
-      const ids = Array.isArray(body.episode_ids) ? body.episode_ids.map(String).slice(0, 12) : [];
-      if (!ids.length) return json({ ok: false, error: "episode_ids required (≤12)" }, 400);
+      const ids = scheduled ? await nextAstraReviewIds(admin, 12)
+        : Array.isArray(body.episode_ids) ? body.episode_ids.map(String).slice(0, 12) : [];
+      if (!ids.length) return json({ ok: true, action, done: scheduled, error: scheduled ? undefined : "episode_ids required (≤12)" }, scheduled ? 200 : 400);
       const g = await checkBackgroundJobsAllowed(admin, "clean-text-repair-queue");
       if (g.blocked) return json({ ok: true, skipped: true, reason: g.reason });
       const ct = await readSetting(admin, "episode_clean_text_controls");
