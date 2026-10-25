@@ -188,8 +188,30 @@ async function apply(e: Entity, v: any, minConf: number) {
   return { verdict, applied };
 }
 
+// Paid runs start only from the scheduler (per-job token kept in the database,
+// readable by the service role only) or from a signed-in admin.
+async function authorized(req: Request): Promise<boolean> {
+  const given = req.headers.get("x-internal-token") || "";
+  if (given.length >= 32) {
+    const { data } = await sb.from("internal_job_tokens").select("token").eq("job", "entity-astra-audit").maybeSingle();
+    const want = String(data?.token || "");
+    if (want.length >= 32 && want.length === given.length) {
+      let diff = 0;
+      for (let i = 0; i < want.length; i++) diff |= want.charCodeAt(i) ^ given.charCodeAt(i);
+      if (diff === 0) return true;
+    }
+  }
+  const jwt = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+  if (!jwt) return false;
+  const { data: u } = await sb.auth.getUser(jwt).catch(() => ({ data: null as any }));
+  if (!u?.user?.id) return false;
+  const { data: role } = await sb.from("user_roles").select("role").eq("user_id", u.user.id).eq("role", "admin").maybeSingle();
+  return !!role;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
+  if (!(await authorized(req))) return Response.json({ error: "forbidden" }, { status: 403, headers: cors });
   const body = await req.json().catch(() => ({}));
   const { data: ctl } = await sb.from("app_settings").select("value").eq("key", "entity_astra_audit_controls").maybeSingle();
   const c = ctl?.value || {};
