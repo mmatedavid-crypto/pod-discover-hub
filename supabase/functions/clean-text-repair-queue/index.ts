@@ -20,7 +20,7 @@ import { LEGACY_PROTECTED_BATCHES, LEGACY_YTDESC_METHOD, planLegacyYtdesc, type 
 import { LEGACY_AI_CONFIRM, LEGACY_RESOLVE_CONFIRM, legacyAiReview, legacyResolveApply, legacyResolveDryRun, planResolve } from "./legacy-resolve.ts";
 import { astraReview } from "./astra-review.ts";
 const ASTRA_REVIEW_CONFIRM = "ASTRA_REVIEW_ADVISORY";
-const ASTRA_REVIEW_PV = "clean-text-astra-review-v1";
+import { ASTRA_REVIEW_PROMPT_VERSION as ASTRA_REVIEW_PV } from "../_shared/clean-text-astra-review.ts";
 
 async function internalTokenOk(admin: any, given: string | null, job: string): Promise<boolean> {
   const g = String(given || "");
