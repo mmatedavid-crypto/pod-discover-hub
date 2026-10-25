@@ -413,6 +413,116 @@ export type Database = {
         }
         Relationships: []
       }
+      clean_text_astra_review_calls: {
+        Row: {
+          actual_usd: number | null
+          created_at: string
+          error: string | null
+          id: string
+          input_tokens: number | null
+          item_count: number
+          model: string
+          output_tokens: number | null
+          prompt_version: string
+          reserved_usd: number
+          settled_at: string | null
+          status: string
+        }
+        Insert: {
+          actual_usd?: number | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          input_tokens?: number | null
+          item_count: number
+          model: string
+          output_tokens?: number | null
+          prompt_version: string
+          reserved_usd: number
+          settled_at?: string | null
+          status?: string
+        }
+        Update: {
+          actual_usd?: number | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          input_tokens?: number | null
+          item_count?: number
+          model?: string
+          output_tokens?: number | null
+          prompt_version?: string
+          reserved_usd?: number
+          settled_at?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
+      clean_text_astra_reviews: {
+        Row: {
+          call_id: string | null
+          confidence: number | null
+          created_at: string
+          episode_id: string
+          error: string | null
+          had_proposal: boolean
+          id: string
+          input_hash: string
+          missing_facts: Json | null
+          prompt_version: string
+          queue_status: string | null
+          reason: string | null
+          recommendation: string | null
+          repair_kind: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          call_id?: string | null
+          confidence?: number | null
+          created_at?: string
+          episode_id: string
+          error?: string | null
+          had_proposal?: boolean
+          id?: string
+          input_hash: string
+          missing_facts?: Json | null
+          prompt_version: string
+          queue_status?: string | null
+          reason?: string | null
+          recommendation?: string | null
+          repair_kind?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          call_id?: string | null
+          confidence?: number | null
+          created_at?: string
+          episode_id?: string
+          error?: string | null
+          had_proposal?: boolean
+          id?: string
+          input_hash?: string
+          missing_facts?: Json | null
+          prompt_version?: string
+          queue_status?: string | null
+          reason?: string | null
+          recommendation?: string | null
+          repair_kind?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clean_text_astra_reviews_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: false
+            referencedRelation: "clean_text_astra_review_calls"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clean_text_legacy_ai_reviews: {
         Row: {
           actual_usd: number | null
@@ -4819,6 +4929,24 @@ export type Database = {
           old_shadow_rank_components?: Json | null
           old_shadow_rank_tier?: string | null
           podcast_id?: string
+        }
+        Relationships: []
+      }
+      internal_job_tokens: {
+        Row: {
+          created_at: string
+          job: string
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          job: string
+          token?: string
+        }
+        Update: {
+          created_at?: string
+          job?: string
+          token?: string
         }
         Relationships: []
       }
@@ -12559,6 +12687,15 @@ export type Database = {
         Args: { _limit?: number; _tiers?: string[] }
         Returns: Json
       }
+      reserve_clean_text_astra_review_v1: {
+        Args: {
+          p_items: Json
+          p_model: string
+          p_prompt_version: string
+          p_reserve_usd: number
+        }
+        Returns: Json
+      }
       reserve_clean_text_legacy_ai_review_v1: {
         Args: { p_items: Json; p_model: string; p_prompt_version: string }
         Returns: Json
@@ -12793,6 +12930,18 @@ export type Database = {
       set_title_cleanup_schedule: {
         Args: { _schedule: string }
         Returns: undefined
+      }
+      settle_clean_text_astra_review_v1: {
+        Args: {
+          p_actual_usd: number
+          p_call_id: string
+          p_error: string
+          p_input_tokens: number
+          p_items: Json
+          p_output_tokens: number
+          p_status: string
+        }
+        Returns: Json
       }
       settle_clean_text_legacy_ai_review_v1: {
         Args: {
