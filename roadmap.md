@@ -107,5 +107,6 @@
 ## Owner requests 2026-10-25 20:10 UTC
 - [x] Lock Astra start to scheduler/admin only.
 - [x] Person-check budget +$10 (total $20.09, 240k requests, daily $10).
-- [ ] Astra advisory review of the ~302 waiting clean-text rows, then owner list.
-- [ ] Publish the frontend.
+- [ ] Astra advisory review of the 302 waiting clean-text rows: built, capped ($8 total / $5 day), temporary scheduler every 3 min; waits for the visitor-first gate to open (runs on its own, removes itself after drain or 2026-10-27).
+- [ ] Owner list from Astra's recommendations (waits on the review above).
+- [x] Publish requested 2026-10-25 20:21 UTC.

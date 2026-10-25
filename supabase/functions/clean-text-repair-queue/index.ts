@@ -20,6 +20,38 @@ import { LEGACY_PROTECTED_BATCHES, LEGACY_YTDESC_METHOD, planLegacyYtdesc, type 
 import { LEGACY_AI_CONFIRM, LEGACY_RESOLVE_CONFIRM, legacyAiReview, legacyResolveApply, legacyResolveDryRun, planResolve } from "./legacy-resolve.ts";
 import { astraReview } from "./astra-review.ts";
 const ASTRA_REVIEW_CONFIRM = "ASTRA_REVIEW_ADVISORY";
+import { ASTRA_REVIEW_PROMPT_VERSION as ASTRA_REVIEW_PV } from "../_shared/clean-text-astra-review.ts";
+
+async function internalTokenOk(admin: any, given: string | null, job: string): Promise<boolean> {
+  const g = String(given || "");
+  if (g.length < 32) return false;
+  const { data } = await admin.from("internal_job_tokens").select("token").eq("job", job).maybeSingle();
+  const want = String(data?.token || "");
+  if (want.length < 32 || want.length !== g.length) return false;
+  let diff = 0;
+  for (let i = 0; i < want.length; i++) diff |= want.charCodeAt(i) ^ g.charCodeAt(i);
+  return diff === 0;
+}
+
+/** Waiting rows without a finished Astra recommendation; a failed one is retried after an hour. */
+async function nextAstraReviewIds(admin: any, limit: number): Promise<string[]> {
+  const { data: q, error } = await admin.from("clean_text_repair_queue").select("episode_id")
+    .in("status", ["needs_review", "quarantine"]).order("episode_id").limit(2000);
+  if (error) throw error;
+  const ids = ((q || []) as any[]).map((r) => String(r.episode_id));
+  if (!ids.length) return [];
+  const done = new Set<string>();
+  const hourAgo = Date.now() - 3600_000;
+  for (let i = 0; i < ids.length; i += 200) {
+    const { data: rv, error: rErr } = await admin.from("clean_text_astra_reviews").select("episode_id,status,updated_at")
+      .eq("prompt_version", ASTRA_REVIEW_PV).in("episode_id", ids.slice(i, i + 200));
+    if (rErr) throw rErr;
+    for (const r of (rv || []) as any[]) {
+      if (r.status !== "failed" || Date.parse(r.updated_at) > hourAgo) done.add(String(r.episode_id));
+    }
+  }
+  return ids.filter((id) => !done.has(id)).slice(0, limit);
+}
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -281,10 +313,13 @@ Deno.serve(async (req) => {
     }
     if (action === "astra_review") {
       // Advisory only (owner 2026-10-25): records Astra's recommendation, never writes text or queue status.
-      if (!adminCall) return json({ ok: false, error: "admin only" }, 403);
+      // Admin with explicit ids, or the temporary scheduler (internal token) picking the next unreviewed rows.
+      const scheduled = !adminCall && await internalTokenOk(admin, req.headers.get("x-internal-token"), "clean-text-astra-review");
+      if (!adminCall && !scheduled) return json({ ok: false, error: "admin only" }, 403);
       if (body.confirm !== ASTRA_REVIEW_CONFIRM) return json({ ok: false, error: `confirm must be ${ASTRA_REVIEW_CONFIRM}` }, 400);
-      const ids = Array.isArray(body.episode_ids) ? body.episode_ids.map(String).slice(0, 12) : [];
-      if (!ids.length) return json({ ok: false, error: "episode_ids required (≤12)" }, 400);
+      const ids = scheduled ? await nextAstraReviewIds(admin, 12)
+        : Array.isArray(body.episode_ids) ? body.episode_ids.map(String).slice(0, 12) : [];
+      if (!ids.length) return json({ ok: true, action, done: scheduled, error: scheduled ? undefined : "episode_ids required (≤12)" }, scheduled ? 200 : 400);
       const g = await checkBackgroundJobsAllowed(admin, "clean-text-repair-queue");
       if (g.blocked) return json({ ok: true, skipped: true, reason: g.reason });
       const ct = await readSetting(admin, "episode_clean_text_controls");
