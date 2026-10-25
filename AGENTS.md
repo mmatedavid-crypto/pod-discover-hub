@@ -1,6 +1,6 @@
 # Project architecture rules
 
-- Gate bulk relationship and Astra work through the shared processing-priority check before claiming or paid work, and bound request overrides by stored controls, because backlog size must not displace visitor-facing maintenance; jobs listed in `EXTERNAL_API_JOBS` (dedicated external API, owner decision) bypass only the visitor-queue gate, never their cost caps or acceptance policy.
+- Gate bulk relationship and Astra work through the shared processing-priority check before claiming or paid work, and bound request overrides by stored controls, because backlog size must not displace visitor-facing maintenance; jobs listed in `EXTERNAL_API_JOBS` / `OWNER_GATE_EXEMPT_JOBS` (owner decisions: dedicated external API, Astra jobs nothing waits on) bypass only the visitor-queue gate, never their cost caps or acceptance policy.
 
 - Resolve person and organization chip linkability through `get_linkable_entities` in one batched request, because per-card or per-kind reads slow search result rendering.
 - Background runners must re-read shared control state before persisting telemetry, because an in-flight whole-object write can undo an external pause.
