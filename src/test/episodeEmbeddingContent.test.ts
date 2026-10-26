@@ -30,3 +30,14 @@ describe("episode search vectors", () => {
     expect(nextAttemptDelayMs("embed_failed", 5)).toBe(7 * 864e5);
   });
 });
+
+import { coverageAlerts } from "../../supabase/functions/_shared/fresh-coverage";
+describe("fresh coverage alert", () => {
+  it("alerts when more than a quarter of fresh episodes lack a search vector", () => {
+    expect(coverageAlerts({ clean_episodes: 100, missing_embedding: 26 }).map((a) => a.rule)).toEqual(["missing_embedding"]);
+    expect(coverageAlerts({ clean_episodes: 100, missing_embedding: 25 })).toEqual([]);
+  });
+  it("stays quiet on tiny samples", () => {
+    expect(coverageAlerts({ clean_episodes: 10, missing_embedding: 10 })).toEqual([]);
+  });
+});
