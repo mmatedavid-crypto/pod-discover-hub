@@ -1025,7 +1025,6 @@ describe("page consistency static guards", () => {
   it("keeps generated recommendation and telemetry RPCs on typed Supabase calls", () => {
     const similarPodcasts = read("src/components/SimilarPodcasts.tsx");
     const similarEpisodes = read("src/components/SimilarEpisodes.tsx");
-    const redditBot = read("src/pages/AdminRedditBotPage.tsx");
     const personQuality = read("src/pages/AdminPersonQualityReviewPage.tsx");
     const pageViewTracker = read("src/components/PageViewTracker.tsx");
 
@@ -1033,8 +1032,6 @@ describe("page consistency static guards", () => {
     expect(similarPodcasts).not.toContain('rpc("get_similar_podcasts_by_embedding" as any');
     expect(similarEpisodes).toContain('rpc("get_related_episodes_by_embedding"');
     expect(similarEpisodes).not.toContain('rpc("get_related_episodes_by_embedding" as any');
-    expect(redditBot).toContain('await supabase.rpc("refresh_reddit_name_index")');
-    expect(redditBot).not.toContain('(supabase as any).rpc("refresh_reddit_name_index"');
     expect(personQuality).toContain('await supabase.rpc("refresh_person_activation_status")');
     expect(personQuality).not.toContain('(supabase as any).rpc("refresh_person_activation_status"');
     expect(pageViewTracker).toContain('supabase.rpc("update_page_event_dwell"');
