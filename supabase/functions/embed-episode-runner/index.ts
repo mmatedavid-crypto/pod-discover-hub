@@ -1,0 +1,142 @@
+// embed-episode-runner v2 — restores episode search vectors (episode_embeddings).
+// The old runner was paused on 2026-05-21 and deleted on 2026-06-15 while search_episodes_hybrid
+// still read these vectors, so every new episode since then lacked its semantic search channel.
+// Candidates: accepted Hungarian episodes (all tiers) with verified deterministic_v4 clean text and
+// no vector, newest first; unembeddable/failing rows back off in episode_embedding_skips.
+// Starts only from the scheduler (per-job token), the service role, or a signed-in admin.
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
+import { embeddingTokenCostUsd } from "../_shared/ai-pricing.ts";
+import { embedText } from "../_shared/gateway-embed.ts";
+import { runLog } from "../_shared/runner-run-log.ts";
+import {
+  buildEpisodeEmbeddingContent, embeddingSkipReason, EPISODE_EMBED_MODEL, EPISODE_EMBED_VERSION, nextAttemptDelayMs,
+} from "../_shared/episode-embedding-content.ts";
+
+const cors = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-internal-token",
+};
+const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
+const JOB = "embed-episode-runner";
+const CONTROLS_KEY = "embed_episode_controls";
+const TIME_BUDGET_MS = 110_000;
+
+function sameToken(a: string, b: string) {
+  if (a.length < 32 || a.length !== b.length) return false;
+  let d = 0;
+  for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return d === 0;
+}
+
+async function authorized(admin: any, req: Request) {
+  const given = req.headers.get("x-internal-token") || "";
+  if (given) {
+    const { data } = await admin.from("internal_job_tokens").select("token").eq("job", JOB).maybeSingle();
+    if (sameToken(String(data?.token || ""), given)) return true;
+  }
+  const jwt = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+  if (!jwt) return false;
+  if (jwt === Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")) return true;
+  const { data: u } = await admin.auth.getUser(jwt).catch(() => ({ data: null as any }));
+  if (!u?.user?.id) return false;
+  const { data: role } = await admin.from("user_roles").select("role").eq("user_id", u.user.id).eq("role", "admin").maybeSingle();
+  return !!role;
+}
+
+async function sha256(s: string) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function readControls(admin: any) {
+  const { data } = await admin.from("app_settings").select("value").eq("key", CONTROLS_KEY).maybeSingle();
+  return (data?.value || {}) as Record<string, any>;
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: cors });
+  const startedAt = Date.now();
+  const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  if (!(await authorized(admin, req))) return json({ error: "forbidden" }, 403);
+  const guard = await checkBackgroundJobsAllowed(admin, JOB);
+  if (guard.blocked) return json({ ok: true, skipped: true, reason: guard.reason });
+
+  const ctrl = await readControls(admin);
+  if (ctrl.enabled !== true) return json({ ok: true, paused: true, reason: "disabled_by_controls" });
+  const model = String(ctrl.model || EPISODE_EMBED_MODEL);
+  const dailyBudget = Math.max(0, Number(ctrl.daily_budget_usd ?? 2));
+  const batch = Math.max(1, Math.min(200, Number(ctrl.batch_size) || 100));
+  const concurrency = Math.max(1, Math.min(16, Number(ctrl.concurrency) || 8));
+
+  const day = new Date().toISOString().slice(0, 10);
+  const { data: spendRow } = await admin.from("ai_spend_daily").select("by_kind").eq("day", day).maybeSingle();
+  const spentBefore = Number((spendRow?.by_kind as any)?.embed_episode ?? 0) || 0;
+  if (spentBefore >= dailyBudget) return json({ ok: true, paused: true, reason: "daily_budget_reached", spent_today: spentBefore });
+
+  const log = runLog(admin, JOB);
+  await log.start({ model, version: EPISODE_EMBED_VERSION, daily_budget_usd: dailyBudget });
+  let embedded = 0, skipped = 0, errors = 0, calls = 0, cost = 0, passes = 0;
+  const errorSamples: string[] = [];
+  const skipRows: any[] = [];
+
+  try {
+    const { data: prevSkips } = await admin.from("episode_embedding_skips").select("episode_id,attempts").lte("next_attempt_at", new Date().toISOString()).limit(2000);
+    const prevAttempts = new Map<string, number>((prevSkips || []).map((r: any) => [r.episode_id, Number(r.attempts) || 0]));
+    const markSkip = (id: string, reason: string) => {
+      const attempts = (prevAttempts.get(id) || 0) + 1;
+      skipRows.push({ episode_id: id, reason, attempts, next_attempt_at: new Date(Date.now() + nextAttemptDelayMs(reason, attempts)).toISOString(), updated_at: new Date().toISOString() });
+    };
+
+    let stop = false;
+    while (!stop && Date.now() - startedAt < TIME_BUDGET_MS - 15_000 && spentBefore + cost < dailyBudget) {
+      const { data: rows, error } = await admin.rpc("select_embed_episode_candidates_v2", { _limit: batch });
+      if (error) throw new Error("candidates: " + error.message);
+      const cands = (rows || []) as any[];
+      if (!cands.length) break;
+      passes++;
+      let i = 0;
+      const worker = async () => {
+        while (!stop) {
+          const e = cands[i++];
+          if (!e) return;
+          if (Date.now() - startedAt > TIME_BUDGET_MS - 8_000 || spentBefore + cost >= dailyBudget) { stop = true; return; }
+          const skip = embeddingSkipReason(e);
+          if (skip) { skipped++; markSkip(e.id, skip); continue; }
+          const content = buildEpisodeEmbeddingContent(e, model);
+          calls++;
+          const vec = await embedText(content, { model, taskType: "SEMANTIC_SIMILARITY" });
+          if (!vec) { errors++; markSkip(e.id, "embed_failed"); if (errorSamples.length < 3) errorSamples.push(`${e.id}:embed_failed`); continue; }
+          cost += embeddingTokenCostUsd(model, Math.ceil(content.length / 4));
+          const { error: upErr } = await admin.from("episode_embeddings").upsert({
+            episode_id: e.id, podcast_id: e.podcast_id, model, embedding: `[${vec.join(",")}]`,
+            content_hash: await sha256(content), updated_at: new Date().toISOString(),
+          }, { onConflict: "episode_id" });
+          if (upErr) { errors++; markSkip(e.id, "write_failed"); if (errorSamples.length < 3) errorSamples.push(`${e.id}:${upErr.message.slice(0, 80)}`); continue; }
+          embedded++;
+        }
+      };
+      await Promise.all(Array.from({ length: concurrency }, worker));
+      // Too many failures in a row means the provider is down: stop instead of burning the run.
+      if (errors > 20 && errors > embedded) break;
+      if (cands.length < batch) break;
+    }
+
+    for (let k = 0; k < skipRows.length; k += 500) {
+      await admin.from("episode_embedding_skips").upsert(skipRows.slice(k, k + 500), { onConflict: "episode_id" });
+    }
+    if (cost > 0) await admin.rpc("add_ai_spend", { p_day: day, p_kind: "embed_episode", p_amount: cost, p_calls: calls });
+
+    const summary = { ok: true, embedded, skipped, errors, passes, cost_usd: Number(cost.toFixed(5)), spent_today: Number((spentBefore + cost).toFixed(4)),
+      daily_budget_usd: dailyBudget, error_samples: errorSamples, runtime_ms: Date.now() - startedAt };
+    // Re-read controls right before writing so a pause set during this run is kept.
+    const latest = await readControls(admin);
+    await admin.from("app_settings").upsert({ key: CONTROLS_KEY, value: { ...latest, last_run: { at: new Date().toISOString(), ...summary } }, updated_at: new Date().toISOString() }, { onConflict: "key" });
+    await log.finish("ok", summary);
+    return json(summary);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    await log.finish("error", { embedded, skipped, errors, cost_usd: cost, error: msg }).catch(() => {});
+    return json({ ok: false, error: msg, embedded }, 500);
+  }
+});
