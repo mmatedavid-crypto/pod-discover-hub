@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Source } from "../../supabase/functions/_shared/person-relevance-batch";
 import {
   actualCostUsd, buildCustomId, buildRequestLine, DEFAULT_CONTROLS, decidePolicy, goldenMetrics, mergeControls,
-  parseCustomId, parseOutputLine, requestCostUpperBoundUsd, submitBlockers,
+  parseCustomId, parseOutputLine, requestCostUpperBoundUsd, submitBlockers, countsAsAttempt, isStaleClaim,
 } from "../../supabase/functions/_shared/person-relevance-openai-batch";
 
 const P = "11111111-1111-1111-1111-111111111111";
@@ -115,5 +115,15 @@ describe("OpenAI batch adapter", () => {
     expect(m.accept_precision).toBe(0.5);
     expect(m.false_accept).toBe(1);
     expect(m.role_agree).toBe(1);
+  });
+  it("does not spend a retry on requests that never reached the model", () => {
+    expect(countsAsAttempt("released")).toBe(false);
+    for (const s of ["applied", "failed", "invalid", "refused", "expired", "skipped_stale"]) expect(countsAsAttempt(s)).toBe(true);
+  });
+  it("aborts only claims older than 30 minutes", () => {
+    const now = Date.parse("2026-10-26T21:00:00Z");
+    expect(isStaleClaim({ status: "claimed", created_at: "2026-10-26T20:29:00Z" }, now)).toBe(true);
+    expect(isStaleClaim({ status: "claimed", created_at: "2026-10-26T20:45:00Z" }, now)).toBe(false);
+    expect(isStaleClaim({ status: "submitted", created_at: "2026-10-25T00:00:00Z" }, now)).toBe(false);
   });
 });
