@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildPodcastEmbeddingContent,
   PODCAST_EMBED_CONTENT_VERSION,
+  podcastGroupTopics,
   podcastTopTopics,
 } from "../../supabase/functions/_shared/podcast-embedding-content";
 
@@ -40,5 +41,10 @@ describe("podcast similarity embedding input", () => {
 
   it("is deterministic for the same input", () => {
     expect(buildPodcastEmbeddingContent(input)).toBe(buildPodcastEmbeddingContent({ ...input }));
+  });
+
+  it("classifies a podcast by its 3 dominant topics only", () => {
+    expect(podcastGroupTopics(["közélet", "vállalkozás", "gazdaság", "asztrológia és horoszkóp"]))
+      .toEqual(["közélet", "vállalkozás", "gazdaság"]);
   });
 });

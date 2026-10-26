@@ -31,6 +31,15 @@ export function podcastTopTopics(input: Pick<PodcastEmbeddingInput, "map_topics"
   return out;
 }
 
+/**
+ * Topics used for the podcast's editorial group: only the dominant few, because one
+ * stray long-tail label (e.g. a single horoscope episode of a business show) must not
+ * reclassify the whole podcast.
+ */
+export function podcastGroupTopics(topTopics: string[]): string[] {
+  return topTopics.slice(0, 3);
+}
+
 export function buildPodcastEmbeddingContent(input: PodcastEmbeddingInput): string {
   const topics = podcastTopTopics(input);
   const titles = (input.recent_titles ?? []).map((t) => clean(t, 140)).filter(Boolean).slice(0, 15);

@@ -14,6 +14,7 @@ import { runLog } from "../_shared/runner-run-log.ts";
 import {
   buildPodcastEmbeddingContent,
   PODCAST_EMBED_CONTENT_VERSION,
+  podcastGroupTopics,
   podcastTopTopics,
 } from "../_shared/podcast-embedding-content.ts";
 
@@ -91,7 +92,7 @@ Deno.serve(async (req) => {
         const hash = await sha256(`v${PODCAST_EMBED_CONTENT_VERSION}|${MODEL}|${content}`);
         const prev = prevById.get(row.id);
         const { data: grp } = await admin.rpc("recommendation_text_group", {
-          p_title: null, p_podcast_title: input.title, p_category: input.category, p_topics: topTopics,
+          p_title: null, p_podcast_title: input.title, p_category: input.category, p_topics: podcastGroupTopics(topTopics),
         });
         const now = new Date().toISOString();
 
