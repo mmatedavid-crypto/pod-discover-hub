@@ -93,7 +93,10 @@ Deno.serve(async (req) => {
   // The first run hit the edge CPU limit after ~1,500 vectors; stay well below it.
   const reembedBefore = typeof ctrl.reembed_before === "string" && !Number.isNaN(Date.parse(ctrl.reembed_before)) ? ctrl.reembed_before : null;
   let reembedCursor: string | null = typeof ctrl.reembed_cursor === "string" ? ctrl.reembed_cursor : null;
-  const maxPerRun = Math.max(50, Math.min(1000, Number(ctrl.max_per_run) || 600));
+  // Admin check of the re-embed lane: `{ lane: "reembed", max: <=100 }` skips the missing lane.
+  const reembedOnly = body?.lane === "reembed" && !!reembedBefore;
+  const maxPerRun = reembedOnly ? Math.max(1, Math.min(100, Number(body?.max) || 50))
+    : Math.max(50, Math.min(1000, Number(ctrl.max_per_run) || 600));
 
   const day = new Date().toISOString().slice(0, 10);
   const { data: spendRow } = await admin.from("ai_spend_daily").select("by_kind").eq("day", day).maybeSingle();
@@ -124,7 +127,7 @@ Deno.serve(async (req) => {
       recordedCost = cost; recordedCalls = calls;
     };
     while (!stop && embedded + skipped + errors < maxPerRun && Date.now() - startedAt < TIME_BUDGET_MS - 15_000 && spentBefore + cost < dailyBudget) {
-      let { data: rows, error } = await admin.rpc("select_embed_episode_candidates_v2", { _limit: batch });
+      let { data: rows, error } = reembedOnly ? { data: [], error: null } as any : await admin.rpc("select_embed_episode_candidates_v2", { _limit: batch });
       if (error) throw new Error("candidates: " + error.message);
       // Missing vectors first; then, only if the owner set reembed_before, refresh older vectors
       // into the current (gateway) vector space, newest episodes first.
