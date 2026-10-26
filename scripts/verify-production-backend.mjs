@@ -36,7 +36,6 @@ const functionChecks = [
   "refresh-sitemap",
   "prerender",
   "data-repair-apply-runner",
-  "entity-quality-apply-runner",
   "entity-quality-autopilot",
   "database-quality-fast-lane",
   "entity-backfill-runner",
