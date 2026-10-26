@@ -91,6 +91,7 @@ Deno.serve(async (req) => {
   const batch = Math.max(1, Math.min(200, Number(ctrl.batch_size) || 100));
   const concurrency = Math.max(1, Math.min(16, Number(ctrl.concurrency) || 8));
   // The first run hit the edge CPU limit after ~1,500 vectors; stay well below it.
+  const reembedBefore = typeof ctrl.reembed_before === "string" && !Number.isNaN(Date.parse(ctrl.reembed_before)) ? ctrl.reembed_before : null;
   const maxPerRun = Math.max(50, Math.min(1000, Number(ctrl.max_per_run) || 600));
 
   const day = new Date().toISOString().slice(0, 10);
@@ -100,7 +101,7 @@ Deno.serve(async (req) => {
 
   const log = runLog(admin, JOB);
   await log.start({ model, version: EPISODE_EMBED_VERSION, daily_budget_usd: dailyBudget });
-  let embedded = 0, skipped = 0, errors = 0, calls = 0, cost = 0, passes = 0;
+  let embedded = 0, skipped = 0, errors = 0, calls = 0, cost = 0, passes = 0, reembedPasses = 0;
   const errorSamples: string[] = [];
   const skipRows: any[] = [];
 
@@ -122,8 +123,15 @@ Deno.serve(async (req) => {
       recordedCost = cost; recordedCalls = calls;
     };
     while (!stop && embedded + skipped + errors < maxPerRun && Date.now() - startedAt < TIME_BUDGET_MS - 15_000 && spentBefore + cost < dailyBudget) {
-      const { data: rows, error } = await admin.rpc("select_embed_episode_candidates_v2", { _limit: batch });
+      let { data: rows, error } = await admin.rpc("select_embed_episode_candidates_v2", { _limit: batch });
       if (error) throw new Error("candidates: " + error.message);
+      // Missing vectors first; then, only if the owner set reembed_before, refresh older vectors
+      // into the current (gateway) vector space, newest episodes first.
+      if (!(rows || []).length && reembedBefore) {
+        ({ data: rows, error } = await admin.rpc("select_reembed_episode_candidates_v1", { _before: reembedBefore, _limit: batch }));
+        if (error) throw new Error("reembed candidates: " + error.message);
+        if ((rows || []).length) reembedPasses++;
+      }
       const cands = (rows || []) as any[];
       if (!cands.length) break;
       passes++;
@@ -163,7 +171,7 @@ Deno.serve(async (req) => {
     }
     await bookSpend();
 
-    const summary = { ok: true, embedded, skipped, errors, passes, cost_usd: Number(cost.toFixed(5)), spent_today: Number((spentBefore + cost).toFixed(4)),
+    const summary = { ok: true, embedded, skipped, errors, passes, reembed_passes: reembedPasses, cost_usd: Number(cost.toFixed(5)), spent_today: Number((spentBefore + cost).toFixed(4)),
       daily_budget_usd: dailyBudget, error_samples: errorSamples, runtime_ms: Date.now() - startedAt };
     // Re-read controls right before writing so a pause set during this run is kept.
     const latest = await readControls(admin);

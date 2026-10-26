@@ -13094,6 +13094,26 @@ export type Database = {
           reason: string
         }[]
       }
+      select_reembed_episode_candidates_v1: {
+        Args: { _before: string; _limit: number }
+        Returns: {
+          ai_summary: string
+          clean_text: string
+          companies: string[]
+          display_title: string
+          id: string
+          ingredients: string[]
+          people: string[]
+          podcast_category: string
+          podcast_display_title: string
+          podcast_id: string
+          podcast_title: string
+          seo_description: string
+          tickers: string[]
+          title: string
+          topics: string[]
+        }[]
+      }
       set_categorize_runner_schedule: {
         Args: { _schedule: string }
         Returns: string
