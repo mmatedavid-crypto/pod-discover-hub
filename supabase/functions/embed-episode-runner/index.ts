@@ -62,6 +62,28 @@ Deno.serve(async (req) => {
   const guard = await checkBackgroundJobsAllowed(admin, JOB);
   if (guard.blocked) return json({ ok: true, skipped: true, reason: guard.reason });
 
+  const body = await req.json().catch(() => ({} as any));
+  // Read-only probe (admin/service): re-embed given episodes and compare with their stored vector.
+  if (Array.isArray(body?.probe_episode_ids) && body.probe_episode_ids.length) {
+    const ids = body.probe_episode_ids.slice(0, 5).map(String);
+    const { data: rows } = await admin.from("episodes").select("id,podcast_id,title,display_title,seo_description,ai_summary,topics,people,companies,tickers,ingredients,podcasts!inner(title,display_title,category)").in("id", ids);
+    const { data: cts } = await admin.from("episode_clean_text").select("episode_id,cleaned_text,cleaner_method").in("episode_id", ids).like("cleaner_method", "deterministic_v4%");
+    const { data: stored } = await admin.from("episode_embeddings").select("episode_id,embedding,content_hash,updated_at").in("episode_id", ids);
+    const out: any[] = [];
+    for (const r of rows || []) {
+      const ct = (cts || []).find((c: any) => c.episode_id === r.id);
+      const input = { ...r, podcast_title: (r as any).podcasts?.title, podcast_display_title: (r as any).podcasts?.display_title,
+        podcast_category: (r as any).podcasts?.category, clean_text: String(ct?.cleaned_text || "").slice(0, 1600) };
+      const content = buildEpisodeEmbeddingContent(input);
+      const st = (stored || []).find((x: any) => x.episode_id === r.id);
+      const old = st ? (typeof st.embedding === "string" ? JSON.parse(st.embedding) : st.embedding) as number[] : null;
+      const cos = (a: number[], b: number[]) => { let d = 0, na = 0, nb = 0; for (let i = 0; i < a.length; i++) { d += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; } return d / Math.sqrt(na * nb); };
+      const viaGateway = await embedText(content, { model: EPISODE_EMBED_MODEL });
+      out.push({ id: r.id, stored_at: st?.updated_at, same_content: st ? st.content_hash === await sha256(content) : null,
+        cos_gateway_vs_stored: old && viaGateway ? Number(cos(old, viaGateway).toFixed(4)) : null });
+    }
+    return json({ ok: true, probe: out });
+  }
   const ctrl = await readControls(admin);
   if (ctrl.enabled !== true) return json({ ok: true, paused: true, reason: "disabled_by_controls" });
   const model = String(ctrl.model || EPISODE_EMBED_MODEL);
