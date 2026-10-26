@@ -258,7 +258,7 @@ async function submitAction(db: any, controls: Controls, userId: string, body: a
         .in("episode_id", episodeIds.slice(i, i + 150)).eq("prompt_version", controls.prompt_version).eq("tier", tier).limit(5000);
       for (const r of prior || []) {
         const k = `${r.person_id}|${r.episode_id}|${r.source_hash}`;
-        priorItems.set(k, Math.max(priorItems.get(k) || 0, parseCustomId(r.custom_id)?.attempt || 0, 1));
+        priorItems.set(k, Math.max((priorItems.get(k) || 0) + 1, parseCustomId(r.custom_id)?.attempt || 0));
         if (countsAsAttempt(r.status)) priorAttempts.set(k, (priorAttempts.get(k) || 0) + 1);
       }
     }
