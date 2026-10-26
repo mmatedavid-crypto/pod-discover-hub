@@ -8,9 +8,9 @@ import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { checkProcessingPriority } from "../_shared/processing-priority.ts";
 import { inputGuard, type Source } from "../_shared/person-relevance-batch.ts";
 import {
-  actualCostUsd, BATCH_MAX_BYTES, buildCustomId, buildRequestLine, decidePolicy, estimateTokens, goldenMetrics, jsonlSize,
-  mapBatchStatus, mergeControls, parseOutputLine, PILOT_DESIGN, REQUEST_MAX_CHARS, requestCostUpperBoundUsd, submitBlockers,
-  TERMINAL_BATCH, type Controls, type Tier,
+  actualCostUsd, BATCH_MAX_BYTES, buildCustomId, buildRequestLine, countsAsAttempt, decidePolicy, estimateTokens, goldenMetrics,
+  isStaleClaim, jsonlSize, mapBatchStatus, mergeControls, parseCustomId, parseOutputLine, PILOT_DESIGN, REQUEST_MAX_CHARS,
+  requestCostUpperBoundUsd, submitBlockers, TERMINAL_BATCH, type Controls, type Tier,
 } from "../_shared/person-relevance-openai-batch.ts";
 
 const OPENAI = "https://api.openai.com/v1";
@@ -248,15 +248,18 @@ async function submitAction(db: any, controls: Controls, userId: string, body: a
     const rows: any[] = [];
     let reserve = 0;
     const pricing = controls.pricing_usd_per_1m[model];
-    // Prior attempts per pair/source, read in bounded chunks instead of one query per pair.
+    // Prior items per pair/source, read in bounded chunks instead of one query per pair.
+    // `priorItems` keeps custom_id unique; `priorAttempts` counts only billed answers for max_attempts.
     const priorAttempts = new Map<string, number>();
+    const priorItems = new Map<string, number>();
     const episodeIds = [...new Set(prepared.map((p) => p.episode_id))];
     for (let i = 0; i < episodeIds.length; i += 150) {
-      const { data: prior } = await db.from("person_relevance_batch_items").select("person_id,episode_id,source_hash")
+      const { data: prior } = await db.from("person_relevance_batch_items").select("person_id,episode_id,source_hash,status,custom_id")
         .in("episode_id", episodeIds.slice(i, i + 150)).eq("prompt_version", controls.prompt_version).eq("tier", tier).limit(5000);
       for (const r of prior || []) {
         const k = `${r.person_id}|${r.episode_id}|${r.source_hash}`;
-        priorAttempts.set(k, (priorAttempts.get(k) || 0) + 1);
+        priorItems.set(k, Math.max((priorItems.get(k) || 0) + 1, parseCustomId(r.custom_id)?.attempt || 0));
+        if (countsAsAttempt(r.status)) priorAttempts.set(k, (priorAttempts.get(k) || 0) + 1);
       }
     }
     for (const p of prepared) {
@@ -271,8 +274,9 @@ async function submitAction(db: any, controls: Controls, userId: string, body: a
         } else await releasePair();
         continue;
       }
-      const attempt = (priorAttempts.get(`${p.person_id}|${p.episode_id}|${p.source_hash}`) || 0) + 1;
-      if (attempt > Math.max(1, controls.max_attempts) && tier !== "golden_eval") { await releasePair(); continue; }
+      const key = `${p.person_id}|${p.episode_id}|${p.source_hash}`;
+      if ((priorAttempts.get(key) || 0) + 1 > Math.max(1, controls.max_attempts) && tier !== "golden_eval") { await releasePair(); continue; }
+      const attempt = (priorItems.get(key) || 0) + 1;
       const customId = buildCustomId({ promptVersion: controls.prompt_version, tier, personId: p.person_id, episodeId: p.episode_id, sourceHash: p.source_hash, attempt });
       const line = buildRequestLine(customId, p.input, controls, model);
       if (line.body.input.length > REQUEST_MAX_CHARS) { await releasePair(); continue; }
@@ -420,8 +424,18 @@ async function pollAction(db: any, controls: Controls, body: any) {
 const TICK_UPPER_USD_PER_PAIR = 0.0006;
 async function tickAction(db: any) {
   const polled = await (await pollAction(db, await loadControls(db), {})).json();
+  // Jobs killed mid-submit stay "claimed" forever (nothing uploaded or billed):
+  // abort them so they free their open-job slot and their pairs' leases.
+  const { data: claimed } = await db.from("person_relevance_batch_jobs").select("id,status,created_at").eq("status", "claimed").limit(20);
+  let staleAborted = 0;
+  for (const j of (claimed || []).filter((c: any) => isStaleClaim(c))) {
+    await db.rpc("release_person_openai_batch_job", { _job: j.id });
+    const r = await db.from("person_relevance_batch_jobs").update({ status: "aborted", reserved_cost_usd: 0, last_error: "stale_claim_killed_mid_submit", updated_at: new Date().toISOString() })
+      .eq("id", j.id).eq("status", "claimed").is("openai_input_file_id", null).select("id");
+    staleAborted += r.data?.length || 0;
+  }
   const controls = await loadControls(db);
-  if (!controls.enabled) return { ok: true, polled, submitted: false, reason: "controls_disabled" };
+  if (!controls.enabled) return { ok: true, polled, stale_aborted: staleAborted, submitted: false, reason: "controls_disabled" };
   const { data: jobs } = await db.from("person_relevance_batch_jobs").select("status,reserved_cost_usd,actual_cost_usd,request_count,created_at")
     .not("status", "in", "(draft,aborted)").limit(5000);
   const dayStart = new Date(); dayStart.setUTCHours(0, 0, 0, 0);
