@@ -89,9 +89,11 @@ Deno.serve(async (req) => {
       .from("podcasts")
       .select("id, title, rss_url, website_url, rss_status, consecutive_failure_count, ai_quality_score, ai_spam_score, last_fetch_error, shadow_rank_components")
       .or("rss_status.eq.failed,consecutive_failure_count.gte.5")
-      .gte("ai_quality_score", 6)
-      .lt("ai_spam_score", 4)
-      .order("ai_quality_score", { ascending: false })
+      // NULL scores (most podcasts) must not exclude a broken feed from repair.
+      .or("ai_quality_score.is.null,ai_quality_score.gte.6")
+      .or("ai_spam_score.is.null,ai_spam_score.lt.4")
+      .eq("language_decision", "accept_hungarian")
+      .order("ai_quality_score", { ascending: false, nullsFirst: false })
       .limit(limit * 2);
 
     // Skip ones already attempted recently (within 24h) unless forced

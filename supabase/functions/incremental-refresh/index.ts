@@ -42,6 +42,34 @@ Deno.serve(async (req) => {
     // Auth gate removed: idempotent runner gated by background_jobs kill switch.
 
     const body = await req.json().catch(() => ({}));
+    // Targeted catch-up (admin or service role only): re-read specific feeds with a larger
+    // episode cap, e.g. after a reader fix. No AI work; dedupe still applies.
+    const targetIds: string[] = Array.isArray(body.podcast_ids) ? body.podcast_ids.slice(0, 60).map(String) : [];
+    if (targetIds.length) {
+      const jwt = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+      let allowed = jwt === SERVICE;
+      if (!allowed && jwt) {
+        const { data: u } = await admin.auth.getUser(jwt).catch(() => ({ data: null as any }));
+        if (u?.user?.id) {
+          const { data: role } = await admin.from("user_roles").select("role").eq("user_id", u.user.id).eq("role", "admin").maybeSingle();
+          allowed = !!role;
+        }
+      }
+      if (!allowed) return json({ error: "forbidden" }, 403);
+      const cap = Math.max(5, Math.min(100, Number(body.episode_cap) || 50));
+      const { data: pods } = await admin.from("podcasts")
+        .select("id, title, slug, rss_url, image_url, language, podiverzum_rank, last_fetched_at, full_backfill_completed_at, crawl_state, refresh_interval_minutes, last_etag, last_modified, consecutive_failure_count, next_fetch_at")
+        .in("id", targetIds).not("crawl_state", "in", "(dead,quarantined)");
+      const out: any[] = [];
+      const started = Date.now();
+      await processPool((pods || []).filter((p: any) => !!p.rss_url), 4, async (p: any) => {
+        if (Date.now() - started > 100_000) { out.push({ id: p.id, skipped: "time_budget" }); return; }
+        // Ignore cached validators so a feed that answered 304 on stale data is read in full.
+        const r = await fetchOne(admin, { ...p, last_etag: null, last_modified: null }, { episodeCap: cap, fetchTimeoutMs: 15_000, upsertDuplicates: false });
+        out.push({ id: p.id, title: p.title, ok: r.ok, new: r.new, duplicates: r.duplicates, items: r.items, error: r.error });
+      });
+      return json({ ok: true, targeted: out.length, new_episodes: out.reduce((n, r) => n + (r.new || 0), 0), results: out });
+    }
     const requestedLimit = Number(body.limit ?? body.batch);
     // Bumped from 3 → 40. Backlog of 1300+ HU podcasts needs much higher throughput.
     const limit = Math.max(1, Math.min(50, Number.isFinite(requestedLimit) ? requestedLimit : 40));
@@ -69,7 +97,20 @@ Deno.serve(async (req) => {
     const { data: prelim, error: cErr } = await cq;
     if (cErr) throw cErr;
 
-    const candidates = (prelim || []).filter((p: any) => !!p.rss_url).slice(0, limit);
+    // Failed feeds whose backoff has passed. Before 2026-10-26 nothing ever retried them: a single
+    // timeout set next_fetch_at and this runner only read rows where it is NULL, so ~400 feeds froze.
+    // Bounded share per run so healthy feeds keep priority; dead/quarantined feeds are excluded.
+    const retryLimit = Math.max(0, Math.min(15, Number(body.retry_limit ?? 10)));
+    const { data: retryRows } = retryLimit ? await admin
+      .from("podcasts")
+      .select("id, title, slug, rss_url, image_url, podiverzum_rank, last_fetched_at, full_backfill_completed_at, crawl_state, refresh_interval_minutes, last_etag, last_modified, consecutive_failure_count, next_fetch_at")
+      .in("crawl_state", ["full_backfilled", "incremental_refresh"])
+      .eq("rss_status", "failed")
+      .lte("next_fetch_at", new Date().toISOString())
+      .order("next_fetch_at", { ascending: true })
+      .limit(retryLimit) : { data: [] as any[] };
+    const retries = (retryRows || []).filter((p: any) => !!p.rss_url);
+    const candidates = [...retries, ...(prelim || []).filter((p: any) => !!p.rss_url).slice(0, Math.max(1, limit - retries.length))];
 
     let scanned = 0, refreshed = 0, failed = 0, newEpisodes = 0, throttled = false, notModified = 0;
     const results: any[] = [];
@@ -115,7 +156,9 @@ Deno.serve(async (req) => {
       due_count = count || 0;
     } catch { /* noop */ }
 
-    const errorish = failed > 0 || throttled;
+    // Ordinary dead feeds must not slow the schedule for every healthy feed; only platform
+    // throttling or a majority of failures does.
+    const errorish = throttled || (scanned >= 10 && failed / scanned > 0.5);
     let recommended: string;
     if (errorish) recommended = "0 * * * *";
     else if (due_count > 500) recommended = "*/5 * * * *";
@@ -141,7 +184,7 @@ Deno.serve(async (req) => {
       duration_ms: Date.now() - startedAt,
       trigger, concurrency, limit, stale_hours, episode_cap: episodeCap,
       scanned, refreshed, failed, throttled, new_episodes: newEpisodes, not_modified: notModified,
-      candidates_considered: (candidates || []).length,
+      candidates_considered: (candidates || []).length, retried_failed: retries.length,
       due_count, recommended_schedule: recommended, applied_schedule: applied,
     };
     await admin.from("app_settings").upsert({

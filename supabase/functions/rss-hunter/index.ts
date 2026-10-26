@@ -106,7 +106,9 @@ Deno.serve(async (req) => {
     const { data: p0 } = await supabase.from("podcasts")
       .select("id, title, rss_url, website_url, rank_label, ai_quality_score, ai_spam_score, shadow_rank_components, rss_hunt_attempts, last_rss_hunt_at, next_rss_hunt_at, consecutive_failure_count, rss_status")
       .or("rss_status.eq.failed,consecutive_failure_count.gte.5")
-      .gte("ai_quality_score", 5)
+      // Most podcasts never got an AI quality score; a NULL score must not exclude a broken feed.
+      .or("ai_quality_score.is.null,ai_quality_score.gte.5")
+      .eq("language_decision", "accept_hungarian")
       .lt("rss_hunt_attempts", MAX_HUNT_ATTEMPTS)
       .or(dueOrNull)
       .limit(limit);
