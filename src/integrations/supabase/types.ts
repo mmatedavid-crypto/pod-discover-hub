@@ -5273,6 +5273,39 @@ export type Database = {
           },
         ]
       }
+      organization_quality_hold_log: {
+        Row: {
+          action: string
+          before_state: Json
+          created_at: string
+          evidence: Json
+          id: number
+          organization_id: string
+          reason: string
+          run_id: string | null
+        }
+        Insert: {
+          action: string
+          before_state?: Json
+          created_at?: string
+          evidence?: Json
+          id?: never
+          organization_id: string
+          reason: string
+          run_id?: string | null
+        }
+        Update: {
+          action?: string
+          before_state?: Json
+          created_at?: string
+          evidence?: Json
+          id?: never
+          organization_id?: string
+          reason?: string
+          run_id?: string | null
+        }
+        Relationships: []
+      }
       organizations: {
         Row: {
           ai_bio: string | null
@@ -5327,6 +5360,9 @@ export type Database = {
           political_color: string | null
           political_orientation: string | null
           primary_count: number
+          quality_hold_at: string | null
+          quality_hold_reason: string | null
+          quality_hold_released_at: string | null
           sector: string | null
           short_description_hu: string | null
           slug: string
@@ -5397,6 +5433,9 @@ export type Database = {
           political_color?: string | null
           political_orientation?: string | null
           primary_count?: number
+          quality_hold_at?: string | null
+          quality_hold_reason?: string | null
+          quality_hold_released_at?: string | null
           sector?: string | null
           short_description_hu?: string | null
           slug: string
@@ -5467,6 +5506,9 @@ export type Database = {
           political_color?: string | null
           political_orientation?: string | null
           primary_count?: number
+          quality_hold_at?: string | null
+          quality_hold_reason?: string | null
+          quality_hold_released_at?: string | null
           sector?: string | null
           short_description_hu?: string | null
           slug?: string
@@ -11478,6 +11520,10 @@ export type Database = {
         }
         Returns: string
       }
+      apply_org_quality_holds_v1: {
+        Args: { _dry_run?: boolean; _limit?: number; _run_id?: string }
+        Returns: Json
+      }
       apply_person_judge_pair: {
         Args: { _episode: string; _person: string; _token: string }
         Returns: Json
@@ -12460,6 +12506,20 @@ export type Database = {
       normalize_entity_alias: { Args: { input: string }; Returns: string }
       normalize_podcast_title: { Args: { s: string }; Returns: string }
       normalize_rss_url: { Args: { _url: string }; Returns: string }
+      org_quality_hold_verdict_v1: {
+        Args: {
+          _astra: Json
+          _internal: boolean
+          _manually_seeded: boolean
+          _org_type: string
+          _released_at: string
+          _review_status: string
+          _score: number
+          _summary: string
+          _wiki_status: string
+        }
+        Returns: string
+      }
       pending_youtube_transcript_candidates: {
         Args: {
           p_limit?: number
@@ -12750,6 +12810,14 @@ export type Database = {
       release_episode_source_changes_v1: {
         Args: { p_items: Json; p_lease_token: string }
         Returns: number
+      }
+      release_org_quality_hold_internal_v1: {
+        Args: { _org_id: string; _reason: string; _run_id: string }
+        Returns: boolean
+      }
+      release_org_quality_holds_v1: {
+        Args: { _hold_run_id?: string; _org_ids?: string[]; _reason?: string }
+        Returns: Json
       }
       release_person_openai_batch_job: {
         Args: { _job: string }
