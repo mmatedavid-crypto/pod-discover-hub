@@ -119,18 +119,37 @@ function sourceFromEpisode(cur: any): RecommendationContext {
   };
 }
 
-function rowToCandidate(row: Row) {
+type CandidateMeta = { topics: string[]; category: string | null };
+
+function rowToCandidate(row: Row, meta?: CandidateMeta) {
   return {
     ...row,
     title: row.display_title || row.title,
     podcastTitle: row.podcast_display_title || row.podcast_title,
-    topics: row.shared_topics || [],
+    // The guard needs the candidate's own topics and podcast category to place it in the
+    // same editorial world the server used; shared lists alone misclassify it.
+    category: meta?.category ?? null,
+    topics: meta?.topics?.length ? meta.topics : row.shared_topics || [],
     people: row.shared_persons || [],
     companies: row.shared_orgs || [],
     sharedTopics: row.shared_topics || [],
     sharedPeople: row.shared_persons || [],
     sharedCompanies: row.shared_orgs || [],
   };
+}
+
+async function candidateMeta(ids: string[]): Promise<Map<string, CandidateMeta>> {
+  const out = new Map<string, CandidateMeta>();
+  if (!ids.length) return out;
+  const { data } = await supabase
+    .from("episodes")
+    .select("id,topics,podcasts!inner(category)")
+    .in("id", ids);
+  for (const r of (data || []) as any[]) {
+    const pod = Array.isArray(r.podcasts) ? r.podcasts[0] : r.podcasts;
+    out.set(r.id, { topics: r.topics || [], category: pod?.category || null });
+  }
+  return out;
 }
 
 
@@ -161,7 +180,9 @@ export function SmartDiscoveryPanel({ episodeIdOverride, variant = "panel" }: Pr
         { p_episode_id: episodeId!, p_limit: 6 },
       );
       if (!rpcErr && Array.isArray(rpcData) && rpcData.length > 0) {
-        return filterSafeRelatedEpisodes(source, (rpcData as Row[]).map(rowToCandidate), 12) as Row[];
+        const rows = (rpcData as Row[]).filter((r) => r.match_kind !== "chunk_moment");
+        const meta = await candidateMeta(Array.from(new Set(rows.map((r) => r.episode_id))));
+        return filterSafeRelatedEpisodes(source, rows.map((r) => rowToCandidate(r, meta.get(r.episode_id))), 12) as Row[];
       }
 
       let q = supabase
@@ -177,7 +198,13 @@ export function SmartDiscoveryPanel({ episodeIdOverride, variant = "panel" }: Pr
 
       const { data: fallbackData } = await q;
       const rows = fallbackToRows(((fallbackData || []) as unknown as EpisodeFallbackRow[]).slice(0, 12));
-      return filterSafeRelatedEpisodes(source, rows.map(rowToCandidate), 6) as Row[];
+      const fallbackMeta = new Map<string, CandidateMeta>(
+        ((fallbackData || []) as unknown as EpisodeFallbackRow[]).map((r) => [
+          r.id,
+          { topics: r.topics || [], category: r.podcasts?.category || null },
+        ]),
+      );
+      return filterSafeRelatedEpisodes(source, rows.map((r) => rowToCandidate(r, fallbackMeta.get(r.episode_id))), 6) as Row[];
     },
   });
 

@@ -12600,6 +12600,16 @@ export type Database = {
         }
         Returns: boolean
       }
+      recommendation_is_compatible_v2: {
+        Args: {
+          p_candidate_group: string
+          p_entity_bridge: boolean
+          p_shared_topics: number
+          p_similarity: number
+          p_source_group: string
+        }
+        Returns: boolean
+      }
       recommendation_text_group: {
         Args: {
           p_category: string
@@ -12608,6 +12618,10 @@ export type Database = {
           p_topics: string[]
         }
         Returns: string
+      }
+      recommendation_topic_overlap: {
+        Args: { p_a: string[]; p_b: string[] }
+        Returns: number
       }
       recompute_mood_recommended_counts: {
         Args: never
