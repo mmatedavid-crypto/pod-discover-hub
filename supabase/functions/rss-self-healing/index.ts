@@ -93,7 +93,7 @@ Deno.serve(async (req) => {
       .or("ai_quality_score.is.null,ai_quality_score.gte.6")
       .or("ai_spam_score.is.null,ai_spam_score.lt.4")
       .eq("language_decision", "accept_hungarian")
-      .order("ai_quality_score", { ascending: false })
+      .order("ai_quality_score", { ascending: false, nullsFirst: false })
       .limit(limit * 2);
 
     // Skip ones already attempted recently (within 24h) unless forced
