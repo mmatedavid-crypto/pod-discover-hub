@@ -136,7 +136,7 @@ Deno.serve(async (req) => {
     return json(summary);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    await log.finish("error", { embedded, skipped, errors, cost_usd: cost, error: msg }).catch(() => {});
+    await log.finish("error", { embedded, skipped, errors, cost_usd: cost }, msg).catch(() => {});
     return json({ ok: false, error: msg, embedded }, 500);
   }
 });
