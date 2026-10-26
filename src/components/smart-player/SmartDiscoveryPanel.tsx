@@ -198,7 +198,13 @@ export function SmartDiscoveryPanel({ episodeIdOverride, variant = "panel" }: Pr
 
       const { data: fallbackData } = await q;
       const rows = fallbackToRows(((fallbackData || []) as unknown as EpisodeFallbackRow[]).slice(0, 12));
-      return filterSafeRelatedEpisodes(source, rows.map(rowToCandidate), 6) as Row[];
+      const fallbackMeta = new Map<string, CandidateMeta>(
+        ((fallbackData || []) as unknown as EpisodeFallbackRow[]).map((r) => [
+          r.id,
+          { topics: r.topics || [], category: r.podcasts?.category || null },
+        ]),
+      );
+      return filterSafeRelatedEpisodes(source, rows.map((r) => rowToCandidate(r, fallbackMeta.get(r.episode_id))), 6) as Row[];
     },
   });
 
