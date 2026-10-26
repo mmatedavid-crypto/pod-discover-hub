@@ -11,6 +11,7 @@ import { chatTokenCostUsd } from "../_shared/ai-pricing.ts";
 import { callLovableAI } from "../_shared/lovable-ai.ts";
 import { loadDerivationInputs, markDerivation } from "../_shared/derivation-state.ts";
 import { runLog } from "../_shared/runner-run-log.ts";
+import { FRESH_DAYS, topicCatchupPlan } from "../_shared/topic-catchup.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -112,6 +113,24 @@ async function extract(model: string, text: string, title: string, episodeId: st
   }
 }
 
+async function catchupSpent(admin: any, ctrl: any): Promise<number> {
+  const started = ctrl?.catchup?.started_at;
+  if (!started) return 0;
+  const { data } = await admin.from("ai_runs").select("cost_usd").eq("runner", "episode-topic-extractor").gte("created_at", started).limit(50000);
+  return (data || []).reduce((a: number, r: any) => a + Number(r.cost_usd || 0), 0);
+}
+
+// Re-read the controls row right before writing so a concurrent owner change is kept.
+async function markCatchupExhausted(admin: any, spent: number) {
+  const { data } = await admin.from("app_settings").select("value").eq("key", "episode_topic_extractor_controls").maybeSingle();
+  const v = (data?.value || {}) as any;
+  if (!v.catchup || v.catchup.exhausted_at) return;
+  await admin.from("app_settings").update({
+    value: { ...v, catchup: { ...v.catchup, exhausted_at: new Date().toISOString(), spent_usd_at_exhaustion: Number(spent.toFixed(4)) } },
+    updated_at: new Date().toISOString(),
+  }).eq("key", "episode_topic_extractor_controls");
+}
+
 function normalize(s: string): string {
   return s.toLowerCase().normalize("NFKC").replace(/\s+/g, " ").trim();
 }
@@ -154,6 +173,13 @@ Deno.serve(async (req) => {
       return json({ ok: true, paused: true, reason: "daily_budget_exhausted", spent_today: spentToday });
     }
 
+    // One-time owner catch-up (controls.catchup): wider tiers + re-queued old errors under a
+    // total cap counted from its start. Fresh episodes (last 14 days) always go first; once
+    // the cap is used up, older episodes fall back to the base tiers.
+    const plan = topicCatchupPlan(ctrl, await catchupSpent(admin, ctrl));
+    if (plan.markExhausted) await markCatchupExhausted(admin, plan.spent);
+    const freshSince = new Date(Date.now() - FRESH_DAYS * 864e5).toISOString();
+
     let totalSuperseded = 0, totalPersistFailures = 0;
     const log = runLog(admin, "episode-topic-extractor");
     await log.start({ model, tiers: tierFilter, daily_budget_usd: dailyBudget, spent_before_usd: spentToday });
@@ -195,14 +221,18 @@ Deno.serve(async (req) => {
 
       // Claim pending episodes only from accepted Hungarian podcasts. The expensive
       // extraction itself is gated below on promoted deterministic_v4 clean text.
-      const { data: epsRaw, error: selErr } = await admin
-        .from("episodes")
-        .select("id, title, podcast_id, podcasts!inner(rank_label, language, language_decision)")
-        .eq("topic_extraction_status", "pending")
-        .eq("clean_text_status", "done")
-        .in("podcasts.rank_label", tierFilter)
-        .eq("podcasts.language_decision", "accept_hungarian")
-        .limit(batchSize);
+      const claimQuery = (tiers: string[], since: string | null) => {
+        let q = admin.from("episodes")
+          .select("id, title, podcast_id, podcasts!inner(rank_label, language, language_decision)")
+          .eq("topic_extraction_status", "pending")
+          .eq("clean_text_status", "done")
+          .in("podcasts.rank_label", tiers)
+          .eq("podcasts.language_decision", "accept_hungarian");
+        if (since) q = q.gte("published_at", since);
+        return q.limit(batchSize);
+      };
+      let { data: epsRaw, error: selErr } = await claimQuery(plan.freshTiers ?? tierFilter, freshSince);
+      if (!selErr && (!epsRaw || epsRaw.length === 0)) ({ data: epsRaw, error: selErr } = await claimQuery(plan.backlogTiers ?? tierFilter, null));
       if (selErr) return json({ ok: false, error: selErr.message }, 500);
       if (!epsRaw || epsRaw.length === 0) break;
 
@@ -331,6 +361,7 @@ Deno.serve(async (req) => {
       cost_usd: Number(runCost.toFixed(5)),
       spent_today: Number((spentToday + runCost).toFixed(4)),
       daily_budget_usd: dailyBudget,
+      catchup: plan.active ? { spent_usd: Number(plan.spent.toFixed(4)), cap_usd: plan.cap, backlog_open: plan.backlogOpen } : null,
       runtime_ms: Date.now() - startedAt,
     };
     await log.finish("ok", summary);

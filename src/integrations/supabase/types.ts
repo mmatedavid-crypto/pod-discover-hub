@@ -10141,6 +10141,27 @@ export type Database = {
         }
         Relationships: []
       }
+      topic_retry_reset_log: {
+        Row: {
+          episode_id: string
+          old_status: string
+          reset_at: string
+          reset_batch: string
+        }
+        Insert: {
+          episode_id: string
+          old_status: string
+          reset_at?: string
+          reset_batch: string
+        }
+        Update: {
+          episode_id?: string
+          old_status?: string
+          reset_at?: string
+          reset_batch?: string
+        }
+        Relationships: []
+      }
       topics: {
         Row: {
           content_generated_at: string | null
