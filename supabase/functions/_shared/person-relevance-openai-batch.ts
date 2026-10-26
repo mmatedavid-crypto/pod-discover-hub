@@ -216,6 +216,18 @@ export function mapBatchStatus(s: string): JobStatus | null {
 }
 export const TERMINAL_BATCH = new Set(["completed", "failed", "expired", "cancelled"]);
 
+// A "released" item never got an answer (upload refused, job aborted before or
+// without a result) and was never billed, so it must not use up a retry: only
+// requests that reached the model and came back count toward max_attempts.
+export const countsAsAttempt = (status: string | null | undefined) => status !== "released";
+
+// A job stuck in "claimed" this long was killed mid-submit (nothing uploaded,
+// nothing billed); it only blocks an open-job slot and its pairs' leases.
+export const STALE_CLAIM_MS = 30 * 60_000;
+export function isStaleClaim(job: { status: string; created_at: string }, now = Date.now()): boolean {
+  return job.status === "claimed" && now - new Date(job.created_at).getTime() > STALE_CLAIM_MS;
+}
+
 export type GateContext = {
   keyPresent: boolean; backgroundEnabled: boolean; priorityBlocker: string | null;
   openJobs: number; requestedCount: number; model: string; tier: Tier;
