@@ -133,10 +133,12 @@ Deno.serve(async (req) => {
       const list = (cands || []) as any[];
       seen += list.length;
       let i = 0;
+      // Organizations (slower: type check) get at most half the time so people always progress.
+      const deadline = kind === "organization" ? TIME_BUDGET_MS / 2 : TIME_BUDGET_MS;
       const worker = async () => {
         while (true) {
           const c = list[i++];
-          if (!c || Date.now() - started > TIME_BUDGET_MS) return;
+          if (!c || Date.now() - started > deadline) return;
           try {
             const { page, extra } = await lookup(c.name, kind, c.org_type);
             const context = [...(c.podcasts || []), ...((c.mentions || []) as any[]).flatMap((m: any) => [m.title, m.evidence])].filter(Boolean);
