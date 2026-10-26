@@ -92,6 +92,7 @@ Deno.serve(async (req) => {
   const concurrency = Math.max(1, Math.min(16, Number(ctrl.concurrency) || 8));
   // The first run hit the edge CPU limit after ~1,500 vectors; stay well below it.
   const reembedBefore = typeof ctrl.reembed_before === "string" && !Number.isNaN(Date.parse(ctrl.reembed_before)) ? ctrl.reembed_before : null;
+  let reembedCursor: string | null = typeof ctrl.reembed_cursor === "string" ? ctrl.reembed_cursor : null;
   const maxPerRun = Math.max(50, Math.min(1000, Number(ctrl.max_per_run) || 600));
 
   const day = new Date().toISOString().slice(0, 10);
@@ -128,9 +129,14 @@ Deno.serve(async (req) => {
       // Missing vectors first; then, only if the owner set reembed_before, refresh older vectors
       // into the current (gateway) vector space, newest episodes first.
       if (!(rows || []).length && reembedBefore) {
-        ({ data: rows, error } = await admin.rpc("select_reembed_episode_candidates_v1", { _before: reembedBefore, _limit: batch }));
+        ({ data: rows, error } = await admin.rpc("select_reembed_episode_candidates_v1", { _before: reembedBefore, _limit: batch, _published_before: reembedCursor }));
         if (error) throw new Error("reembed candidates: " + error.message);
-        if ((rows || []).length) reembedPasses++;
+        if ((rows || []).length) {
+          reembedPasses++;
+          // Keyset cursor (inclusive bound; equal timestamps are simply re-checked next pass).
+          const last = (rows as any[])[(rows as any[]).length - 1]?.published_at;
+          if (last) reembedCursor = last;
+        }
       }
       const cands = (rows || []) as any[];
       if (!cands.length) break;
@@ -175,7 +181,7 @@ Deno.serve(async (req) => {
       daily_budget_usd: dailyBudget, error_samples: errorSamples, runtime_ms: Date.now() - startedAt };
     // Re-read controls right before writing so a pause set during this run is kept.
     const latest = await readControls(admin);
-    await admin.from("app_settings").upsert({ key: CONTROLS_KEY, value: { ...latest, last_run: { at: new Date().toISOString(), ...summary } }, updated_at: new Date().toISOString() }, { onConflict: "key" });
+    await admin.from("app_settings").upsert({ key: CONTROLS_KEY, value: { ...latest, ...(reembedPasses ? { reembed_cursor: reembedCursor } : {}), last_run: { at: new Date().toISOString(), ...summary } }, updated_at: new Date().toISOString() }, { onConflict: "key" });
     await log.finish("ok", summary);
     return json(summary);
   } catch (e) {
