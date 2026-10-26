@@ -42,6 +42,34 @@ Deno.serve(async (req) => {
     // Auth gate removed: idempotent runner gated by background_jobs kill switch.
 
     const body = await req.json().catch(() => ({}));
+    // Targeted catch-up (admin or service role only): re-read specific feeds with a larger
+    // episode cap, e.g. after a reader fix. No AI work; dedupe still applies.
+    const targetIds: string[] = Array.isArray(body.podcast_ids) ? body.podcast_ids.slice(0, 60).map(String) : [];
+    if (targetIds.length) {
+      const jwt = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+      let allowed = jwt === SERVICE;
+      if (!allowed && jwt) {
+        const { data: u } = await admin.auth.getUser(jwt).catch(() => ({ data: null as any }));
+        if (u?.user?.id) {
+          const { data: role } = await admin.from("user_roles").select("role").eq("user_id", u.user.id).eq("role", "admin").maybeSingle();
+          allowed = !!role;
+        }
+      }
+      if (!allowed) return json({ error: "forbidden" }, 403);
+      const cap = Math.max(5, Math.min(100, Number(body.episode_cap) || 50));
+      const { data: pods } = await admin.from("podcasts")
+        .select("id, title, slug, rss_url, image_url, language, podiverzum_rank, last_fetched_at, full_backfill_completed_at, crawl_state, refresh_interval_minutes, last_etag, last_modified, consecutive_failure_count, next_fetch_at")
+        .in("id", targetIds).not("crawl_state", "in", "(dead,quarantined)");
+      const out: any[] = [];
+      const started = Date.now();
+      await processPool((pods || []).filter((p: any) => !!p.rss_url), 4, async (p: any) => {
+        if (Date.now() - started > 100_000) { out.push({ id: p.id, skipped: "time_budget" }); return; }
+        // Ignore cached validators so a feed that answered 304 on stale data is read in full.
+        const r = await fetchOne(admin, { ...p, last_etag: null, last_modified: null }, { episodeCap: cap, fetchTimeoutMs: 15_000, upsertDuplicates: false });
+        out.push({ id: p.id, title: p.title, ok: r.ok, new: r.new, duplicates: r.duplicates, items: r.items, error: r.error });
+      });
+      return json({ ok: true, targeted: out.length, new_episodes: out.reduce((n, r) => n + (r.new || 0), 0), results: out });
+    }
     const requestedLimit = Number(body.limit ?? body.batch);
     // Bumped from 3 → 40. Backlog of 1300+ HU podcasts needs much higher throughput.
     const limit = Math.max(1, Math.min(50, Number.isFinite(requestedLimit) ? requestedLimit : 40));
