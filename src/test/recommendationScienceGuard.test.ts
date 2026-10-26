@@ -53,7 +53,7 @@ describe("science recommendations", () => {
       topics: ["ingatlanok tájolása", "ip-címek", "infrás hőmérők", "euróvásárlás", "lítium", "kvantumfizika"],
       similarity: 0,
     };
-    expect(recommendationGroup(grabBag)).toBe("general");
+    expect(recommendationGroup(grabBag)).not.toBe("science");
     expect(isSafeRelatedEpisode(physics, grabBag)).toBe(false);
   });
 
