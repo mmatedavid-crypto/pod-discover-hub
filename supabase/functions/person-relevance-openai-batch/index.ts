@@ -248,16 +248,18 @@ async function submitAction(db: any, controls: Controls, userId: string, body: a
     const rows: any[] = [];
     let reserve = 0;
     const pricing = controls.pricing_usd_per_1m[model];
-    // Prior attempts per pair/source, read in bounded chunks instead of one query per pair.
+    // Prior items per pair/source, read in bounded chunks instead of one query per pair.
+    // `priorItems` keeps custom_id unique; `priorAttempts` counts only billed answers for max_attempts.
     const priorAttempts = new Map<string, number>();
+    const priorItems = new Map<string, number>();
     const episodeIds = [...new Set(prepared.map((p) => p.episode_id))];
     for (let i = 0; i < episodeIds.length; i += 150) {
       const { data: prior } = await db.from("person_relevance_batch_items").select("person_id,episode_id,source_hash,status")
         .in("episode_id", episodeIds.slice(i, i + 150)).eq("prompt_version", controls.prompt_version).eq("tier", tier).limit(5000);
       for (const r of prior || []) {
-        if (!countsAsAttempt(r.status)) continue;
         const k = `${r.person_id}|${r.episode_id}|${r.source_hash}`;
-        priorAttempts.set(k, (priorAttempts.get(k) || 0) + 1);
+        priorItems.set(k, (priorItems.get(k) || 0) + 1);
+        if (countsAsAttempt(r.status)) priorAttempts.set(k, (priorAttempts.get(k) || 0) + 1);
       }
     }
     for (const p of prepared) {
@@ -272,8 +274,9 @@ async function submitAction(db: any, controls: Controls, userId: string, body: a
         } else await releasePair();
         continue;
       }
-      const attempt = (priorAttempts.get(`${p.person_id}|${p.episode_id}|${p.source_hash}`) || 0) + 1;
-      if (attempt > Math.max(1, controls.max_attempts) && tier !== "golden_eval") { await releasePair(); continue; }
+      const key = `${p.person_id}|${p.episode_id}|${p.source_hash}`;
+      if ((priorAttempts.get(key) || 0) + 1 > Math.max(1, controls.max_attempts) && tier !== "golden_eval") { await releasePair(); continue; }
+      const attempt = (priorItems.get(key) || 0) + 1;
       const customId = buildCustomId({ promptVersion: controls.prompt_version, tier, personId: p.person_id, episodeId: p.episode_id, sourceHash: p.source_hash, attempt });
       const line = buildRequestLine(customId, p.input, controls, model);
       if (line.body.input.length > REQUEST_MAX_CHARS) { await releasePair(); continue; }
