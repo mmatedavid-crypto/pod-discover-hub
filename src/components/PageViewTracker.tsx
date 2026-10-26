@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { useLocation } from "react-router-dom";
+import { useInRouterContext, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { isBotUserAgent } from "@/lib/botDetect";
 import { getAnalyticsSessionId } from "@/lib/analyticsSession";
@@ -24,7 +24,12 @@ function parseUA(ua: string): { browser: string; os: string; isBot: boolean } {
   return { browser, os, isBot };
 }
 
+/** Analytics must never blank the page: outside a router (e.g. mid hot-reload) it is a no-op. */
 export default function PageViewTracker() {
+  return useInRouterContext() ? <RoutedPageViewTracker /> : null;
+}
+
+function RoutedPageViewTracker() {
   const location = useLocation();
   const lastLogged = useRef<string | null>(null);
   const currentEventId = useRef<string | null>(null);

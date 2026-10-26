@@ -156,7 +156,6 @@ export default function AdminHubPage() {
         { to: "/admin/cron-status", title: "Cron Status", desc: "Active jobs, recent runs, durations, failures.", icon: Activity },
         { to: "/admin/pipeline-watchdog", title: "Pipeline Watchdog", desc: "Autonóm budget / error / liveness őr Telegram alerttel és auto-pause-zal.", icon: Activity, badge: "new", badgeTone: "warn" },
         { to: "/admin/spotify-transcripts", title: "Spotify Transcripts", desc: "Default-off native transcript runner: pilot, batch, caps, állapot.", icon: Music, badge: "off", badgeTone: "default" },
-        { to: "/admin/reddit-bot", title: "Reddit Link Bot", desc: "Reaktív Podiverzum-linkelő r/hungary, r/Magyarorszag, r/podcasts threadekben. Dry-run alapból.", icon: Activity, badge: "new", badgeTone: "default" },
         { to: "/admin/pi-backfill", title: "PI Backfill", desc: "Podcast Index bulk backfill controls.", icon: Globe },
         { to: "/admin/archive-backfill", title: "HU Archive Backfill", desc: "Deep HU archive ingestion: RSS exhaustion + PI sweep, budget-aware.", icon: Database, badge: "new", badgeTone: "warn" },
       ],

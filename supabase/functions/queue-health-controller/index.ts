@@ -382,9 +382,15 @@ Deno.serve(async (req) => {
       results.push({ runner: r.name, pending, p1, p2, samples, wake, stallRuns, action, reason, suppressed, cadence });
     }
 
+    // Re-read the shared state before persisting telemetry: an owner edit made while this
+    // tick ran (runner registry, enabled flag) must not be undone by our start-of-run copy.
+    const { data: freshRow } = await admin.from("app_settings").select("value").eq("key", "queue_health_state").maybeSingle();
+    const freshState = (freshRow?.value || state) as any;
+    const liveNames = new Set((Array.isArray(freshState.runners) ? freshState.runners : []).map((r: RunnerCfg) => r.name));
+    const keptHistory = Object.fromEntries(Object.entries(history).filter(([name]) => liveNames.has(name)));
     await admin.from("app_settings").upsert({
       key: "queue_health_state",
-      value: { ...state, history, last_check_at: new Date().toISOString(), last_results: results },
+      value: { ...freshState, history: keptHistory, last_check_at: new Date().toISOString(), last_results: results },
       updated_at: new Date().toISOString(),
     }, { onConflict: "key" });
 
