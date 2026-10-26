@@ -7896,26 +7896,62 @@ export type Database = {
           },
         ]
       }
-      podcast_embeddings: {
+      podcast_embedding_failures: {
         Row: {
-          content_hash: string
-          embedding: string
-          model: string
+          attempts: number
+          last_error: string | null
+          next_attempt_at: string
           podcast_id: string
           updated_at: string
         }
         Insert: {
-          content_hash: string
-          embedding: string
-          model: string
+          attempts?: number
+          last_error?: string | null
+          next_attempt_at?: string
           podcast_id: string
           updated_at?: string
         }
         Update: {
+          attempts?: number
+          last_error?: string | null
+          next_attempt_at?: string
+          podcast_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      podcast_embeddings: {
+        Row: {
+          checked_at: string | null
+          content_hash: string
+          content_version: number
+          embedding: string
+          model: string
+          podcast_id: string
+          rec_group: string | null
+          top_topics: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          checked_at?: string | null
+          content_hash: string
+          content_version?: number
+          embedding: string
+          model: string
+          podcast_id: string
+          rec_group?: string | null
+          top_topics?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          checked_at?: string | null
           content_hash?: string
+          content_version?: number
           embedding?: string
           model?: string
           podcast_id?: string
+          rec_group?: string | null
+          top_topics?: string[] | null
           updated_at?: string
         }
         Relationships: []
@@ -11972,6 +12008,18 @@ export type Database = {
       }
       get_pipeline_health_snapshot_v1: { Args: never; Returns: Json }
       get_pipeline_runner_health_v1: { Args: never; Returns: Json }
+      get_podcast_embedding_inputs_v2: {
+        Args: { _ids: string[] }
+        Returns: {
+          card_topics: string[]
+          category: string
+          description: string
+          id: string
+          map_topics: string[]
+          recent_titles: string[]
+          title: string
+        }[]
+      }
       get_related_episodes_by_embedding: {
         Args: {
           p_downweight_same_podcast?: boolean
@@ -12544,6 +12592,16 @@ export type Database = {
         }
         Returns: Json
       }
+      podcast_embed_due_v2: {
+        Args: { _refresh_days?: number; _version?: number }
+        Returns: {
+          id: string
+          ord: number
+          podiverzum_rank: number
+          rank_order: number
+          reason: string
+        }[]
+      }
       podcast_episode_counts: {
         Args: { _ids: string[] }
         Returns: {
@@ -12890,6 +12948,13 @@ export type Database = {
           tickers: string[]
           title: string
           topics: string[]
+        }[]
+      }
+      select_podcast_embed_candidates_v2: {
+        Args: { _limit?: number; _refresh_days?: number; _version?: number }
+        Returns: {
+          id: string
+          reason: string
         }[]
       }
       set_categorize_runner_schedule: {
