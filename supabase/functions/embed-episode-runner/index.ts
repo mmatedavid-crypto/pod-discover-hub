@@ -20,7 +20,7 @@ const cors = {
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
 const JOB = "embed-episode-runner";
 const CONTROLS_KEY = "embed_episode_controls";
-const TIME_BUDGET_MS = 110_000;
+const TIME_BUDGET_MS = 100_000;
 
 function sameToken(a: string, b: string) {
   if (a.length < 32 || a.length !== b.length) return false;
@@ -68,6 +68,8 @@ Deno.serve(async (req) => {
   const dailyBudget = Math.max(0, Number(ctrl.daily_budget_usd ?? 2));
   const batch = Math.max(1, Math.min(200, Number(ctrl.batch_size) || 100));
   const concurrency = Math.max(1, Math.min(16, Number(ctrl.concurrency) || 8));
+  // The first run hit the edge CPU limit after ~1,500 vectors; stay well below it.
+  const maxPerRun = Math.max(50, Math.min(1000, Number(ctrl.max_per_run) || 600));
 
   const day = new Date().toISOString().slice(0, 10);
   const { data: spendRow } = await admin.from("ai_spend_daily").select("by_kind").eq("day", day).maybeSingle();
@@ -89,7 +91,15 @@ Deno.serve(async (req) => {
     };
 
     let stop = false;
-    while (!stop && Date.now() - startedAt < TIME_BUDGET_MS - 15_000 && spentBefore + cost < dailyBudget) {
+    let recordedCost = 0, recordedCalls = 0;
+    // Spend is booked after every pass, so a worker killed by the platform cannot bypass the cap.
+    const bookSpend = async () => {
+      const c = cost - recordedCost, n = calls - recordedCalls;
+      if (c <= 0 && n <= 0) return;
+      await admin.rpc("add_ai_spend", { p_day: day, p_kind: "embed_episode", p_amount: c, p_calls: n });
+      recordedCost = cost; recordedCalls = calls;
+    };
+    while (!stop && embedded + skipped + errors < maxPerRun && Date.now() - startedAt < TIME_BUDGET_MS - 15_000 && spentBefore + cost < dailyBudget) {
       const { data: rows, error } = await admin.rpc("select_embed_episode_candidates_v2", { _limit: batch });
       if (error) throw new Error("candidates: " + error.message);
       const cands = (rows || []) as any[];
@@ -108,15 +118,19 @@ Deno.serve(async (req) => {
           const vec = await embedText(content, { model, taskType: "SEMANTIC_SIMILARITY" });
           if (!vec) { errors++; markSkip(e.id, "embed_failed"); if (errorSamples.length < 3) errorSamples.push(`${e.id}:embed_failed`); continue; }
           cost += embeddingTokenCostUsd(model, Math.ceil(content.length / 4));
-          const { error: upErr } = await admin.from("episode_embeddings").upsert({
-            episode_id: e.id, podcast_id: e.podcast_id, model, embedding: `[${vec.join(",")}]`,
-            content_hash: await sha256(content), updated_at: new Date().toISOString(),
-          }, { onConflict: "episode_id" });
-          if (upErr) { errors++; markSkip(e.id, "write_failed"); if (errorSamples.length < 3) errorSamples.push(`${e.id}:${upErr.message.slice(0, 80)}`); continue; }
-          embedded++;
+          pending.push({ episode_id: e.id, podcast_id: e.podcast_id, model, embedding: `[${vec.join(",")}]`,
+            content_hash: await sha256(content), updated_at: new Date().toISOString() });
         }
       };
+      const pending: any[] = [];
       await Promise.all(Array.from({ length: concurrency }, worker));
+      // One write per pass instead of one per episode keeps CPU per run low.
+      if (pending.length) {
+        const { error: upErr } = await admin.from("episode_embeddings").upsert(pending, { onConflict: "episode_id" });
+        if (upErr) { errors += pending.length; for (const r of pending) markSkip(r.episode_id, "write_failed"); if (errorSamples.length < 3) errorSamples.push(`write:${upErr.message.slice(0, 80)}`); }
+        else embedded += pending.length;
+      }
+      await bookSpend();
       // Too many failures in a row means the provider is down: stop instead of burning the run.
       if (errors > 20 && errors > embedded) break;
       if (cands.length < batch) break;
@@ -125,7 +139,7 @@ Deno.serve(async (req) => {
     for (let k = 0; k < skipRows.length; k += 500) {
       await admin.from("episode_embedding_skips").upsert(skipRows.slice(k, k + 500), { onConflict: "episode_id" });
     }
-    if (cost > 0) await admin.rpc("add_ai_spend", { p_day: day, p_kind: "embed_episode", p_amount: cost, p_calls: calls });
+    await bookSpend();
 
     const summary = { ok: true, embedded, skipped, errors, passes, cost_usd: Number(cost.toFixed(5)), spent_today: Number((spentBefore + cost).toFixed(4)),
       daily_budget_usd: dailyBudget, error_samples: errorSamples, runtime_ms: Date.now() - startedAt };
