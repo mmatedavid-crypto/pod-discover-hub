@@ -69,7 +69,20 @@ Deno.serve(async (req) => {
     const { data: prelim, error: cErr } = await cq;
     if (cErr) throw cErr;
 
-    const candidates = (prelim || []).filter((p: any) => !!p.rss_url).slice(0, limit);
+    // Failed feeds whose backoff has passed. Before 2026-10-26 nothing ever retried them: a single
+    // timeout set next_fetch_at and this runner only read rows where it is NULL, so ~400 feeds froze.
+    // Bounded share per run so healthy feeds keep priority; dead/quarantined feeds are excluded.
+    const retryLimit = Math.max(0, Math.min(15, Number(body.retry_limit ?? 10)));
+    const { data: retryRows } = retryLimit ? await admin
+      .from("podcasts")
+      .select("id, title, slug, rss_url, image_url, podiverzum_rank, last_fetched_at, full_backfill_completed_at, crawl_state, refresh_interval_minutes, last_etag, last_modified, consecutive_failure_count, next_fetch_at")
+      .in("crawl_state", ["full_backfilled", "incremental_refresh"])
+      .eq("rss_status", "failed")
+      .lte("next_fetch_at", new Date().toISOString())
+      .order("next_fetch_at", { ascending: true })
+      .limit(retryLimit) : { data: [] as any[] };
+    const retries = (retryRows || []).filter((p: any) => !!p.rss_url);
+    const candidates = [...retries, ...(prelim || []).filter((p: any) => !!p.rss_url).slice(0, Math.max(1, limit - retries.length))];
 
     let scanned = 0, refreshed = 0, failed = 0, newEpisodes = 0, throttled = false, notModified = 0;
     const results: any[] = [];
@@ -115,7 +128,9 @@ Deno.serve(async (req) => {
       due_count = count || 0;
     } catch { /* noop */ }
 
-    const errorish = failed > 0 || throttled;
+    // Ordinary dead feeds must not slow the schedule for every healthy feed; only platform
+    // throttling or a majority of failures does.
+    const errorish = throttled || (scanned >= 10 && failed / scanned > 0.5);
     let recommended: string;
     if (errorish) recommended = "0 * * * *";
     else if (due_count > 500) recommended = "*/5 * * * *";
@@ -141,7 +156,7 @@ Deno.serve(async (req) => {
       duration_ms: Date.now() - startedAt,
       trigger, concurrency, limit, stale_hours, episode_cap: episodeCap,
       scanned, refreshed, failed, throttled, new_episodes: newEpisodes, not_modified: notModified,
-      candidates_considered: (candidates || []).length,
+      candidates_considered: (candidates || []).length, retried_failed: retries.length,
       due_count, recommended_schedule: recommended, applied_schedule: applied,
     };
     await admin.from("app_settings").upsert({

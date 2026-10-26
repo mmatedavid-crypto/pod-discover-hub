@@ -3,6 +3,7 @@
 // repeated-failure → quarantine/dead, crawl_state transitions.
 import { parseFeed } from "./rss.ts";
 import { slugify as slugifyShared } from "./slug.ts";
+import { countLinks, linkIdentifiesItem, newestFirst } from "./feed-item-policy.ts";
 
 function slugify(s: string) {
   return slugifyShared(s, "episode");
@@ -155,7 +156,9 @@ export async function fetchOne(supabase: any, podcast: any, opts: { episodeCap?:
     return { ok: false, error: msg, new: 0, duplicates: 0, items: 0 };
   }
 
-  const sliced = items.slice(0, episodeCap).filter((it) => it.title);
+  // Newest first, so a feed ordered oldest-first still yields its new episodes within the cap.
+  const sliced = newestFirst(items).slice(0, episodeCap).filter((it) => it.title);
+  const linkCounts = countLinks(items);
 
   const candidates = sliced.map((it) => {
     const slugBase = slugify(it.title);
@@ -167,7 +170,7 @@ export async function fetchOne(supabase: any, podcast: any, opts: { episodeCap?:
   });
 
   const guids = Array.from(new Set(candidates.map((c) => c.it.guid).filter(Boolean) as string[]));
-  const links = Array.from(new Set(candidates.map((c) => c.it.link).filter(Boolean) as string[]));
+  const links = Array.from(new Set(candidates.filter((c) => linkIdentifiesItem(c.it, linkCounts)).map((c) => c.it.link) as string[]));
   const pubDates = Array.from(new Set(candidates.map((c) => c.it.published).filter(Boolean) as string[]));
 
   const dedupQueries: Promise<any>[] = [];
@@ -229,7 +232,7 @@ export async function fetchOne(supabase: any, podcast: any, opts: { episodeCap?:
   for (const { it, slug } of candidates) {
     const isDup =
       (it.guid && existingGuids.has(it.guid)) ||
-      (it.link && existingLinks.has(it.link)) ||
+      (linkIdentifiesItem(it, linkCounts) && existingLinks.has(it.link)) ||
       (it.published && existingTitlePub.has(`${it.title}|${it.published}`));
 
     // Check placeholder match by day number BEFORE dedupe (placeholder guid intentionally
