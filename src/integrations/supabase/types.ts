@@ -10456,6 +10456,54 @@ export type Database = {
         }
         Relationships: []
       }
+      wiki_safe_match_log: {
+        Row: {
+          applied: boolean
+          before: Json | null
+          candidate: Json | null
+          created_at: string
+          decision: string
+          entity_id: string
+          entity_kind: string
+          entity_name: string | null
+          id: number
+          policy_version: string
+          reason: string | null
+          reverted_at: string | null
+          run_id: string
+        }
+        Insert: {
+          applied?: boolean
+          before?: Json | null
+          candidate?: Json | null
+          created_at?: string
+          decision: string
+          entity_id: string
+          entity_kind: string
+          entity_name?: string | null
+          id?: number
+          policy_version: string
+          reason?: string | null
+          reverted_at?: string | null
+          run_id: string
+        }
+        Update: {
+          applied?: boolean
+          before?: Json | null
+          candidate?: Json | null
+          created_at?: string
+          decision?: string
+          entity_id?: string
+          entity_kind?: string
+          entity_name?: string | null
+          id?: number
+          policy_version?: string
+          reason?: string | null
+          reverted_at?: string | null
+          run_id?: string
+        }
+        Relationships: []
+      }
       youtube_caption_cache: {
         Row: {
           duration_seconds: number | null
@@ -11575,6 +11623,18 @@ export type Database = {
       }
       apply_person_openai_batch_item: { Args: { _item: string }; Returns: Json }
       apply_topic_cluster_staging: { Args: never; Returns: Json }
+      apply_wiki_safe_match_v1: {
+        Args: {
+          _candidate: Json
+          _id: string
+          _kind: string
+          _patch: Json
+          _policy: string
+          _reason: string
+          _run_id: string
+        }
+        Returns: string
+      }
       autoprewarm_dump_now: { Args: never; Returns: number }
       autoprewarm_start_worker: { Args: never; Returns: undefined }
       backfill_mentions_from_people_array: {
@@ -12916,6 +12976,10 @@ export type Database = {
         Args: { p_episode_ids: string[] }
         Returns: Json
       }
+      revert_wiki_safe_match_v1: {
+        Args: { _entity_id?: string; _run_id: string }
+        Returns: number
+      }
       rollback_clean_text_repair_v1: {
         Args: { p_batch_id: string }
         Returns: Json
@@ -13412,6 +13476,10 @@ export type Database = {
       verified_person_overlap_v1: {
         Args: { p_episode_id: string; p_source_person_ids: string[] }
         Returns: number
+      }
+      wiki_safe_match_candidates_v1: {
+        Args: { _kind: string; _limit: number; _policy: string }
+        Returns: Json
       }
       youtube_source_quality_metrics_v1: { Args: never; Returns: Json }
     }
