@@ -13095,7 +13095,7 @@ export type Database = {
         }[]
       }
       select_reembed_episode_candidates_v1: {
-        Args: { _before: string; _limit: number }
+        Args: { _before: string; _limit: number; _published_before?: string }
         Returns: {
           ai_summary: string
           clean_text: string
@@ -13108,6 +13108,7 @@ export type Database = {
           podcast_display_title: string
           podcast_id: string
           podcast_title: string
+          published_at: string
           seo_description: string
           tickers: string[]
           title: string
