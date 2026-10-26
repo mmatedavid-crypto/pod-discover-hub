@@ -123,6 +123,7 @@ Deno.serve(async (req) => {
   const log = runLog(admin, JOB);
   await log.start({ run_id: runId, policy: WIKI_POLICY_VERSION, ...perKind });
   const counts: Record<string, number> = {};
+  let seen = 0;
   const bump = (k: string) => { counts[k] = (counts[k] || 0) + 1; };
   try {
     for (const kind of ["organization", "person"] as const) {
@@ -130,6 +131,7 @@ Deno.serve(async (req) => {
       const { data: cands, error } = await admin.rpc("wiki_safe_match_candidates_v1", { _kind: kind, _limit: perKind[kind], _policy: WIKI_POLICY_VERSION });
       if (error) throw new Error(`${kind} candidates: ${error.message}`);
       const list = (cands || []) as any[];
+      seen += list.length;
       let i = 0;
       const worker = async () => {
         while (true) {
@@ -172,7 +174,12 @@ Deno.serve(async (req) => {
       };
       await Promise.all([worker(), worker(), worker()]);
     }
-    const summary = { ok: true, run_id: runId, counts, runtime_ms: Date.now() - started };
+    // Backlog drained: switch the job off (re-reading controls so an owner change is never undone).
+    if (seen === 0) {
+      const { data: fresh } = await admin.from("app_settings").select("value").eq("key", CONTROLS_KEY).maybeSingle();
+      await admin.from("app_settings").update({ value: { ...(fresh?.value || {}), enabled: false, paused_reason: "queue_empty", drained_at: new Date().toISOString() } }).eq("key", CONTROLS_KEY);
+    }
+    const summary = { ok: true, run_id: runId, counts, candidates: seen, runtime_ms: Date.now() - started };
     await log.finish("ok", summary);
     return json(summary);
   } catch (e) {
