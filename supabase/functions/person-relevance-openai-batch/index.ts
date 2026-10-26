@@ -9,7 +9,7 @@ import { checkProcessingPriority } from "../_shared/processing-priority.ts";
 import { inputGuard, type Source } from "../_shared/person-relevance-batch.ts";
 import {
   actualCostUsd, BATCH_MAX_BYTES, buildCustomId, buildRequestLine, countsAsAttempt, decidePolicy, estimateTokens, goldenMetrics,
-  isStaleClaim, jsonlSize, mapBatchStatus, mergeControls, parseOutputLine, PILOT_DESIGN, REQUEST_MAX_CHARS,
+  isStaleClaim, jsonlSize, mapBatchStatus, mergeControls, parseCustomId, parseOutputLine, PILOT_DESIGN, REQUEST_MAX_CHARS,
   requestCostUpperBoundUsd, submitBlockers, TERMINAL_BATCH, type Controls, type Tier,
 } from "../_shared/person-relevance-openai-batch.ts";
 
@@ -254,11 +254,11 @@ async function submitAction(db: any, controls: Controls, userId: string, body: a
     const priorItems = new Map<string, number>();
     const episodeIds = [...new Set(prepared.map((p) => p.episode_id))];
     for (let i = 0; i < episodeIds.length; i += 150) {
-      const { data: prior } = await db.from("person_relevance_batch_items").select("person_id,episode_id,source_hash,status")
+      const { data: prior } = await db.from("person_relevance_batch_items").select("person_id,episode_id,source_hash,status,custom_id")
         .in("episode_id", episodeIds.slice(i, i + 150)).eq("prompt_version", controls.prompt_version).eq("tier", tier).limit(5000);
       for (const r of prior || []) {
         const k = `${r.person_id}|${r.episode_id}|${r.source_hash}`;
-        priorItems.set(k, (priorItems.get(k) || 0) + 1);
+        priorItems.set(k, Math.max(priorItems.get(k) || 0, parseCustomId(r.custom_id)?.attempt || 0, 1));
         if (countsAsAttempt(r.status)) priorAttempts.set(k, (priorAttempts.get(k) || 0) + 1);
       }
     }
