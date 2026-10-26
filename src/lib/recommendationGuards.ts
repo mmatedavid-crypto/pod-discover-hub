@@ -72,7 +72,8 @@ export function recommendationGroup(ctx: RecommendationContext): RecommendationG
   if (category === "Kids & Family" || CHILDREN_RE.test(text)) return "children";
   if (category === "Religion & Spirituality") return "religion";
   if (category === "Science & Ideas") return "science";
-  if (ESOTERIC_RE.test(text)) return "esoteric";
+  // Category labels are English; "True Crime & Paranormal" must stay true_crime, not esoteric.
+  if (ESOTERIC_RE.test(normalizeText([ctx.title, ctx.podcastTitle, ...topics].filter(Boolean).join(" ")))) return "esoteric";
   if (category === "True Crime & Paranormal") return "true_crime";
   if (category === "Self-Improvement") return "health";
   // One stray science tag on a grab-bag episode is not enough: the title says so,
