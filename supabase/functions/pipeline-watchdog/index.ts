@@ -2,6 +2,7 @@
 // Cron: 5 percenként. Olvassa app_settings.watchdog_state-et, evaluálja a rule-okat,
 // dry_run=false esetén autonóm pause (*_controls.enabled=false), és Telegram alert minden eventnél.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { coverageAlerts } from "../_shared/fresh-coverage.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -273,6 +274,15 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Coverage of fresh episodes, independent of which runners exist: a paused or deleted
+    // runner reports nothing, so its missing output is only visible here.
+    const { data: cov } = await admin.rpc("fresh_episode_coverage_v1", { _from_days: 7, _to_days: 1 });
+    for (const r of coverageAlerts(cov as any)) {
+      if (openSet.has(`fresh_coverage|${r.rule}`)) continue;
+      newEvents.push({ runner: "fresh_coverage", rule: r.rule, severity: r.severity, reason: r.reason, detail: r.detail, auto_paused: false, dry_run: dryRun });
+      alerts.push(`⚠️ <b>[ALERT] fresh_coverage</b>\n<b>Rule:</b> ${r.rule}\n${r.reason}\n<a href="https://podiverzum.hu/admin/pipeline-watchdog">Open admin</a>`);
+    }
+
     // Insert events
     if (newEvents.length) {
       await admin.from("watchdog_events").insert(newEvents);
@@ -285,9 +295,11 @@ Deno.serve(async (req) => {
     }
 
     // Update last_check
+    // Re-read state right before writing so a concurrent owner change is not undone.
+    const { data: latestState } = await admin.from("app_settings").select("value").eq("key", "watchdog_state").maybeSingle();
     await admin.from("app_settings").upsert({
       key: "watchdog_state",
-      value: { ...state, last_check_at: new Date().toISOString(), last_events: newEvents.length, last_paused: pausedRunners },
+      value: { ...((latestState?.value as any) || state), last_check_at: new Date().toISOString(), last_events: newEvents.length, last_paused: pausedRunners },
       updated_at: new Date().toISOString(),
     }, { onConflict: "key" });
 

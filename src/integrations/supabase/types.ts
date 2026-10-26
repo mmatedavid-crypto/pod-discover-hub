@@ -2714,6 +2714,30 @@ export type Database = {
         }
         Relationships: []
       }
+      episode_embedding_skips: {
+        Row: {
+          attempts: number
+          episode_id: string
+          next_attempt_at: string
+          reason: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          episode_id: string
+          next_attempt_at: string
+          reason: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          episode_id?: string
+          next_attempt_at?: string
+          reason?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       episode_embeddings: {
         Row: {
           content_hash: string
@@ -11937,6 +11961,10 @@ export type Database = {
         }[]
       }
       formula_c_status: { Args: never; Returns: Json }
+      fresh_episode_coverage_v1: {
+        Args: { _from_days?: number; _to_days?: number }
+        Returns: Json
+      }
       get_active_taste_cards: {
         Args: { p_limit?: number }
         Returns: {
@@ -13039,11 +13067,51 @@ export type Database = {
           topics: string[]
         }[]
       }
+      select_embed_episode_candidates_v2: {
+        Args: { _limit: number }
+        Returns: {
+          ai_summary: string
+          clean_text: string
+          companies: string[]
+          display_title: string
+          id: string
+          ingredients: string[]
+          people: string[]
+          podcast_category: string
+          podcast_display_title: string
+          podcast_id: string
+          podcast_title: string
+          seo_description: string
+          tickers: string[]
+          title: string
+          topics: string[]
+        }[]
+      }
       select_podcast_embed_candidates_v2: {
         Args: { _limit?: number; _refresh_days?: number; _version?: number }
         Returns: {
           id: string
           reason: string
+        }[]
+      }
+      select_reembed_episode_candidates_v1: {
+        Args: { _before: string; _limit: number }
+        Returns: {
+          ai_summary: string
+          clean_text: string
+          companies: string[]
+          display_title: string
+          id: string
+          ingredients: string[]
+          people: string[]
+          podcast_category: string
+          podcast_display_title: string
+          podcast_id: string
+          podcast_title: string
+          seo_description: string
+          tickers: string[]
+          title: string
+          topics: string[]
         }[]
       }
       set_categorize_runner_schedule: {
