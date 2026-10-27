@@ -7072,6 +7072,7 @@ export type Database = {
           job_id: string
           output_tokens: number | null
           person_id: string
+          prior_item_id: string | null
           prompt_version: string
           source_hash: string
           status: string
@@ -7096,6 +7097,7 @@ export type Database = {
           job_id: string
           output_tokens?: number | null
           person_id: string
+          prior_item_id?: string | null
           prompt_version: string
           source_hash: string
           status?: string
@@ -7120,6 +7122,7 @@ export type Database = {
           job_id?: string
           output_tokens?: number | null
           person_id?: string
+          prior_item_id?: string | null
           prompt_version?: string
           source_hash?: string
           status?: string
@@ -11839,6 +11842,10 @@ export type Database = {
         Returns: Json
       }
       apply_person_openai_batch_item: { Args: { _item: string }; Returns: Json }
+      apply_person_openai_escalation_item: {
+        Args: { _item: string }
+        Returns: Json
+      }
       apply_topic_cluster_staging: { Args: never; Returns: Json }
       apply_wiki_safe_match_v1: {
         Args: {
@@ -12048,6 +12055,10 @@ export type Database = {
           _person_ids?: string[]
           _role?: string
         }
+        Returns: Json[]
+      }
+      claim_person_openai_escalation_pairs: {
+        Args: { _job: string; _limit: number }
         Returns: Json[]
       }
       classify_ai_referral_v1: {

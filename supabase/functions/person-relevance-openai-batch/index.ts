@@ -8,7 +8,7 @@ import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { checkProcessingPriority } from "../_shared/processing-priority.ts";
 import { inputGuard, type Source } from "../_shared/person-relevance-batch.ts";
 import {
-  actualCostUsd, BATCH_MAX_BYTES, buildCustomId, buildRequestLine, countsAsAttempt, decidePolicy, estimateTokens, goldenMetrics,
+  actualCostUsd, BATCH_MAX_BYTES, buildCustomId, buildRequestLine, countsAsAttempt, decidePolicy, ESCALATION_MAX_OUTPUT_TOKENS, escalationFinal, estimateTokens, goldenMetrics,
   isStaleClaim, jsonlSize, mapBatchStatus, mergeControls, parseCustomId, parseOutputLine, PILOT_DESIGN, REQUEST_MAX_CHARS,
   requestCostUpperBoundUsd, submitBlockers, TERMINAL_BATCH, type Controls, type Tier,
 } from "../_shared/person-relevance-openai-batch.ts";
@@ -195,6 +195,8 @@ async function labelGolden(db: any, userId: string, body: any) {
 
 
 type Prepared = { person_id: string; episode_id: string; source_hash: string; identity_risk: boolean; input: Source; prior_item_id?: string };
+// Escalation requests: stronger model, tighter output cap.
+const requestControls = (c: Controls, tier: Tier) => tier === "escalation" ? { ...c, max_output_tokens: ESCALATION_MAX_OUTPUT_TOKENS } : c;
 
 async function submitAction(db: any, controls: Controls, userId: string, body: any) {
   const tier: Tier = ["primary", "escalation", "golden_eval"].includes(body.tier) ? body.tier : "primary";
@@ -233,15 +235,8 @@ async function submitAction(db: any, controls: Controls, userId: string, body: a
         if (sourced) prepared.push({ person_id: row.person_id, episode_id: row.episode_id, source_hash: sourced.source_hash, identity_risk: false, input: sourced.input });
       }
     } else {
-      const { data: waiting } = await db.from("person_relevance_batch_items").select("id,job_id,person_id,episode_id,source_hash,identity_risk")
-        .eq("status", "awaiting_escalation").order("created_at").limit(requested);
-      for (const w of waiting || []) {
-        const moved = await db.from("person_relevance_work").update({ claim_token: jobId, lease_until: new Date(Date.now() + 26 * 3600e3).toISOString(), updated_at: new Date().toISOString() })
-          .eq("person_id", w.person_id).eq("episode_id", w.episode_id).eq("claim_token", w.job_id).eq("source_hash", w.source_hash).select("person_id");
-        if (!moved.data?.length) continue;
-        const sourced = await sourceWithHash(db, w.person_id, w.episode_id);
-        if (sourced?.source_hash === w.source_hash) prepared.push({ person_id: w.person_id, episode_id: w.episode_id, source_hash: w.source_hash, identity_risk: w.identity_risk, input: sourced!.input, prior_item_id: w.id });
-      }
+      // Second opinion for pairs the primary model left uncertain (already applied as needs_review).
+      prepared = (await rpc(db, "claim_person_openai_escalation_pairs", { _job: jobId, _limit: requested }) || []) as Prepared[];
     }
 
     const lines: any[] = [];
@@ -278,13 +273,12 @@ async function submitAction(db: any, controls: Controls, userId: string, body: a
       if ((priorAttempts.get(key) || 0) + 1 > Math.max(1, controls.max_attempts) && tier !== "golden_eval") { await releasePair(); continue; }
       const attempt = (priorItems.get(key) || 0) + 1;
       const customId = buildCustomId({ promptVersion: controls.prompt_version, tier, personId: p.person_id, episodeId: p.episode_id, sourceHash: p.source_hash, attempt });
-      const line = buildRequestLine(customId, p.input, controls, model);
+      const line = buildRequestLine(customId, p.input, requestControls(controls, tier), model);
       if (line.body.input.length > REQUEST_MAX_CHARS) { await releasePair(); continue; }
       reserve += requestCostUpperBoundUsd(line, pricing, controls.batch_discount);
       lines.push(line);
       rows.push({ job_id: jobId, custom_id: customId, person_id: p.person_id, episode_id: p.episode_id, source_hash: p.source_hash,
-        prompt_version: controls.prompt_version, tier, attempt, identity_risk: !!p.identity_risk, status: "queued" });
-      if (p.prior_item_id) await db.from("person_relevance_batch_items").update({ status: "escalated", updated_at: new Date().toISOString() }).eq("id", p.prior_item_id);
+        prompt_version: controls.prompt_version, tier, attempt, identity_risk: !!p.identity_risk, status: "queued", prior_item_id: p.prior_item_id ?? null });
     }
     if (!lines.length) return abort("no_eligible_pairs");
     const bytes = jsonlSize(lines);
@@ -317,8 +311,15 @@ async function submitAction(db: any, controls: Controls, userId: string, body: a
 }
 
 async function ingestJob(db: any, controls: Controls, job: any) {
-  const { data: items } = await db.from("person_relevance_batch_items").select("id,custom_id,person_id,episode_id,source_hash,identity_risk,status,tier").eq("job_id", job.id);
+  const { data: items } = await db.from("person_relevance_batch_items").select("id,custom_id,person_id,episode_id,source_hash,identity_risk,status,tier,prior_item_id").eq("job_id", job.id);
   const byId = new Map<string, any>((items || []).map((i: any) => [i.custom_id, i]));
+  // Primary decisions for escalation items (the "two AI agree" rule needs both).
+  const priorDecision = new Map<string, any>();
+  const priorIds = [...new Set((items || []).map((i: any) => i.prior_item_id).filter(Boolean))] as string[];
+  for (let i = 0; i < priorIds.length; i += 150) {
+    const { data: prior } = await db.from("person_relevance_batch_items").select("id,decision").in("id", priorIds.slice(i, i + 150));
+    for (const r of prior || []) priorDecision.set(r.id, r.decision);
+  }
   const seen = new Set<string>();
   const pricing = controls.pricing_usd_per_1m[job.model];
   let processed = 0, anomalies = 0, applied = 0, failed = 0;
@@ -351,11 +352,13 @@ async function ingestJob(db: any, controls: Controls, job: any) {
       }
       const src = sourced.input;
       const policy = decidePolicy(parsed.raw, src, { model: job.model, identityRisk: item.identity_risk, allowAiRejection: controls.allow_ai_rejection, tier: item.tier });
-      const hold = policy.escalate && controls.escalation_enabled && item.tier === "primary";
+      const finalStatus = item.tier === "escalation" ? escalationFinal(priorDecision.get(item.prior_item_id), policy) : policy.final_status;
+      // New primary results are applied as before; uncertain ones are picked up later by the escalation lane.
+      const hold = policy.escalate && controls.escalation_enabled && controls.escalation_hold_new === true && item.tier === "primary";
       const status = item.tier === "golden_eval" ? "evaluated" : hold ? "awaiting_escalation" : "succeeded";
-      await db.from("person_relevance_batch_items").update({ ...usage, status, decision: policy.decision, final_status: policy.final_status, escalate: policy.escalate }).eq("id", item.id);
+      await db.from("person_relevance_batch_items").update({ ...usage, status, decision: policy.decision, final_status: finalStatus, escalate: policy.escalate }).eq("id", item.id);
       if (status === "succeeded") {
-        const r = await db.rpc("apply_person_openai_batch_item", { _item: item.id });
+        const r = await db.rpc(item.tier === "escalation" ? "apply_person_openai_escalation_item" : "apply_person_openai_batch_item", { _item: item.id });
         if (r.error) await db.from("person_relevance_batch_items").update({ status: "failed", error: ("apply:" + r.error.message).slice(0, 200) }).eq("id", item.id);
         else applied++;
       }
@@ -422,6 +425,9 @@ async function pollAction(db: any, controls: Controls, body: any) {
 // only within the owner-authorized caps and all submission gates. Sized from
 // the remaining budget so the reservation never needs to be refused.
 const TICK_UPPER_USD_PER_PAIR = 0.0006;
+// Stronger escalation model: ~20x the primary price, 1000-token output cap.
+const TICK_UPPER_USD_PER_ESCALATION = 0.008;
+const ESCALATION_MAX_PER_JOB = 600;
 async function tickAction(db: any) {
   const polled = await (await pollAction(db, await loadControls(db), {})).json();
   // Jobs killed mid-submit stay "claimed" forever (nothing uploaded or billed):
@@ -436,28 +442,46 @@ async function tickAction(db: any) {
   }
   const controls = await loadControls(db);
   if (!controls.enabled) return { ok: true, polled, stale_aborted: staleAborted, submitted: false, reason: "controls_disabled" };
-  const { data: jobs } = await db.from("person_relevance_batch_jobs").select("status,reserved_cost_usd,actual_cost_usd,request_count,created_at")
+  const { data: jobs } = await db.from("person_relevance_batch_jobs").select("tier,status,reserved_cost_usd,actual_cost_usd,request_count,created_at")
     .not("status", "in", "(draft,aborted)").limit(5000);
   const dayStart = new Date(); dayStart.setUTCHours(0, 0, 0, 0);
   let committed = 0, today = 0, used = 0, open = 0;
+  const lane: Record<string, number> = { primary: 0, escalation: 0 };
   for (const j of jobs || []) {
     const c = Math.max(Number(j.reserved_cost_usd) || 0, Number(j.actual_cost_usd) || 0);
     committed += c; used += Number(j.request_count) || 0;
+    lane[j.tier] = (lane[j.tier] || 0) + c;
     if (new Date(j.created_at) >= dayStart) today += c;
     if (OPEN_STATUSES.includes(j.status)) open++;
   }
-  if (open >= Math.max(1, controls.max_open_jobs)) return { ok: true, polled, submitted: false, reason: "open_job" };
   const auth = controls.authorized_pilot;
   const totalCap = Math.min(controls.total_cap_usd, Number(auth?.total_cap_usd) || 0);
   const dailyCap = Math.min(controls.daily_cap_usd, Number(auth?.daily_cap_usd ?? totalCap) || 0);
-  const remaining = Math.min(totalCap - committed, dailyCap - today);
-  const size = Math.min(controls.max_requests_per_job, (Number(auth?.max_requests) || 0) - used, Math.floor(remaining / TICK_UPPER_USD_PER_PAIR));
-  if (size < 20) {
-    if (totalCap - committed < 20 * TICK_UPPER_USD_PER_PAIR) await pauseControls(db, "authorized_budget_exhausted");
-    return { ok: true, polled, submitted: false, reason: "budget_or_request_cap_reached", committed_usd: committed };
+  const maxReq = Number(auth?.max_requests) || 0;
+  const submits: any[] = [];
+  const exhausted: Record<string, boolean> = { primary: false, escalation: !controls.escalation_enabled };
+  for (const tier of ["primary", "escalation"] as const) {
+    if (open >= Math.max(1, controls.max_open_jobs)) { submits.push({ tier, reason: "open_job" }); break; }
+    if (tier === "escalation" && !controls.escalation_enabled) continue;
+    const per = tier === "primary" ? TICK_UPPER_USD_PER_PAIR : TICK_UPPER_USD_PER_ESCALATION;
+    const laneCap = tier === "primary" ? Number(controls.primary_total_cap_usd ?? Number.POSITIVE_INFINITY) : Number(controls.escalation_total_cap_usd || 0);
+    const avail = Math.min(totalCap - committed, dailyCap - today, laneCap - (lane[tier] || 0));
+    const size = Math.min(controls.max_requests_per_job, maxReq - used, Math.floor(avail / per),
+      tier === "escalation" ? ESCALATION_MAX_PER_JOB : Number.POSITIVE_INFINITY);
+    if (size < 20) {
+      exhausted[tier] = laneCap - (lane[tier] || 0) < 20 * per || totalCap - committed < 20 * per;
+      submits.push({ tier, reason: "budget_or_request_cap_reached" });
+      continue;
+    }
+    const res = await (await submitAction(db, controls, null as unknown as string, { tier, limit: size })).json();
+    submits.push({ tier, ...res });
+    if (res.submitted) {
+      open++; used += Number(res.requests) || 0;
+      const r = Number(res.reserved_usd) || 0; committed += r; today += r; lane[tier] = (lane[tier] || 0) + r;
+    }
   }
-  const res = await submitAction(db, controls, null as unknown as string, { tier: "primary", limit: size });
-  return { ok: true, polled, submit: await res.json(), committed_before_usd: committed };
+  if (exhausted.primary && exhausted.escalation) await pauseControls(db, "authorized_budget_exhausted");
+  return { ok: true, polled, stale_aborted: staleAborted, submits, committed_usd: committed, lane_usd: lane };
 }
 
 Deno.serve(async (req) => {
