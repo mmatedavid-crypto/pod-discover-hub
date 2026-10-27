@@ -89,9 +89,24 @@ async function detectLanguage(model: string, title: string, description: string,
   return JSON.parse(args) as { lang: string; confidence: number; reason: string };
 }
 
+// Only internal callers (service role) or a signed-in admin: a non-dry run rewrites
+// language decisions and triggers deletion of foreign shows.
+async function authorized(admin: any, req: Request) {
+  const jwt = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+  if (!jwt) return false;
+  if (jwt === Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")) return true;
+  const { data: u } = await admin.auth.getUser(jwt).catch(() => ({ data: null as any }));
+  if (!u?.user?.id) return false;
+  const { data: role } = await admin.from("user_roles").select("role").eq("user_id", u.user.id).eq("role", "admin").maybeSingle();
+  return !!role;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  if (!(await authorized(supabase, req))) {
+    return new Response(JSON.stringify({ error: "forbidden" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
   const started = Date.now();
   try {
     const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};

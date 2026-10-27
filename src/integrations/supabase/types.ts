@@ -8136,6 +8136,33 @@ export type Database = {
         }
         Relationships: []
       }
+      podcast_feed_blocklist: {
+        Row: {
+          blocked_at: string
+          blocked_by: string | null
+          reason: string
+          rss_url: string
+          rss_url_key: string
+          title: string | null
+        }
+        Insert: {
+          blocked_at?: string
+          blocked_by?: string | null
+          reason: string
+          rss_url: string
+          rss_url_key: string
+          title?: string | null
+        }
+        Update: {
+          blocked_at?: string
+          blocked_by?: string | null
+          reason?: string
+          rss_url?: string
+          rss_url_key?: string
+          title?: string | null
+        }
+        Relationships: []
+      }
       podcast_language_cleanup_log: {
         Row: {
           deleted_ai_job_count: number
@@ -12200,6 +12227,7 @@ export type Database = {
         }
         Returns: Json
       }
+      feed_url_key_v1: { Args: { p_url: string }; Returns: string }
       find_existing_podcast: {
         Args: { p_rss_url: string; p_title: string }
         Returns: string
