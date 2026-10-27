@@ -11,6 +11,7 @@
 // Gates downstream chunk embeddings: chunkers only run for clean_text_status='done'.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
+import { runLog } from "../_shared/runner-run-log.ts";
 import { heuristicClean, validateExtractOnlyTrim } from "../_shared/episode-text-cleaner.ts";
 import {
   CLEAN_TEXT_QUALITY_VERSION,
@@ -66,6 +67,7 @@ async function updateStatus(admin: any, ids: string[], status: string) {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const startedAt = Date.now();
+  let log: ReturnType<typeof runLog> | null = null;
 
   try {
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
@@ -75,6 +77,9 @@ Deno.serve(async (req) => {
     const { data: ctrlRow } = await admin.from("app_settings").select("value").eq("key", "episode_clean_text_controls").maybeSingle();
     const ctrl = (ctrlRow?.value || {}) as any;
     if (ctrl.enabled === false) return json({ ok: true, paused: true });
+    log = runLog(admin, "episode-clean-text-runner");
+    await log.start({ method: String(ctrl.method_version ?? "deterministic_v4") });
+
 
     const body = await req.json().catch(() => ({}));
     const batchLimit = Math.max(50, Math.min(1000, Number(body.batch ?? ctrl.batch_limit ?? 500)));
@@ -336,6 +341,7 @@ Deno.serve(async (req) => {
       // Only flip to done when the write succeeded; kept-prior rows are always safe.
       const writtenIds = new Set(upsertRows.map((r) => r.episode_id));
       const safeDone = writeOk ? doneIds : doneIds.filter((id) => !writtenIds.has(id));
+      await log.beat(`pass_${passes}_status`);
       if (safeDone.length) await updateStatus(admin, safeDone, "done");
       if (skipIds.length) await updateStatus(admin, skipIds, "skipped");
       if (quarantineIds.length) await updateStatus(admin, quarantineIds, "quarantined");
@@ -396,9 +402,11 @@ Deno.serve(async (req) => {
       }, { onConflict: "key" });
     } catch (_) { /* non-fatal */ }
 
+    await log.finish("ok", summary as any);
     return json({ ok: true, ...summary });
   } catch (e) {
     console.error("episode-clean-text-runner err", e);
+    await log?.finish("error", { runtime_ms: Date.now() - startedAt }, e instanceof Error ? e.message : String(e));
     return json({ ok: false, error: e instanceof Error ? e.message : "Unknown" }, 500);
   }
 });
