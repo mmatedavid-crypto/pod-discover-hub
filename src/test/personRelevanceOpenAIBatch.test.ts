@@ -126,17 +126,21 @@ describe("OpenAI batch adapter", () => {
     expect(isStaleClaim({ status: "claimed", created_at: "2026-10-26T20:45:00Z" }, now)).toBe(false);
     expect(isStaleClaim({ status: "submitted", created_at: "2026-10-25T00:00:00Z" }, now)).toBe(false);
   });
-  it("closes a namesake link only when both AI reviews say it is a different person", () => {
+  it("closes a link as rejected only when both AI reviews reject it", () => {
     const namesake = { ...accepted, status: "rejected", identity_match: "different_person_same_name", score: 0.9 };
     const esc = decidePolicy(namesake, source(), { model: "gpt-6-sol", identityRisk: false, allowAiRejection: false, tier: "escalation" });
     expect(esc.final_status).toBe("needs_review");
     expect(escalationFinal({ ai_suggested_status: "rejected", identity_match: "different_person_same_name" }, esc)).toBe("rejected");
-    expect(escalationFinal({ ai_suggested_status: "rejected", identity_match: "substring_false_positive" }, esc)).toBe("rejected");
+    expect(escalationFinal({ ai_suggested_status: "rejected", identity_match: "uncertain" }, esc)).toBe("rejected");
+    // Same person, but both say they are not really in the episode → closed too.
+    const notInEpisode = decidePolicy({ ...namesake, identity_match: "same_person", mention_type: "none" }, source(), { model: "m", identityRisk: false, allowAiRejection: false, tier: "escalation" });
+    expect(escalationFinal({ ai_suggested_status: "rejected", identity_match: "same_person" }, notInEpisode)).toBe("rejected");
     // Primary was only uncertain → no closing on a single AI opinion.
     expect(escalationFinal({ ai_suggested_status: "needs_review", identity_match: "uncertain" }, esc)).toBe("needs_review");
+    expect(escalationFinal({ ai_suggested_status: "accepted", identity_match: "same_person" }, esc)).toBe("needs_review");
     expect(escalationFinal(null, esc)).toBe("needs_review");
     // Escalation unsure or without a source quote → stays open.
-    const unsure = decidePolicy({ ...namesake, identity_match: "uncertain" }, source(), { model: "m", identityRisk: false, allowAiRejection: false, tier: "escalation" });
+    const unsure = decidePolicy({ ...namesake, status: "needs_review", identity_match: "uncertain" }, source(), { model: "m", identityRisk: false, allowAiRejection: false, tier: "escalation" });
     expect(escalationFinal({ ai_suggested_status: "rejected", identity_match: "different_person_same_name" }, unsure)).toBe("needs_review");
     const unquoted = decidePolicy({ ...namesake, evidence_phrases: ["nincs ilyen idézet a szövegben"] }, source(), { model: "m", identityRisk: false, allowAiRejection: false, tier: "escalation" });
     expect(escalationFinal({ ai_suggested_status: "rejected", identity_match: "different_person_same_name" }, unquoted)).toBe("needs_review");
