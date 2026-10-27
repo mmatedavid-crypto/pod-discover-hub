@@ -12809,6 +12809,7 @@ export type Database = {
       normalize_entity_alias: { Args: { input: string }; Returns: string }
       normalize_podcast_title: { Args: { s: string }; Returns: string }
       normalize_rss_url: { Args: { _url: string }; Returns: string }
+      org_brand_key_v1: { Args: { _normalized: string }; Returns: string }
       org_name_key_v1: { Args: { _s: string }; Returns: string }
       org_quality_hold_verdict_v1: {
         Args: {
