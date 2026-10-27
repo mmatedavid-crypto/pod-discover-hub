@@ -250,6 +250,9 @@ export default function PodcastDetail() {
               author: hostNamesForSeo.length
                 ? hostNamesForSeo.map((n) => ({ "@type": "Person", name: n }))
                 : undefined,
+              publisher: pub
+                ? { "@type": "Organization", name: pub.name, url: `https://podiverzum.hu/ceg/${pub.slug}` }
+                : undefined,
             },
             breadcrumbJsonLd([
               { name: "Kezdőlap", url: typeof window !== "undefined" ? window.location.origin + "/" : "/" },
@@ -334,6 +337,15 @@ export default function PodcastDetail() {
               <h1 className="mt-4 text-4xl font-semibold tracking-tight sm:text-5xl">
                 {p.display_title || p.title}
               </h1>
+
+              {publisher && (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Kiadó:{" "}
+                  <Link to={`/ceg/${publisher.slug}`} className="font-medium text-foreground underline-offset-4 hover:text-primary hover:underline">
+                    {publisher.name}
+                  </Link>
+                </p>
+              )}
 
               {description && (
                 <p className="mx-auto mt-4 max-w-3xl text-base leading-relaxed text-foreground/85 sm:mx-0 sm:text-lg">
