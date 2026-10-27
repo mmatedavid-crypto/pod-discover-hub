@@ -372,10 +372,15 @@ async function ingestJob(db: any, controls: Controls, job: any) {
   await db.from("person_relevance_batch_items").update({ status: "expired", error: "no_result_line", updated_at: new Date().toISOString() })
     .eq("job_id", job.id).eq("status", "submitted");
   if (job.tier !== "golden_eval") await db.rpc("release_person_openai_batch_job", { _job: job.id });
-  const { data: costs } = await db.from("person_relevance_batch_items").select("cost_usd,status").eq("job_id", job.id);
+  const { data: costs } = await db.from("person_relevance_batch_items").select("cost_usd,status,error").eq("job_id", job.id);
   const actual = (costs || []).reduce((n: number, r: any) => n + (Number(r.cost_usd) || 0), 0);
   const total = (costs || []).length || 1;
-  const bad = (costs || []).filter((r: any) => ["failed", "invalid", "refused"].includes(r.status)).length;
+  // Empty-balance failures of a batch submitted before the owner topped up and resumed are
+  // already explained; they must not re-pause the pipeline (they were not billed).
+  const resumedAt = Date.parse(String((controls as any).resumed_at || "")) || 0;
+  const beforeResume = !!job.submitted_at && Date.parse(job.submitted_at) < resumedAt;
+  const bad = (costs || []).filter((r: any) => ["failed", "invalid", "refused"].includes(r.status)
+    && !(beforeResume && /credit_balance_exhausted|billing/i.test(String(r.error || "")))).length;
   await db.from("person_relevance_batch_jobs").update({ status: "ingested", actual_cost_usd: actual, reserved_cost_usd: actual,
     ingested_at: new Date().toISOString(), updated_at: new Date().toISOString(), meta: { ...(job.meta || {}), anomalies, failure_rate: bad / total } }).eq("id", job.id);
   if (actual > 0) await db.rpc("add_ai_spend", { p_day: new Date().toISOString().slice(0, 10), p_kind: "person_relevance_openai", p_amount: actual, p_calls: total });
@@ -445,14 +450,14 @@ async function tickAction(db: any) {
   const { data: jobs } = await db.from("person_relevance_batch_jobs").select("tier,status,reserved_cost_usd,actual_cost_usd,request_count,created_at")
     .not("status", "in", "(draft,aborted)").limit(5000);
   const dayStart = new Date(); dayStart.setUTCHours(0, 0, 0, 0);
-  let committed = 0, today = 0, used = 0, open = 0;
+  let committed = 0, today = 0, used = 0, open = 0, openEscalation = 0;
   const lane: Record<string, number> = { primary: 0, escalation: 0 };
   for (const j of jobs || []) {
     const c = Math.max(Number(j.reserved_cost_usd) || 0, Number(j.actual_cost_usd) || 0);
     committed += c; used += Number(j.request_count) || 0;
     lane[j.tier] = (lane[j.tier] || 0) + c;
     if (new Date(j.created_at) >= dayStart) today += c;
-    if (OPEN_STATUSES.includes(j.status)) open++;
+    if (OPEN_STATUSES.includes(j.status)) { open++; if (j.tier === "escalation") openEscalation++; }
   }
   const auth = controls.authorized_pilot;
   const totalCap = Math.min(controls.total_cap_usd, Number(auth?.total_cap_usd) || 0);
@@ -463,6 +468,8 @@ async function tickAction(db: any) {
   for (const tier of ["primary", "escalation"] as const) {
     if (open >= Math.max(1, controls.max_open_jobs)) { submits.push({ tier, reason: "open_job" }); break; }
     if (tier === "escalation" && !controls.escalation_enabled) continue;
+    // OpenAI's daily batch queue for the stronger model is ~1.35M tokens: one open escalation job at a time.
+    if (tier === "escalation" && openEscalation >= 1) { submits.push({ tier, reason: "escalation_job_open" }); continue; }
     const per = tier === "primary" ? TICK_UPPER_USD_PER_PAIR : TICK_UPPER_USD_PER_ESCALATION;
     const laneCap = tier === "primary" ? Number(controls.primary_total_cap_usd ?? Number.POSITIVE_INFINITY) : Number(controls.escalation_total_cap_usd || 0);
     const avail = Math.min(totalCap - committed, dailyCap - today, laneCap - (lane[tier] || 0));
