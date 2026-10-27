@@ -126,3 +126,12 @@
 - [ ] Next classes: keyword-only matches on broad single words, natural questions matching filler words ("hogyan"), gibberish returning results.
 - [x] Weekly measurement (Mon 02:40 UTC, $1.5 cap) + Telegram alert on regression; trend on the admin search test page.
 - [ ] Re-measure after the old-vector rebuild finishes (~6 days).
+
+## Intelligent search for sentence-like queries (2026-10-27)
+- [x] Names / show titles / short topics keep the existing path (owner condition).
+- [x] AI concepts replace the hand-written synonym list for complex searches.
+- [x] Meaning-first ranking for complex searches.
+- [ ] In-episode passage search: not possible yet (only one summary chunk per episode, no passage index; transcripts private) — needs owner decision on building passage chunks.
+- [x] Final AI relevance check of top 24 (public metadata only), cached per query.
+- [x] Honest "nothing really matches" result + search-page message (frontend needs publish).
+- [ ] Full 557-search measurement vs. "After 3" baseline; keep only if holdout improves and names/shows/recency do not regress.
