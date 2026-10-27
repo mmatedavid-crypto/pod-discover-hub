@@ -6871,6 +6871,30 @@ export type Database = {
           },
         ]
       }
+      person_openai_batch_candidate_pool: {
+        Row: {
+          episode_id: string
+          is_public_person: boolean
+          person_id: string
+          published_at: string | null
+          refreshed_at: string
+        }
+        Insert: {
+          episode_id: string
+          is_public_person?: boolean
+          person_id: string
+          published_at?: string | null
+          refreshed_at?: string
+        }
+        Update: {
+          episode_id?: string
+          is_public_person?: boolean
+          person_id?: string
+          published_at?: string | null
+          refreshed_at?: string
+        }
+        Relationships: []
+      }
       person_podcast_map: {
         Row: {
           confidence: number
@@ -13146,6 +13170,10 @@ export type Database = {
         Returns: Json
       }
       refresh_person_activation_status: { Args: never; Returns: Json }
+      refresh_person_openai_batch_candidate_pool_v1: {
+        Args: never
+        Returns: Json
+      }
       refresh_podcast_publishers_v1: { Args: never; Returns: Json }
       refresh_reddit_name_index: { Args: never; Returns: undefined }
       refresh_search_golden_queries_from_catalog: {
