@@ -220,7 +220,7 @@ async function processItem(admin: any, run: any, item: any) {
       spent += cal.cost;
     } else if (!("capped" in cal)) spent += cal.cost || 0;
   }
-  const scores = primary.parsed.grades.map((g) => g.score);
+  const scores = (primary.parsed.grades as Array<{ score: number }>).map((g) => g.score);
   return {
     status: "done", results, judgments: { model: primaryModel, ...primary.parsed }, calibration,
     metrics: itemMetrics(scores), diagnostics, latency, cost: spent,
