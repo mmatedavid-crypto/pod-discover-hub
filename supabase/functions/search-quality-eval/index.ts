@@ -288,7 +288,10 @@ async function tick(admin: any, body: any, startedAt: number) {
   const { data: run } = body.run_id
     ? await q.eq("id", body.run_id).maybeSingle()
     : await q.eq("status", "open").order("created_at", { ascending: true }).limit(1).maybeSingle();
-  if (!run) return { skipped: true, reason: body.run_id ? "run_not_found" : "no_open_run" };
+  if (!run) {
+    await admin.rpc("stop_search_quality_drain_v1");
+    return { skipped: true, reason: body.run_id ? "run_not_found" : "no_open_run" };
+  }
   if (run.status !== "open") return { skipped: true, status: run.status };
   const concurrency = Math.min(4, Math.max(1, Number(body.concurrency) || 3));
   let processed = 0, failed = 0, capped = false;
@@ -326,6 +329,7 @@ async function tick(admin: any, body: any, startedAt: number) {
     .eq("run_id", run.id).in("status", ["pending", "claimed"]);
   const { data: fresh } = await admin.from("search_quality_runs").select("cost_used_usd,cost_cap_usd").eq("id", run.id).single();
   const finalized = remaining === 0 ? (await finalize(admin, { run_id: run.id })).complete : false;
+  if (finalized) await admin.rpc("stop_search_quality_drain_v1");
   return { run_id: run.id, processed, failed, capped, remaining, finalized, cost_used_usd: fresh?.cost_used_usd, cost_cap_usd: fresh?.cost_cap_usd };
 }
 

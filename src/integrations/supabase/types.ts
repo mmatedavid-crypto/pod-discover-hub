@@ -13794,6 +13794,7 @@ export type Database = {
         Args: { p_hours?: number; p_reason?: string }
         Returns: Json
       }
+      stop_search_quality_drain_v1: { Args: never; Returns: boolean }
       suggest_token_corrections: {
         Args: { p_tokens: string[] }
         Returns: {
