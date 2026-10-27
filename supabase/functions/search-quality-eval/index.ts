@@ -11,6 +11,7 @@ import {
   itemMetrics, JUDGE_PROMPT_VERSION, JUDGE_TOOL, judgeAgreement, parseJudgment, REC_FAILURE_REASONS,
   SEARCH_FAILURE_REASONS, shouldCalibrate, splitFor, stripText,
 } from "../_shared/search-quality-eval.ts";
+import { detectTemporalIntent } from "../_shared/search-temporal.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -82,7 +83,7 @@ function compactFromRec(e: any, idx: number): CompactResult {
   };
 }
 
-async function judge(admin: any, runId: string, model: string, messages: any[], n: number, reasons: readonly string[], targetId: string) {
+async function judge(admin: any, runId: string, model: string, messages: any[], n: number, reasons: readonly string[], targetId: string, allowStale: boolean) {
   const inChars = messages.reduce((a, m) => a + String(m.content).length, 0);
   const estIn = Math.ceil(inChars / 3) + 300;
   const reserve = cost(model, estIn, 1200) * 1.3;
@@ -99,8 +100,8 @@ async function judge(admin: any, runId: string, model: string, messages: any[], 
     actual = cost(model, res.input_tokens || estIn, res.output_tokens || 0);
     if (!res.ok) return { error: res.error || `HTTP ${res.status}`, cost: actual };
     const call = res.data?.choices?.[0]?.message?.tool_calls?.[0];
-    const parsed = parseJudgment(call?.function?.arguments ?? null, n, reasons);
-    if (!parsed) return { error: "invalid_judgment", cost: actual };
+    const parsed = parseJudgment(call?.function?.arguments ?? null, n, reasons, allowStale);
+    if (!parsed) return { error: `invalid_judgment: ${String(call?.function?.arguments ?? res.data?.choices?.[0]?.message?.content ?? "").slice(0, 160)}`, cost: actual };
     return { parsed, cost: actual };
   } finally {
     await admin.rpc("settle_search_quality_cost_v1", { p_run_id: runId, p_delta: actual - reserve });
@@ -108,6 +109,18 @@ async function judge(admin: any, runId: string, model: string, messages: any[], 
 }
 
 async function runSearch(query: string) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await runSearchOnce(query);
+    } catch (e) {
+      const msg = String((e as Error)?.message || e);
+      if (attempt >= 4 || !/rate limit|HTTP 429|HTTP 546|HTTP 503/i.test(msg)) throw e;
+      await new Promise((r) => setTimeout(r, 1500 * attempt));
+    }
+  }
+}
+
+async function runSearchOnce(query: string) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 30_000);
   const t0 = Date.now();
@@ -137,13 +150,15 @@ async function processItem(admin: any, run: any, item: any) {
   let latency = 0;
   let messages: any[];
   let reasons: readonly string[];
+  let allowStale = false;
 
   if (item.kind === "search") {
     const { data, latency: l } = await runSearch(item.query);
     latency = l;
     results = (data?.episodes || []).slice(0, 10).map(compactFromSearch);
     diagnostics = {
-      semantic: !!data?.semantic, reranked: !!data?.reranked, cache_hit: !!data?.cache_hit,
+      semantic: !!data?.semantic, reranked: !!data?.reranked, cohere: !!data?.cohere_used, cache_hit: !!data?.cache_hit,
+      curated_synonyms: data?.curated_synonyms ?? null, engine: data?.engine ?? null,
       confidence_band: data?.confidence_band ?? null, total: (data?.episodes || []).length,
       temporal_intent: data?.temporal_intent ?? null, intent: data?.understanding?.intent ?? null,
       expanded: data?.understanding?.expanded_terms ?? data?.understanding?.synonyms ?? null,
@@ -152,8 +167,10 @@ async function processItem(admin: any, run: any, item: any) {
       degraded_for_latency: !!data?.degraded_for_latency,
       why: (data?.episodes || []).slice(0, 10).map((e: any) => e.why_matched ?? null),
     };
-    messages = buildSearchJudgeMessages(item.query, today, results);
+    const temporal = detectTemporalIntent(item.query);
+    messages = buildSearchJudgeMessages(item.query, today, results, temporal?.windowDays ?? null);
     reasons = SEARCH_FAILURE_REASONS;
+    allowStale = !!temporal;
   } else {
     const rpc = item.query === "related_embedding" ? "get_related_episodes_by_embedding" : "similar_episodes";
     const args = rpc === "similar_episodes"
@@ -179,13 +196,13 @@ async function processItem(admin: any, run: any, item: any) {
     return { status: "done", results, judgments: { query_type: null, grades: [] }, metrics: itemMetrics([]), diagnostics, latency, cost: 0 };
   }
 
-  const primary = await judge(admin, run.id, JUDGE_MODEL, messages, results.length, reasons, item.id);
+  const primary = await judge(admin, run.id, JUDGE_MODEL, messages, results.length, reasons, item.id, allowStale);
   if ("capped" in primary) return { capped: true };
   if (!primary.parsed) return { status: "failed", error: primary.error, cost: primary.cost, results, diagnostics, latency };
   let calibration: any = null;
   let spent = primary.cost;
   if (item.calibrate) {
-    const cal = await judge(admin, run.id, CALIBRATION_MODEL, messages, results.length, reasons, item.id);
+    const cal = await judge(admin, run.id, CALIBRATION_MODEL, messages, results.length, reasons, item.id, allowStale);
     if (!("capped" in cal) && cal.parsed) {
       calibration = { model: CALIBRATION_MODEL, ...cal.parsed, agreement: judgeAgreement(primary.parsed.grades, cal.parsed.grades) };
       spent += cal.cost;
@@ -288,10 +305,11 @@ async function tick(admin: any, body: any, startedAt: number) {
           return;
         }
         const finalStatus = out.status === "failed" && item.attempts < 3 ? "pending" : out.status;
+        const retryAt = finalStatus === "pending" ? new Date(Date.now() + 120_000).toISOString() : null;
         await admin.from("search_quality_items").update({
           status: finalStatus, results: out.results ?? null, judgments: out.judgments ?? null, calibration: out.calibration ?? null,
           metrics: out.metrics ?? null, diagnostics: out.diagnostics ?? null, latency_ms: out.latency ?? null,
-          cost_usd: Number(item.cost_usd || 0) + Number(out.cost || 0), error: out.error ?? null, lease_until: null,
+          cost_usd: Number(item.cost_usd || 0) + Number(out.cost || 0), error: out.error ?? null, lease_until: retryAt,
           updated_at: new Date().toISOString(),
         }).eq("id", item.id).eq("status", "claimed");
         if (out.status === "failed") failed++; else processed++;
@@ -299,7 +317,7 @@ async function tick(admin: any, body: any, startedAt: number) {
         failed++;
         await admin.from("search_quality_items").update({
           status: item.attempts >= 3 ? "failed" : "pending", error: String((e as Error)?.message || e).slice(0, 300),
-          lease_until: null, updated_at: new Date().toISOString(),
+          lease_until: item.attempts >= 3 ? null : new Date(Date.now() + 120_000).toISOString(), updated_at: new Date().toISOString(),
         }).eq("id", item.id).eq("status", "claimed");
       }
     }));

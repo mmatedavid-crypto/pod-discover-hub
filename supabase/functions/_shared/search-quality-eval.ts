@@ -124,13 +124,15 @@ export function aggregateMetrics(rows: MetricRow[]) {
   };
 }
 
-export function buildSearchJudgeMessages(query: string, today: string, results: CompactResult[]) {
+export function buildSearchJudgeMessages(query: string, today: string, results: CompactResult[], recencyWindowDays: number | null = null) {
   const system = [
     "You grade search results of Podiverzum, a Hungarian podcast search engine. Be strict and literal.",
     "For each result give score: 2 = the episode is clearly about what the searcher wants;",
     "1 = partially or tangentially related (useful but not on target); 0 = not about it (shares only a word, a loose synonym, or a different subject).",
     "Rules: a podcast or person name query → episodes of that podcast / featuring that person score 2, a different person or show with a similar name scores 0 (reason wrong_entity).",
-    "If the query asks for recent things (mostanában, a héten, legfrissebb, idén...) an on-topic episode older than ~3 months scores at most 1 (reason stale).",
+    recencyWindowDays
+      ? `This query asks for RECENT content: an on-topic episode published more than ${recencyWindowDays} days before today scores at most 1 (reason stale).`
+      : "This query does NOT ask for recent content: ignore publication dates completely and never use reason stale.",
     "A broad daily news bulletin that merely lists the topic among many scores at most 1 (reason generic_news).",
     "For every score below 2 give a reason from: " + SEARCH_FAILURE_REASONS.join(", ") + ".",
     "Also classify the query into one query_type from: " + QUERY_TYPES.join(", ") + ".",
@@ -194,6 +196,7 @@ export function parseJudgment(
   raw: unknown,
   n: number,
   allowedReasons: readonly string[],
+  allowStale = true,
 ): { query_type: QueryType; grades: Judgment[] } | null {
   let obj: any = raw;
   if (typeof raw === "string") {
@@ -201,14 +204,18 @@ export function parseJudgment(
   }
   if (!obj || !Array.isArray(obj.grades)) return null;
   const byIdx = new Map<number, Judgment>();
+  // Accept a consistently 1-based reply (1..n) by shifting it; anything else must be 0..n-1.
+  const rawIdx = obj.grades.map((g: any) => Number(g?.idx));
+  const oneBased = n > 0 && !rawIdx.includes(0) && rawIdx.includes(n);
   for (const g of obj.grades) {
-    const idx = Number(g?.idx);
+    const idx = Number(g?.idx) - (oneBased ? 1 : 0);
     const score = Number(g?.score);
     if (!Number.isInteger(idx) || idx < 0 || idx >= n) return null;
     if (![0, 1, 2].includes(score)) return null;
     if (byIdx.has(idx)) return null;
     const reasonRaw = typeof g?.reason === "string" ? g.reason.trim() : "";
-    const reason = score === 2 ? null : (allowedReasons.includes(reasonRaw) ? reasonRaw : "other");
+    let reason = score === 2 ? null : (allowedReasons.includes(reasonRaw) ? reasonRaw : "other");
+    if (reason === "stale" && !allowStale) reason = "other";
     byIdx.set(idx, { idx, score: score as 0 | 1 | 2, reason });
   }
   if (byIdx.size !== n) return null;
