@@ -101,7 +101,7 @@ async function judge(admin: any, runId: string, model: string, messages: any[], 
     if (!res.ok) return { error: res.error || `HTTP ${res.status}`, cost: actual };
     const call = res.data?.choices?.[0]?.message?.tool_calls?.[0];
     const parsed = parseJudgment(call?.function?.arguments ?? null, n, reasons, allowStale);
-    if (!parsed) return { error: `invalid_judgment: ${String(call?.function?.arguments ?? res.data?.choices?.[0]?.message?.content ?? "").slice(0, 160)}`, cost: actual };
+    if (!parsed) return { error: `invalid_judgment: ${String(call?.function?.arguments ?? res.data?.choices?.[0]?.message?.content ?? "").slice(-200)}`, cost: actual };
     return { parsed, cost: actual };
   } finally {
     await admin.rpc("settle_search_quality_cost_v1", { p_run_id: runId, p_delta: actual - reserve });

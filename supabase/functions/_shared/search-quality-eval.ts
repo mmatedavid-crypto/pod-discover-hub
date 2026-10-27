@@ -210,9 +210,11 @@ export function parseJudgment(
   for (const g of obj.grades) {
     const idx = Number(g?.idx) - (oneBased ? 1 : 0);
     const score = Number(g?.score);
-    if (!Number.isInteger(idx) || idx < 0 || idx >= n) return null;
+    // Extra out-of-range rows or repeated rows are ignored (first one wins);
+    // every index 0..n-1 must still be graded exactly once with 0/1/2.
+    if (!Number.isInteger(idx) || idx < 0 || idx >= n) continue;
+    if (byIdx.has(idx)) continue;
     if (![0, 1, 2].includes(score)) return null;
-    if (byIdx.has(idx)) return null;
     const reasonRaw = typeof g?.reason === "string" ? g.reason.trim() : "";
     let reason = score === 2 ? null : (allowedReasons.includes(reasonRaw) ? reasonRaw : "other");
     if (reason === "stale" && !allowStale) reason = "other";

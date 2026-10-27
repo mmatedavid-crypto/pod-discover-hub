@@ -37,6 +37,7 @@ describe("search quality evaluation rules", () => {
     const r = SEARCH_FAILURE_REASONS;
     expect(parseJudgment({ query_type: "topic", grades: [{ idx: 0, score: 2 }] }, 2, r)).toBeNull();
     expect(parseJudgment({ query_type: "topic", grades: [{ idx: 0, score: 2 }, { idx: 0, score: 1 }] }, 2, r)).toBeNull();
+    expect(parseJudgment({ query_type: "topic", grades: [{ idx: 0, score: 2 }, { idx: 0, score: 0 }, { idx: 1, score: 1 }, { idx: 7, score: 0 }] }, 2, r)?.grades.map((g) => g.score)).toEqual([2, 1]);
     expect(parseJudgment({ query_type: "topic", grades: [{ idx: 0, score: 3 }] }, 1, r)).toBeNull();
     const ok = parseJudgment(JSON.stringify({ query_type: "topic", grades: [{ idx: 1, score: 0, reason: "made_up" }, { idx: 0, score: 2, reason: "stale" }] }), 2, r);
     expect(ok?.grades).toEqual([{ idx: 0, score: 2, reason: null }, { idx: 1, score: 0, reason: "other" }]);
