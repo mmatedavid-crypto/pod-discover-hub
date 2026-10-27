@@ -16,6 +16,11 @@ import { episodeExactFields, exactCleanTextTsQuery, exactMatchLabel, exactPhrase
 import { detectTemporalIntent, isTemporalToken, preferWithinWindow } from "../_shared/search-temporal.ts";
 import { podcastPinAllowed, wordAlignedMatch } from "../_shared/search-podcast-pin.ts";
 import { rankByTermCoverage } from "../_shared/search-term-coverage.ts";
+import {
+  applyVerification, buildVerifyMessages, cleanConcepts, complexLexicalQuery, complexSemanticText, isNameOnlyQuery,
+  looksComplex, meaningfulTokens, parseVerifyGrades, useComplexPath, VERIFY_CACHE_VERSION, VERIFY_MAX_CANDIDATES,
+  VERIFY_PROMPT_VERSION, VERIFY_TOOL, type VerifyCandidate, type VerifyGrade,
+} from "../_shared/search-complex.ts";
 
 // Per-query cap for the person-first branch; a slow source degrades to fewer
 // results instead of pushing the request past the client timeout.
@@ -1132,11 +1137,16 @@ Deno.serve(async (req) => {
     let degradedForLatency = false;
     const markLatencyDegrade = () => { degradedForLatency = true; };
     let qNorm = normalizeQ(q);
-    const naturalQuestion = deriveNaturalQuestionPlan(q, qNorm);
+    let naturalQuestion = deriveNaturalQuestionPlan(q, qNorm);
     const temporal = detectTemporalIntent(q);
     const marketSymbol = compactMarketSymbol(q);
     const symbolAliases = marketSymbol ? (MARKET_SYMBOL_ALIASES[marketSymbol.toLowerCase()] || []) : [];
     const isTickerQ = !!marketSymbol && !COMMON_NON_TICKER_ACRONYMS.has(marketSymbol);
+    // Sentence-like searches get the complex path; names and short topics stay on the
+    // existing path unchanged. Owner kill switch: app_settings.search_engine.complex_search_enabled.
+    const complexEnabled = engineCfg.complex_search_enabled !== false;
+    const complexShapeInput = { qNorm, isQuestion: naturalQuestion.isQuestion, isStopword: (t: string) => RARE_GATE_STOPWORDS.has(t) || HU_NLQ_FILLER.has(t), isTemporal: isTemporalToken };
+    const complexShape = complexEnabled && !isBot && !isTickerQ && looksComplex(complexShapeInput);
 
     // Latency: start the slow independent work (cache read, LLM understanding,
     // query embedding, curated synonyms) BEFORE the entity-pin chain. None of
@@ -1159,7 +1169,7 @@ Deno.serve(async (req) => {
     })();
     const understandPromise = isBot
       ? Promise.resolve(null)
-      : understandQuery(q, 1800).catch((e) => { console.warn("understand err", e); return null; });
+      : understandQuery(q, complexShape ? 2400 : 1800, complexShape ? "complex" : "default").catch((e) => { console.warn("understand err", e); return null; });
     const embedPromise = isBot
       ? Promise.resolve(null)
       : embed(q, 2200).catch((e) => { console.warn("embed err", e); return null; });
@@ -1376,6 +1386,16 @@ Deno.serve(async (req) => {
       FF.cohere = false;
     }
 
+    const complexQuery = useComplexPath({
+      shapeComplex: complexShape,
+      isBot,
+      isTicker: isTickerQ,
+      isPersonNameQuery,
+      hardPodcastPin: !!(earlyPodcastPin && !earlyPodcastPin.soft),
+      nameOnly: isNameOnlyQuery(meaningfulTokens(complexShapeInput), catalogAnchors, foldSearchName),
+      enabled: complexEnabled,
+    });
+
 
 
 
@@ -1384,6 +1404,7 @@ Deno.serve(async (req) => {
     let understanding: Understanding | null = null;
     let q_embedding: number[] | null = null;
     let cachedRerank: { ids: string[]; why: Record<string, string> } | null = null;
+    let cachedVerify: Record<string, VerifyGrade> | null = null;
     let cacheHit = false;
     try {
       const { data: cached } = await cachePromise;
@@ -1393,7 +1414,9 @@ Deno.serve(async (req) => {
       const cuv = (cached?.understanding as any)?.__uv;
       const understandingFresh = cached && cached.updated_at
         && Date.now() - new Date(cached.updated_at).getTime() < 7 * 24 * 3600 * 1000
-        && (cuv === undefined || Number(cuv) >= UNDERSTANDING_VERSION);
+        && (cuv === undefined || Number(cuv) >= UNDERSTANDING_VERSION)
+        // Complex searches need the concept-aware reading; older rows lack it.
+        && (!complexShape || (cached.understanding as any)?.mode === "complex");
       if (understandingFresh) {
         understanding = cached.understanding as Understanding;
         if (typeof cached.embedding === "string") {
@@ -1410,6 +1433,11 @@ Deno.serve(async (req) => {
       const rerankFresh = cached?.rerank && cached.rerank_updated_at
         && Date.now() - new Date(cached.rerank_updated_at).getTime() < 24 * 3600 * 1000
         && (crv === undefined ? false : Number(crv) >= RANKING_VERSION);
+      const rv = cached?.rerank as any;
+      if (rv?.verify && typeof rv.verify === "object" && Number(rv.__vv) === VERIFY_CACHE_VERSION && cached?.rerank_updated_at
+        && Date.now() - new Date(cached.rerank_updated_at).getTime() < 24 * 3600 * 1000) {
+        cachedVerify = rv.verify as Record<string, VerifyGrade>;
+      }
       if (rerankFresh) {
         const r = cached.rerank as any;
         if (Array.isArray(r?.ids) && r.ids.length) {
@@ -1452,6 +1480,29 @@ Deno.serve(async (req) => {
       if (q_embedding && hasBudget(5200) && naturalQuestion.semanticText.length > q.length + 20) {
         const nlqEmbedding = await embed(naturalQuestion.semanticText, 1200);
         if (nlqEmbedding) q_embedding = blendEmbeddings(q_embedding, nlqEmbedding, 0.52);
+        else markLatencyDegrade();
+      }
+    }
+    // Complex searches: AI concepts replace the hand-written synonym list, and the
+    // meaning of the request (query + concepts) drives the semantic side.
+    const complexConcepts = complexQuery
+      ? cleanConcepts([...(understanding?.concepts || []), understanding?.core_topic || ""].filter(Boolean), foldSearchName, isTemporalToken)
+      : [];
+    let complexLexQ: string | null = null;
+    if (complexQuery && complexConcepts.length) {
+      complexLexQ = complexLexicalQuery(q, naturalQuestion.isQuestion, complexConcepts, naturalQuestion.isQuestion ? naturalQuestion.coreTerms : meaningfulTokens(complexShapeInput).slice(0, 6));
+      if (naturalQuestion.isQuestion) {
+        naturalQuestion = { ...naturalQuestion, expandedTerms: complexConcepts, lexicalQuery: complexLexQ, semanticText: complexSemanticText(q, complexConcepts) };
+      }
+      if (understanding) {
+        understanding = {
+          ...understanding,
+          expanded_terms: uniqueClean([...complexConcepts, ...((understanding.expanded_terms as string[]) || [])], 10),
+        };
+      }
+      if (q_embedding && hasBudget(5200) && !naturalQuestion.isQuestion) {
+        const conceptEmbedding = await embed(complexSemanticText(q, complexConcepts), 1200);
+        if (conceptEmbedding) q_embedding = blendEmbeddings(q_embedding, conceptEmbedding, 0.52);
         else markLatencyDegrade();
       }
     }
