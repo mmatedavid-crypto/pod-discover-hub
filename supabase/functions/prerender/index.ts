@@ -1877,12 +1877,12 @@ async function buildOrganization(
     .select("id, name, slug, logo_url, ai_bio, wikipedia_extract, short_description_hu, is_public, is_indexable, ai_review_status, ai_duplicate_of_organization_id")
     .eq("slug", slug)
     .maybeSingle();
-  // A merged duplicate (e.g. telex.hu → Telex) permanently redirects to the canonical page.
-  if (org?.ai_duplicate_of_organization_id) {
-    const { data: dst } = await (supabase as any).from("organizations")
-      .select("slug, is_public").eq("id", org.ai_duplicate_of_organization_id).maybeSingle();
-    if (dst?.slug && dst.is_public !== false && dst.slug !== slug) {
-      return new Response(null, { status: 301, headers: { Location: `${SITE}/ceg/${dst.slug}`, "Cache-Control": "public, max-age=3600" } });
+  // A merged duplicate (e.g. telex.hu → Telex) permanently redirects to the canonical page. The hidden
+  // row is not readable here, so the canonical slug comes from resolve_org_redirect_v1.
+  if (!org || org.ai_duplicate_of_organization_id) {
+    const { data: target } = await (supabase as any).rpc("resolve_org_redirect_v1", { _slug: slug });
+    if (typeof target === "string" && target && target !== slug) {
+      return new Response(null, { status: 301, headers: { Location: `${SITE}/ceg/${target}`, "Cache-Control": "public, max-age=3600" } });
     }
   }
   if (!org || org.is_public === false) return null;
