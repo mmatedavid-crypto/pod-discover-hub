@@ -2263,7 +2263,8 @@ Deno.serve(async (req) => {
     // Query-term coverage: results covering every query word (or, for one-word queries,
     // carrying it in title/show/tags) first. Name, show-pin and recency invariants below still win.
     let termCoverage: string | null = null;
-    if (!isTickerQ) {
+    // Not for question-style searches: measured worse there (top-1 0.58 → 0.47 on 19 questions).
+    if (!isTickerQ && !naturalQuestion.isQuestion) {
       const tc = rankByTermCoverage(ordered, q, { window: 30, minStrong: 3 });
       ordered = tc.list;
       termCoverage = tc.applied;
