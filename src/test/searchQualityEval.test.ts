@@ -42,6 +42,13 @@ describe("search quality evaluation rules", () => {
     expect(ok?.grades).toEqual([{ idx: 0, score: 2, reason: null }, { idx: 1, score: 0, reason: "other" }]);
   });
 
+  it("accepts a consistently 1-based reply and drops 'stale' when the query has no recency words", () => {
+    const r = SEARCH_FAILURE_REASONS;
+    const out = parseJudgment({ query_type: "topic", grades: [{ idx: 1, score: 1, reason: "stale" }, { idx: 2, score: 2 }] }, 2, r, false);
+    expect(out?.grades).toEqual([{ idx: 0, score: 1, reason: "other" }, { idx: 1, score: 2, reason: null }]);
+    expect(parseJudgment({ query_type: "temporal", grades: [{ idx: 0, score: 1, reason: "stale" }] }, 1, r, true)?.grades[0].reason).toBe("stale");
+  });
+
   it("measures agreement between the two judges on the relevant/not-relevant line", () => {
     const a = judgeAgreement(
       [{ idx: 0, score: 2, reason: null }, { idx: 1, score: 1, reason: "other" }],
