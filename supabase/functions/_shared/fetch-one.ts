@@ -4,6 +4,7 @@
 import { parseFeed } from "./rss.ts";
 import { slugify as slugifyShared } from "./slug.ts";
 import { countLinks, linkIdentifiesItem, newestFirst } from "./feed-item-policy.ts";
+import { parseChannelMeta } from "./podcast-channel-meta.ts";
 
 function slugify(s: string) {
   return slugifyShared(s, "episode");
@@ -135,6 +136,17 @@ export async function fetchOne(supabase: any, podcast: any, opts: { episodeCap?:
   if (newFeedUrl && newFeedUrl !== podcast.rss_url) {
     await recordRssUrlChange(supabase, podcast.id, podcast.rss_url, newFeedUrl, "itunes_new_feed_url");
   }
+
+  // Publisher fields (author / owner / copyright / link) feed refresh_podcast_publishers_v1.
+  try {
+    const meta = parseChannelMeta(xml);
+    if (meta.author || meta.owner_name || meta.copyright || meta.channel_link || meta.owner_email_domain) {
+      await supabase.from("podcast_channel_meta").upsert(
+        { podcast_id: podcast.id, ...meta, updated_at: new Date().toISOString() },
+        { onConflict: "podcast_id" },
+      );
+    }
+  } catch { /* telemetry-grade: never blocks ingestion */ }
 
   // Quick non-EN gate: if the feed's <language> declares a clearly non-English
   // language, set podcasts.language so EN-only public surfaces hide it.

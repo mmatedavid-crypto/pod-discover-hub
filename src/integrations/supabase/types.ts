@@ -5297,6 +5297,54 @@ export type Database = {
           },
         ]
       }
+      organization_merge_log: {
+        Row: {
+          added_alias_ids: string[]
+          dropped_map_rows: Json
+          dst_before: Json
+          dst_id: string
+          id: string
+          merged_at: string
+          moved_alias_ids: string[]
+          note: string | null
+          src_before: Json
+          src_id: string
+          src_map_rows: Json
+          undone_at: string | null
+          upgraded_dst_map_ids: string[]
+        }
+        Insert: {
+          added_alias_ids?: string[]
+          dropped_map_rows?: Json
+          dst_before: Json
+          dst_id: string
+          id?: string
+          merged_at?: string
+          moved_alias_ids?: string[]
+          note?: string | null
+          src_before: Json
+          src_id: string
+          src_map_rows?: Json
+          undone_at?: string | null
+          upgraded_dst_map_ids?: string[]
+        }
+        Update: {
+          added_alias_ids?: string[]
+          dropped_map_rows?: Json
+          dst_before?: Json
+          dst_id?: string
+          id?: string
+          merged_at?: string
+          moved_alias_ids?: string[]
+          note?: string | null
+          src_before?: Json
+          src_id?: string
+          src_map_rows?: Json
+          undone_at?: string | null
+          upgraded_dst_map_ids?: string[]
+        }
+        Relationships: []
+      }
       organization_quality_hold_log: {
         Row: {
           action: string
@@ -7809,6 +7857,72 @@ export type Database = {
         }
         Relationships: []
       }
+      podcast_channel_meta: {
+        Row: {
+          author: string | null
+          channel_link: string | null
+          copyright: string | null
+          owner_email_domain: string | null
+          owner_name: string | null
+          podcast_id: string
+          updated_at: string
+        }
+        Insert: {
+          author?: string | null
+          channel_link?: string | null
+          copyright?: string | null
+          owner_email_domain?: string | null
+          owner_name?: string | null
+          podcast_id: string
+          updated_at?: string
+        }
+        Update: {
+          author?: string | null
+          channel_link?: string | null
+          copyright?: string | null
+          owner_email_domain?: string | null
+          owner_name?: string | null
+          podcast_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "podcast_channel_meta_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: true
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "podcast_channel_meta_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: true
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "podcast_channel_meta_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: true
+            referencedRelation: "podcasts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "podcast_channel_meta_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: true
+            referencedRelation: "v_hu_archive_completeness"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "podcast_channel_meta_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: true
+            referencedRelation: "v_youtube_native_transcript_candidates"
+            referencedColumns: ["podcast_id"]
+          },
+        ]
+      }
       podcast_charts: {
         Row: {
           country: string
@@ -8200,6 +8314,82 @@ export type Database = {
             foreignKeyName: "podcast_outreach_contacts_podcast_id_fkey"
             columns: ["podcast_id"]
             isOneToOne: true
+            referencedRelation: "v_youtube_native_transcript_candidates"
+            referencedColumns: ["podcast_id"]
+          },
+        ]
+      }
+      podcast_publishers: {
+        Row: {
+          created_at: string
+          evidence: Json
+          organization_id: string
+          podcast_id: string
+          sources: string[]
+          status: string
+          strength: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          evidence?: Json
+          organization_id: string
+          podcast_id: string
+          sources?: string[]
+          status: string
+          strength?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          evidence?: Json
+          organization_id?: string
+          podcast_id?: string
+          sources?: string[]
+          status?: string
+          strength?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "podcast_publishers_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "podcast_publishers_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "podcast_publishers_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "podcast_publishers_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "podcasts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "podcast_publishers_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "v_hu_archive_completeness"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "podcast_publishers_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
             referencedRelation: "v_youtube_native_transcript_candidates"
             referencedColumns: ["podcast_id"]
           },
@@ -12599,6 +12789,10 @@ export type Database = {
         Args: { _canonical_id: string; _duplicate_id: string; _reason?: string }
         Returns: Json
       }
+      merge_organization_into_v1: {
+        Args: { _dst: string; _note?: string; _src: string }
+        Returns: Json
+      }
       merge_organizations: {
         Args: { p_dst: string; p_note?: string; p_src: string }
         Returns: Json
@@ -12615,6 +12809,7 @@ export type Database = {
       normalize_entity_alias: { Args: { input: string }; Returns: string }
       normalize_podcast_title: { Args: { s: string }; Returns: string }
       normalize_rss_url: { Args: { _url: string }; Returns: string }
+      org_name_key_v1: { Args: { _s: string }; Returns: string }
       org_quality_hold_verdict_v1: {
         Args: {
           _astra: Json
@@ -12783,6 +12978,11 @@ export type Database = {
         Args: { _batch?: number; _keep_days?: number }
         Returns: number
       }
+      publisher_domain_label_v1: {
+        Args: { _url_or_host: string }
+        Returns: string
+      }
+      publisher_name_key_v1: { Args: { _s: string }; Returns: string }
       purge_search_query_cache: {
         Args: { older_than_days?: number }
         Returns: number
@@ -12906,6 +13106,7 @@ export type Database = {
         Returns: Json
       }
       refresh_person_activation_status: { Args: never; Returns: Json }
+      refresh_podcast_publishers_v1: { Args: never; Returns: Json }
       refresh_reddit_name_index: { Args: never; Returns: undefined }
       refresh_search_golden_queries_from_catalog: {
         Args: { p_limit_per_type?: number; p_popular_limit?: number }
@@ -13452,6 +13653,7 @@ export type Database = {
       }
       transcript_source_class_v1: { Args: { p_model: string }; Returns: string }
       unaccent: { Args: { "": string }; Returns: string }
+      undo_organization_merge_v1: { Args: { _log_id: string }; Returns: Json }
       update_page_event_dwell: {
         Args: { _dwell_ms: number; _id: string }
         Returns: undefined

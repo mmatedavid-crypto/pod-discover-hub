@@ -717,6 +717,14 @@ async function buildPodcast(
       .limit(10000),
     podcastHostNamesForPrerender(supabase, pod.id, pod.hosts),
   ]);
+  const { data: pubRow } = await (supabase as any)
+    .from("podcast_publishers")
+    .select("strength, organizations!inner(slug, name, is_public)")
+    .eq("podcast_id", pod.id)
+    .in("status", ["accepted", "manual_accepted"])
+    .order("strength", { ascending: false })
+    .limit(1);
+  const publisherOrg = pubRow?.[0]?.organizations?.is_public ? pubRow[0].organizations : null;
   // Aggregate episodes per year for the "Évek archívuma" deep-link block — feeds
   // /podcast/:slug/epizodok/:year prerender, which already exists.
   const yearTally = new Map<number, number>();
@@ -832,6 +840,9 @@ async function buildPodcast(
     author: hostNamesForSeo.length
       ? hostNamesForSeo.map((name) => ({ "@type": "Person", name }))
       : undefined,
+    publisher: publisherOrg
+      ? { "@type": "Organization", name: publisherOrg.name, url: `${SITE}/ceg/${publisherOrg.slug}` }
+      : undefined,
   };
   const itemList = {
     "@context": "https://schema.org",
@@ -862,7 +873,7 @@ async function buildPodcast(
       ogImage: pod.image_url,
       jsonLd: [series, itemList, breadcrumb],
       bodyHtml: `<article>
-<header><h1>${esc(pod.display_title || pod.title)}${alreadyHasPodcast ? "" : " podcast"}</h1>${pod.category ? `<p><em>${esc(pod.category)}</em></p>` : ""}<p><strong>${esc(seoNameWithKeyword)}</strong>${epCount ? ` — ${epCount} epizód` : ""} a Podiverzumon. Hallgasd online, böngészd a kereshető AI-összefoglalókat, az említett személyeket és témákat.</p></header>
+<header><h1>${esc(pod.display_title || pod.title)}${alreadyHasPodcast ? "" : " podcast"}</h1>${pod.category ? `<p><em>${esc(pod.category)}</em></p>` : ""}${publisherOrg ? `<p>Kiadó: <a href="${SITE}/ceg/${esc(publisherOrg.slug)}">${esc(publisherOrg.name)}</a></p>` : ""}<p><strong>${esc(seoNameWithKeyword)}</strong>${epCount ? ` — ${epCount} epizód` : ""} a Podiverzumon. Hallgasd online, böngészd a kereshető AI-összefoglalókat, az említett személyeket és témákat.</p></header>
 ${longDesc ? `<section><h2>A műsorról</h2><p>${esc(longDesc)}</p></section>` : ""}
 <section><h2>Epizódok</h2><ul>${epHtml}</ul></section>
 ${entitySectionHtml}
@@ -1863,33 +1874,60 @@ async function buildOrganization(
 ) {
   const { data: org } = await (supabase as any)
     .from("organizations")
-    .select("id, name, slug, logo_url, ai_bio, wikipedia_extract, short_description_hu, is_public, is_indexable, ai_review_status")
+    .select("id, name, slug, logo_url, ai_bio, wikipedia_extract, short_description_hu, is_public, is_indexable, ai_review_status, ai_duplicate_of_organization_id")
     .eq("slug", slug)
     .maybeSingle();
+  // A merged duplicate (e.g. telex.hu → Telex) permanently redirects to the canonical page.
+  if (org?.ai_duplicate_of_organization_id) {
+    const { data: dst } = await (supabase as any).from("organizations")
+      .select("slug, is_public").eq("id", org.ai_duplicate_of_organization_id).maybeSingle();
+    if (dst?.slug && dst.is_public !== false && dst.slug !== slug) {
+      return new Response(null, { status: 301, headers: { Location: `${SITE}/ceg/${dst.slug}`, "Cache-Control": "public, max-age=3600" } });
+    }
+  }
   if (!org || org.is_public === false) return null;
   const noindex = org.is_indexable === false
     || ["needs_human_review", "duplicate_candidate"].includes(org.ai_review_status || "");
 
+  // Publisher: its own shows are listed separately and their episodes are not "mentions".
+  const { data: pubRows } = await (supabase as any)
+    .from("podcast_publishers")
+    .select("podcasts!inner(id, title, display_title, slug, language_decision, podiverzum_rank)")
+    .eq("organization_id", org.id)
+    .in("status", ["accepted", "manual_accepted"])
+    .limit(200);
+  const ownPods = ((pubRows ?? []) as Array<any>)
+    .map((r) => r.podcasts)
+    .filter((p) => p?.slug && isAcceptedHungarianPrerenderPodcast(p))
+    .sort((a, b) => Number(b.podiverzum_rank || 0) - Number(a.podiverzum_rank || 0));
+  const ownIds = new Set(ownPods.map((p) => p.id));
+
   const { data: rows } = await (supabase as any)
     .from("episode_organization_map")
-    .select(`episode_id, episodes!inner(title, display_title, slug, published_at, ai_summary, podcast:podcasts!inner(title, display_title, slug, image_url, language_decision))`)
+    .select(`episode_id, episodes!inner(title, display_title, slug, published_at, ai_summary, podcast:podcasts!inner(id, title, display_title, slug, image_url, language_decision))`)
     .eq("organization_id", org.id)
     .order("confidence", { ascending: false })
-    .limit(120);
+    .limit(160);
 
   const eps = ((rows ?? []) as Array<any>)
     .map((r) => r.episodes)
-    .filter((e) => e && isAcceptedHungarianPrerenderPodcast(e.podcast))
+    .filter((e) => e && isAcceptedHungarianPrerenderPodcast(e.podcast) && !ownIds.has(e.podcast.id))
     .slice(0, 40);
 
   const canonical = `${SITE}/ceg/${slug}`;
   const bio = stripHtml(org.ai_bio || org.wikipedia_extract || org.short_description_hu || "");
   const epCount = eps.length;
-  const companyEpLabel = epCount > 0 ? ` – ${epCount} podcast epizódban említve` : "";
+  const companyEpLabel = ownPods.length > 0
+    ? ` – ${ownPods.length} saját podcast`
+    : epCount > 0 ? ` – ${epCount} podcast epizódban említve` : "";
   const title = `${org.name}${companyEpLabel || " podcast említések"} | Podiverzum`;
+  const ownLine = ownPods.length > 0 ? ` ${ownPods.length} saját podcast a Podiverzumon.` : "";
   const desc = bio
-    ? truncate(`${firstSentence(bio)}${epCount > 0 ? ` Megnézhető ${epCount} kapcsolódó podcast epizód.` : ""}`, 160)
-    : truncate(`${org.name} említései ${epCount > 0 ? `${epCount} ` : ""}magyar podcast epizódban. Kapcsolódó műsorok, beszélgetések és témák a Podiverzumon.`, 160);
+    ? truncate(`${firstSentence(bio)}${ownLine}${!ownLine && epCount > 0 ? ` Megnézhető ${epCount} kapcsolódó podcast epizód.` : ""}`, 160)
+    : truncate(`${org.name}${ownLine ? ` podcastjai:${ownLine}` : ` említései ${epCount > 0 ? `${epCount} ` : ""}magyar podcast epizódban.`} Kapcsolódó műsorok, beszélgetések és témák a Podiverzumon.`, 160);
+  const ownHtml = ownPods.length
+    ? `<section><h2>${esc(org.name)} saját podcastjai</h2><ul>${ownPods.map((p) => `<li><a href="${SITE}/podcast/${esc(p.slug)}"><strong>${esc(p.display_title || p.title)}</strong></a></li>`).join("")}</ul></section>`
+    : "";
 
   const html = eps.map((e) => {
     const u = `${SITE}/podcast/${e.podcast.slug}/${e.slug}`;
@@ -1923,7 +1961,7 @@ async function buildOrganization(
       jsonLd: [orgLd, breadcrumb],
       noindex,
       bodyHtml: `<header><h1>${esc(org.name)}</h1>${bio ? `<p>${esc(truncate(bio, 600))}</p>` : ""}</header>
-<main><h2>Epizódok</h2><ul>${html}</ul></main>`,
+<main>${ownHtml}${html ? `<h2>${ownPods.length ? "Említések más műsorokban" : "Epizódok"}</h2><ul>${html}</ul>` : ""}</main>`,
     })),
     { headers: new Headers(baseHeaders) },
   );

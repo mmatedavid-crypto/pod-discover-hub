@@ -23,6 +23,7 @@ import { detectAudioSource } from "@/lib/playerAudio";
 import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
 import { pickEpisodeDescription } from "@/lib/episodeText";
 import ListLoadError from "@/components/ListLoadError";
+import { fetchPodcastPublisher, type PublisherRef } from "@/lib/podcastPublisher";
 
 type HostRow = { id?: string; slug?: string; name: string; image_url?: string | null };
 
@@ -160,6 +161,7 @@ export default function PodcastDetail() {
   const [p, setP] = useState<any>(null);
   const [eps, setEps] = useState<any[]>([]);
   const [hosts, setHosts] = useState<HostRow[]>([]);
+  const [publisher, setPublisher] = useState<PublisherRef | null>(null);
   const [loading, setLoading] = useState(true);
   // Distinguish "no episodes" from "loading failed" (DB timeout under load).
   const [epsError, setEpsError] = useState(false);
@@ -183,15 +185,18 @@ export default function PodcastDetail() {
         return;
       }
       setP(data);
+      setPublisher(null);
       setLoading(false);
       if (data) {
         const manualHostNames = (data.hosts || []) as string[];
-        const [resolvedHosts, episodeResult] = await Promise.all([
+        const [resolvedHosts, episodeResult, pub] = await Promise.all([
           fetchHosts(data.id, manualHostNames),
           fetchAllEpisodes(data.id),
+          fetchPodcastPublisher(data.id).catch(() => null),
         ]);
         const allEps = episodeResult.rows;
         setHosts(resolvedHosts);
+        setPublisher(pub);
         setEps(allEps);
         setEpsError(episodeResult.failed);
 
@@ -244,6 +249,9 @@ export default function PodcastDetail() {
               numberOfEpisodes: allEps.length || undefined,
               author: hostNamesForSeo.length
                 ? hostNamesForSeo.map((n) => ({ "@type": "Person", name: n }))
+                : undefined,
+              publisher: pub
+                ? { "@type": "Organization", name: pub.name, url: `https://podiverzum.hu/ceg/${pub.slug}` }
                 : undefined,
             },
             breadcrumbJsonLd([
@@ -329,6 +337,15 @@ export default function PodcastDetail() {
               <h1 className="mt-4 text-4xl font-semibold tracking-tight sm:text-5xl">
                 {p.display_title || p.title}
               </h1>
+
+              {publisher && (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Kiadó:{" "}
+                  <Link to={`/ceg/${publisher.slug}`} className="font-medium text-foreground underline-offset-4 hover:text-primary hover:underline">
+                    {publisher.name}
+                  </Link>
+                </p>
+              )}
 
               {description && (
                 <p className="mx-auto mt-4 max-w-3xl text-base leading-relaxed text-foreground/85 sm:mx-0 sm:text-lg">

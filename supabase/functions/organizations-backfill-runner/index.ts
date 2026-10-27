@@ -312,9 +312,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Recompute gated counts (cheap RPC; runs across all orgs)
+    // Recompute gated counts (cheap RPC; runs across all orgs). The query builder has no .catch,
+    // so a failure must be caught here instead of turning the whole run into an error.
     if (episodes_seen > 0) {
-      await admin.rpc("recompute_org_gated_counts").catch(() => {});
+      try { await admin.rpc("recompute_org_gated_counts"); } catch (_) { /* hourly cron also recomputes */ }
     }
 
     return json({
