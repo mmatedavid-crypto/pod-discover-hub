@@ -1463,26 +1463,6 @@ Deno.serve(async (req) => {
     understanding = u as Understanding;
     if (!q_embedding) q_embedding = embVal;
 
-    if (naturalQuestion.isQuestion && !isBot) {
-      understanding = {
-        ...(understanding || { entities: [], expanded_terms: [], synonyms: [], intent: "question", language: "hu" }),
-        intent: "question",
-        expanded_terms: uniqueClean([
-          ...naturalQuestion.expandedTerms,
-          ...((understanding?.expanded_terms as string[]) || []),
-        ], 10),
-        synonyms: uniqueClean([
-          ...naturalQuestion.coreTerms,
-          ...((understanding?.synonyms as string[]) || []),
-        ], 10),
-        language: understanding?.language || "hu",
-      };
-      if (q_embedding && hasBudget(5200) && naturalQuestion.semanticText.length > q.length + 20) {
-        const nlqEmbedding = await embed(naturalQuestion.semanticText, 1200);
-        if (nlqEmbedding) q_embedding = blendEmbeddings(q_embedding, nlqEmbedding, 0.52);
-        else markLatencyDegrade();
-      }
-    }
     // Complex searches: AI concepts replace the hand-written synonym list, and the
     // meaning of the request (query + concepts) drives the semantic side.
     const complexConcepts = complexQuery
@@ -1503,6 +1483,26 @@ Deno.serve(async (req) => {
       if (q_embedding && hasBudget(5200) && !naturalQuestion.isQuestion) {
         const conceptEmbedding = await embed(complexSemanticText(q, complexConcepts), 1200);
         if (conceptEmbedding) q_embedding = blendEmbeddings(q_embedding, conceptEmbedding, 0.52);
+        else markLatencyDegrade();
+      }
+    }
+    if (naturalQuestion.isQuestion && !isBot) {
+      understanding = {
+        ...(understanding || { entities: [], expanded_terms: [], synonyms: [], intent: "question", language: "hu" }),
+        intent: "question",
+        expanded_terms: uniqueClean([
+          ...naturalQuestion.expandedTerms,
+          ...((understanding?.expanded_terms as string[]) || []),
+        ], 10),
+        synonyms: uniqueClean([
+          ...naturalQuestion.coreTerms,
+          ...((understanding?.synonyms as string[]) || []),
+        ], 10),
+        language: understanding?.language || "hu",
+      };
+      if (q_embedding && hasBudget(5200) && naturalQuestion.semanticText.length > q.length + 20) {
+        const nlqEmbedding = await embed(naturalQuestion.semanticText, 1200);
+        if (nlqEmbedding) q_embedding = blendEmbeddings(q_embedding, nlqEmbedding, 0.52);
         else markLatencyDegrade();
       }
     }
