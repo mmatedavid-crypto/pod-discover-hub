@@ -2292,6 +2292,9 @@ Deno.serve(async (req) => {
       // query matches without imposing a person-only filter on topical searches.
       ordered = rankFullNameMatches(ordered, [q]);
     }
+    // Final invariant for recency queries: nothing above may push older
+    // episodes ahead of in-window ones (relative order otherwise kept).
+    if (temporal) ordered = preferWithinWindow(ordered, temporal.sinceIso);
 
     return new Response(
       JSON.stringify({
@@ -2334,6 +2337,7 @@ Deno.serve(async (req) => {
         hyde_used: hydeUsed,
         hyde_cache_hit: hydeCacheHit,
         chunk_augmented: chunkAugmented || undefined,
+        temporal_intent: temporal ? { window_days: temporal.windowDays, since: temporal.sinceIso, matched: temporal.matched, candidates: temporalCandidates } : undefined,
         degraded_for_latency: degradedForLatency,
         soft_budget_ms: softBudgetMs,
         engine: `v${engN}`,
