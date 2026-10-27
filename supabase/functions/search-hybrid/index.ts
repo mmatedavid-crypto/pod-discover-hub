@@ -15,6 +15,7 @@ import { cleanTextNameTsQuery, isPersonEvidenceCandidate, personIdentityState, r
 import { episodeExactFields, exactCleanTextTsQuery, exactMatchLabel, exactPhraseMatch, exactWebsearchQuery, parseExactPhraseQuery, type ExactPhraseQuery } from "../_shared/search-exact-phrase.ts";
 import { detectTemporalIntent, isTemporalToken, preferWithinWindow } from "../_shared/search-temporal.ts";
 import { podcastPinAllowed, wordAlignedMatch } from "../_shared/search-podcast-pin.ts";
+import { rankByTermCoverage } from "../_shared/search-term-coverage.ts";
 
 // Per-query cap for the person-first branch; a slow source degrades to fewer
 // results instead of pushing the request past the client timeout.
@@ -2259,6 +2260,16 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Query-term coverage: results covering every query word (or, for one-word queries,
+    // carrying it in title/show/tags) first. Name, show-pin and recency invariants below still win.
+    let termCoverage: string | null = null;
+    // Not for question-style searches: measured worse there (top-1 0.58 → 0.47 on 19 questions).
+    if (!isTickerQ && !naturalQuestion.isQuestion) {
+      const tc = rankByTermCoverage(ordered, q, { window: 30, minStrong: 3 });
+      ordered = tc.list;
+      termCoverage = tc.applied;
+    }
+
     // MMR diversity
 
     const diversify = (list: any[]): any[] => {
@@ -2329,6 +2340,7 @@ Deno.serve(async (req) => {
         natural_question_fallback: naturalQuestionFallback,
         semantic: !!q_embedding,
         reranked: !!rerankResult,
+        term_coverage: termCoverage,
         rerank_cache_hit: rerankCacheHit,
         cache_hit: cacheHit,
         must_gate: mustGateApplied,
