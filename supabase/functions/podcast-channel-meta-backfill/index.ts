@@ -1,15 +1,27 @@
 // podcast-channel-meta-backfill — one-off / on-demand fill of podcast_channel_meta (feed header
 // author / owner / copyright / link) for Hungarian podcasts that have no row yet. Free: reads only the
 // feed head, no AI, no episode writes. Regular fetches keep the table fresh via fetch-one.
-// Starts only from the service role or a signed-in admin.
+// Starts only with its per-job internal token, the service role, or a signed-in admin.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { parseChannelMeta } from "../_shared/podcast-channel-meta.ts";
 
-const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" };
+const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-internal-token" };
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
 const TIME_BUDGET_MS = 100_000;
+const JOB = "podcast-channel-meta-backfill";
+
+function sameToken(a: string, b: string) {
+  if (a.length < 32 || a.length !== b.length) return false;
+  let d = 0; for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return d === 0;
+}
 
 async function authorized(admin: any, req: Request) {
+  const given = req.headers.get("x-internal-token") || "";
+  if (given) {
+    const { data } = await admin.from("internal_job_tokens").select("token").eq("job", JOB).maybeSingle();
+    if (sameToken(String(data?.token || ""), given)) return true;
+  }
   const jwt = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
   if (!jwt) return false;
   if (jwt === Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")) return true;
