@@ -266,8 +266,12 @@ async function createRun(admin: any, body: any) {
 }
 
 async function tick(admin: any, body: any, startedAt: number) {
-  const { data: run } = await admin.from("search_quality_runs").select("*").eq("id", body.run_id).maybeSingle();
-  if (!run) return { error: "run_not_found" };
+  // Without run_id (scheduler), drain the oldest open run.
+  const q = admin.from("search_quality_runs").select("*");
+  const { data: run } = body.run_id
+    ? await q.eq("id", body.run_id).maybeSingle()
+    : await q.eq("status", "open").order("created_at", { ascending: true }).limit(1).maybeSingle();
+  if (!run) return { skipped: true, reason: body.run_id ? "run_not_found" : "no_open_run" };
   if (run.status !== "open") return { skipped: true, status: run.status };
   const concurrency = Math.min(4, Math.max(1, Number(body.concurrency) || 3));
   let processed = 0, failed = 0, capped = false;
@@ -303,7 +307,8 @@ async function tick(admin: any, body: any, startedAt: number) {
   const { count: remaining } = await admin.from("search_quality_items").select("id", { count: "exact", head: true })
     .eq("run_id", run.id).in("status", ["pending", "claimed"]);
   const { data: fresh } = await admin.from("search_quality_runs").select("cost_used_usd,cost_cap_usd").eq("id", run.id).single();
-  return { processed, failed, capped, remaining, cost_used_usd: fresh?.cost_used_usd, cost_cap_usd: fresh?.cost_cap_usd };
+  const finalized = remaining === 0 ? (await finalize(admin, { run_id: run.id })).complete : false;
+  return { run_id: run.id, processed, failed, capped, remaining, finalized, cost_used_usd: fresh?.cost_used_usd, cost_cap_usd: fresh?.cost_cap_usd };
 }
 
 async function finalize(admin: any, body: any) {
