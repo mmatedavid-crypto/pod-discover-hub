@@ -1746,7 +1746,9 @@ Deno.serve(async (req) => {
       if (!requiredTerms.includes(contiguousPhrase[0])) requiredTerms.push(contiguousPhrase[0]);
     }
 
-    const alphaLex = isTickerQ ? 0.8 : (rawEntities.length > 0 || resolvedNames.length > 0) ? 0.65 : 0.45;
+    const alphaLexBase = isTickerQ ? 0.8 : (rawEntities.length > 0 || resolvedNames.length > 0) ? 0.65 : 0.45;
+    // Complex searches: meaning leads, word matches only confirm.
+    const alphaLex = complexQuery ? Math.min(alphaLexBase, 0.3) : alphaLexBase;
     const decayLambda = (FF.decay && (temporal || intent === "news" || intent === "ticker" || intent === "company")) ? 0.15 : 0;
 
     // HyDE
@@ -1795,6 +1797,8 @@ Deno.serve(async (req) => {
       if (naturalQuestion.isQuestion && naturalQuestion.lexicalQuery !== q) {
         const parts = [naturalQuestion.lexicalQuery, ...synExpansions.map(quoteWebSearchTerm)];
         lexQ = uniqueClean(parts, 14).join(" OR ");
+      } else if (complexLexQ) {
+        lexQ = complexLexQ;
       } else if (synExpansions.length) {
         const parts = [quoteWebSearchTerm(q), ...synExpansions.map(quoteWebSearchTerm)];
         lexQ = parts.join(" OR ");
