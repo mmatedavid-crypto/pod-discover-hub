@@ -13,6 +13,7 @@ const STOP = new Set((
   "a an the is of in on at to by as or and for with " +
   "az es vagy de hogy mert ez egy van volt lesz csak mar meg most ha sem is ne nem igen " +
   "mi mit mire miert hogyan hol mikor melyik milyen mennyi kinek kell lehet erdemes ami aki " +
+  "szet ossze el ki fel le at " +
   "podcast podcastok epizod epizodok musor musorok adas beszelgetes interju resz reszek " +
   "rol rola arrol errol szol szolo beszeltek beszelnek uj jo legjobb"
 ).split(" "));
@@ -26,14 +27,24 @@ export function queryContentTerms(q: string): string[] {
   const out: string[] = [];
   for (const t of foldTerm(q).split(/[^a-z0-9]+/)) {
     if (t.length < 2 || STOP.has(t) || isTemporalToken(t)) continue;
-    if (/^\d+$/.test(t) && t.length < 4) continue;
+    if (/^\d+$/.test(t) && t.length < 3) continue;
     if (!out.includes(t)) out.push(t);
   }
   return out.slice(0, 8);
 }
 
 // Hungarian is agglutinative: "benzinár" must match "benzinárak", "építészet" → "építészeti".
-const stemOf = (t: string) => (t.length <= 4 ? t : t.slice(0, Math.max(4, t.length - 2)));
+// Common case/plural endings are cut first ("párok" → "pár", "válásról" → "válás").
+const SUFFIXES = ["oknak", "eknek", "aknak", "nak", "nek", "rol", "bol", "tol", "ban", "ben", "val", "vel", "hoz", "hez", "ok", "ek", "ak", "ra", "re", "t"];
+export function stemOf(term: string): string {
+  let t = term;
+  if (!/^\d+$/.test(t)) {
+    for (const s of SUFFIXES) {
+      if (t.length - s.length >= 3 && t.endsWith(s)) { t = t.slice(0, -s.length); break; }
+    }
+  }
+  return t.length <= 4 ? t : t.slice(0, Math.max(4, t.length - 2));
+}
 
 function wordsOf(parts: unknown[]): string[] {
   return foldTerm(parts.map((p) => (Array.isArray(p) ? p.join(" ") : String(p ?? ""))).join(" ")).split(/[^a-z0-9]+/).filter(Boolean);
