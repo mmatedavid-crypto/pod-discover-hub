@@ -16,6 +16,11 @@ import { episodeExactFields, exactCleanTextTsQuery, exactMatchLabel, exactPhrase
 import { detectTemporalIntent, isTemporalToken, preferWithinWindow } from "../_shared/search-temporal.ts";
 import { podcastPinAllowed, wordAlignedMatch } from "../_shared/search-podcast-pin.ts";
 import { rankByTermCoverage } from "../_shared/search-term-coverage.ts";
+import {
+  aiSaysNameSearch, applyVerification, buildVerifyMessages, cleanConcepts, complexLexicalQuery, complexSemanticText, isNameOnlyQuery,
+  looksComplex, meaningfulTokens, parseVerifyGrades, useComplexPath, VERIFY_CACHE_VERSION, VERIFY_MAX_CANDIDATES,
+  VERIFY_PROMPT_VERSION, VERIFY_TOOL, type VerifyCandidate, type VerifyGrade,
+} from "../_shared/search-complex.ts";
 
 // Per-query cap for the person-first branch; a slow source degrades to fewer
 // results instead of pushing the request past the client timeout.
@@ -508,6 +513,44 @@ async function rerankWithReasons(q: string, items: any[]): Promise<{ ids: string
   } catch (e) { console.warn("rerank err", e); return null; }
 }
 const rerank = (q: string, items: any[], timeoutMs = 3000) => withTimeout(rerankWithReasons(q, items), timeoutMs, "rerank");
+
+function plainPublicText(s: unknown, max: number): string {
+  return String(s || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, max);
+}
+
+// Public metadata only (title, show, date, summary/description) — never transcript text.
+function toVerifyCandidate(e: any): VerifyCandidate {
+  const p = Array.isArray(e.podcasts) ? e.podcasts[0] : e.podcasts;
+  return {
+    id: String(e.id),
+    title: plainPublicText(e.display_title || e.title, 160),
+    podcast: plainPublicText(p?.display_title || p?.title, 80),
+    published: e.published_at ? String(e.published_at).slice(0, 10) : null,
+    text: plainPublicText(e.ai_summary || e.summary || e.description, 260),
+  };
+}
+
+async function verifyCandidates(q: string, cands: VerifyCandidate[], recentDays: number | null, model: string, timeoutMs: number) {
+  const messages = buildVerifyMessages(q, new Date().toISOString().slice(0, 10), cands, recentDays);
+  const ai = await withTimeout(callLovableAI({
+    model,
+    job_type: "search_complex_verify",
+    target_type: "search_query",
+    prompt_version: VERIFY_PROMPT_VERSION,
+    input_text: String(messages[1].content),
+    min_input_chars: 20,
+    messages,
+    tools: [VERIFY_TOOL],
+    tool_choice: { type: "function", function: { name: "grade" } },
+    max_tokens: 2400,
+    temperature: 0,
+  }), timeoutMs, "complex_verify");
+  if (!ai || !ai.ok) { if (ai) console.warn("complex verify ai error", ai.status, ai.error); return null; }
+  const args = ai.data?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+  const grades = parseVerifyGrades(args, cands);
+  if (!grades) console.warn("complex verify unparsable");
+  return grades;
+}
 
 async function resolvePodcastPin(supa: ReturnType<typeof createClient>, q: string, qNorm: string, limit: number, timeoutMs = 900) {
   if (qNorm.length < 2 || qNorm.length > 60) return null;
@@ -1132,11 +1175,16 @@ Deno.serve(async (req) => {
     let degradedForLatency = false;
     const markLatencyDegrade = () => { degradedForLatency = true; };
     let qNorm = normalizeQ(q);
-    const naturalQuestion = deriveNaturalQuestionPlan(q, qNorm);
+    let naturalQuestion = deriveNaturalQuestionPlan(q, qNorm);
     const temporal = detectTemporalIntent(q);
     const marketSymbol = compactMarketSymbol(q);
     const symbolAliases = marketSymbol ? (MARKET_SYMBOL_ALIASES[marketSymbol.toLowerCase()] || []) : [];
     const isTickerQ = !!marketSymbol && !COMMON_NON_TICKER_ACRONYMS.has(marketSymbol);
+    // Sentence-like searches get the complex path; names and short topics stay on the
+    // existing path unchanged. Owner kill switch: app_settings.search_engine.complex_search_enabled.
+    const complexEnabled = engineCfg.complex_search_enabled !== false;
+    const complexShapeInput = { qNorm, isQuestion: naturalQuestion.isQuestion, isStopword: (t: string) => RARE_GATE_STOPWORDS.has(t) || HU_NLQ_FILLER.has(t), isTemporal: isTemporalToken };
+    const complexShape = complexEnabled && !isBot && !isTickerQ && looksComplex(complexShapeInput);
 
     // Latency: start the slow independent work (cache read, LLM understanding,
     // query embedding, curated synonyms) BEFORE the entity-pin chain. None of
@@ -1159,7 +1207,7 @@ Deno.serve(async (req) => {
     })();
     const understandPromise = isBot
       ? Promise.resolve(null)
-      : understandQuery(q, 1800).catch((e) => { console.warn("understand err", e); return null; });
+      : understandQuery(q, complexShape ? 2400 : 1800, complexShape ? "complex" : "default").catch((e) => { console.warn("understand err", e); return null; });
     const embedPromise = isBot
       ? Promise.resolve(null)
       : embed(q, 2200).catch((e) => { console.warn("embed err", e); return null; });
@@ -1376,6 +1424,16 @@ Deno.serve(async (req) => {
       FF.cohere = false;
     }
 
+    let complexQuery = useComplexPath({
+      shapeComplex: complexShape,
+      isBot,
+      isTicker: isTickerQ,
+      isPersonNameQuery,
+      hardPodcastPin: !!(earlyPodcastPin && !earlyPodcastPin.soft),
+      nameOnly: isNameOnlyQuery(meaningfulTokens(complexShapeInput), catalogAnchors, foldSearchName),
+      enabled: complexEnabled,
+    });
+
 
 
 
@@ -1384,6 +1442,7 @@ Deno.serve(async (req) => {
     let understanding: Understanding | null = null;
     let q_embedding: number[] | null = null;
     let cachedRerank: { ids: string[]; why: Record<string, string> } | null = null;
+    let cachedVerify: Record<string, VerifyGrade> | null = null;
     let cacheHit = false;
     try {
       const { data: cached } = await cachePromise;
@@ -1393,7 +1452,9 @@ Deno.serve(async (req) => {
       const cuv = (cached?.understanding as any)?.__uv;
       const understandingFresh = cached && cached.updated_at
         && Date.now() - new Date(cached.updated_at).getTime() < 7 * 24 * 3600 * 1000
-        && (cuv === undefined || Number(cuv) >= UNDERSTANDING_VERSION);
+        && (cuv === undefined || Number(cuv) >= UNDERSTANDING_VERSION)
+        // Complex searches need the concept-aware reading; older rows lack it.
+        && (!complexShape || (cached.understanding as any)?.mode === "complex");
       if (understandingFresh) {
         understanding = cached.understanding as Understanding;
         if (typeof cached.embedding === "string") {
@@ -1410,6 +1471,11 @@ Deno.serve(async (req) => {
       const rerankFresh = cached?.rerank && cached.rerank_updated_at
         && Date.now() - new Date(cached.rerank_updated_at).getTime() < 24 * 3600 * 1000
         && (crv === undefined ? false : Number(crv) >= RANKING_VERSION);
+      const rv = cached?.rerank as any;
+      if (rv?.verify && typeof rv.verify === "object" && Number(rv.__vv) === VERIFY_CACHE_VERSION && cached?.rerank_updated_at
+        && Date.now() - new Date(cached.rerank_updated_at).getTime() < 24 * 3600 * 1000) {
+        cachedVerify = rv.verify as Record<string, VerifyGrade>;
+      }
       if (rerankFresh) {
         const r = cached.rerank as any;
         if (Array.isArray(r?.ids) && r.ids.length) {
@@ -1435,6 +1501,31 @@ Deno.serve(async (req) => {
     understanding = u as Understanding;
     if (!q_embedding) q_embedding = embVal;
 
+    if (complexQuery && aiSaysNameSearch(naturalQuestion.isQuestion, understanding?.intent)) complexQuery = false;
+    // Complex searches: AI concepts replace the hand-written synonym list, and the
+    // meaning of the request (query + concepts) drives the semantic side.
+    const complexConcepts = complexQuery
+      ? cleanConcepts([...(understanding?.concepts || []), understanding?.core_topic || ""].filter(Boolean), foldSearchName, isTemporalToken)
+      : [];
+    let complexLexQ: string | null = null;
+    if (complexQuery && complexConcepts.length) {
+      // Statements: literal phrase + concepts only; lone common words ("magyar") make the lexical scan slow and noisy.
+      complexLexQ = complexLexicalQuery(q, naturalQuestion.isQuestion, complexConcepts, naturalQuestion.isQuestion ? naturalQuestion.coreTerms : []);
+      if (naturalQuestion.isQuestion) {
+        naturalQuestion = { ...naturalQuestion, expandedTerms: complexConcepts, lexicalQuery: complexLexQ, semanticText: complexSemanticText(q, complexConcepts) };
+      }
+      if (understanding) {
+        understanding = {
+          ...understanding,
+          expanded_terms: uniqueClean([...complexConcepts, ...((understanding.expanded_terms as string[]) || [])], 10),
+        };
+      }
+      if (q_embedding && hasBudget(5200) && !naturalQuestion.isQuestion) {
+        const conceptEmbedding = await embed(complexSemanticText(q, complexConcepts), 1200);
+        if (conceptEmbedding) q_embedding = blendEmbeddings(q_embedding, conceptEmbedding, 0.52);
+        else markLatencyDegrade();
+      }
+    }
     if (naturalQuestion.isQuestion && !isBot) {
       understanding = {
         ...(understanding || { entities: [], expanded_terms: [], synonyms: [], intent: "question", language: "hu" }),
@@ -1695,7 +1786,9 @@ Deno.serve(async (req) => {
       if (!requiredTerms.includes(contiguousPhrase[0])) requiredTerms.push(contiguousPhrase[0]);
     }
 
-    const alphaLex = isTickerQ ? 0.8 : (rawEntities.length > 0 || resolvedNames.length > 0) ? 0.65 : 0.45;
+    const alphaLexBase = isTickerQ ? 0.8 : (rawEntities.length > 0 || resolvedNames.length > 0) ? 0.65 : 0.45;
+    // Complex searches: meaning leads, word matches only confirm.
+    const alphaLex = complexQuery ? Math.min(alphaLexBase, 0.3) : alphaLexBase;
     const decayLambda = (FF.decay && (temporal || intent === "news" || intent === "ticker" || intent === "company")) ? 0.15 : 0;
 
     // HyDE
@@ -1744,6 +1837,8 @@ Deno.serve(async (req) => {
       if (naturalQuestion.isQuestion && naturalQuestion.lexicalQuery !== q) {
         const parts = [naturalQuestion.lexicalQuery, ...synExpansions.map(quoteWebSearchTerm)];
         lexQ = uniqueClean(parts, 14).join(" OR ");
+      } else if (complexLexQ) {
+        lexQ = complexLexQ;
       } else if (synExpansions.length) {
         const parts = [quoteWebSearchTerm(q), ...synExpansions.map(quoteWebSearchTerm)];
         lexQ = parts.join(" OR ");
@@ -2147,11 +2242,61 @@ Deno.serve(async (req) => {
     // In-window episodes first so the reranker below scores the recent pool.
     if (temporal) ordered = preferWithinWindow(ordered, temporal.sinceIso);
 
+    // Complex searches: final AI check of the top candidates. Episodes that do not
+    // really cover the request are dropped instead of padding the list. If the check
+    // is unavailable (timeout, error) the usual rerankers below run as before.
+    let verification: { checked: number; relevant: number; partial: number; dropped: number; cached: number; model: string; ms: number } | null = null;
+    if (complexQuery && wantRerank && engineCfg.complex_verify_enabled !== false && ordered.length > 0) {
+      const pool = ordered.slice(0, VERIFY_MAX_CANDIDATES);
+      const known = new Map<string, VerifyGrade>();
+      for (const e of pool) {
+        const g = cachedVerify?.[e.id];
+        if (g && (g.g === 0 || g.g === 1 || g.g === 2)) known.set(e.id, g);
+      }
+      const cachedCount = known.size;
+      const missing = pool.filter((e: any) => !known.has(e.id));
+      const model = String(engineCfg.verify_model || "google/gemini-3-flash-preview");
+      const verifyTimeout = Math.min(6000, softBudgetMs - elapsed() - 700);
+      const tv = Date.now();
+      let fresh: Map<string, VerifyGrade> | null = null;
+      if (missing.length && verifyTimeout >= 1500) {
+        fresh = await verifyCandidates(q, missing.map(toVerifyCandidate), temporal ? temporal.windowDays : null, model, verifyTimeout);
+      } else if (missing.length) {
+        markLatencyDegrade();
+      }
+      if (!missing.length || fresh) {
+        for (const [id, g] of fresh || []) known.set(id, g);
+        const applied = applyVerification(ordered, known, [...known.keys()]);
+        ordered = applied.list;
+        verification = { checked: known.size, relevant: applied.relevant, partial: applied.partial, dropped: applied.dropped, cached: cachedCount, model, ms: Date.now() - tv };
+        if (fresh && fresh.size) {
+          const merged = Object.fromEntries([...Object.entries(cachedVerify || {}), ...fresh.entries()].slice(-150));
+          supa.from("search_query_cache").update({
+            rerank: { verify: merged, __vv: VERIFY_CACHE_VERSION, __rv: RANKING_VERSION },
+            rerank_updated_at: new Date().toISOString(),
+          }).eq("q_norm", qNorm).then(() => {}, (e) => console.warn("verify cache write", e));
+        }
+        if (!ordered.length) {
+          return new Response(JSON.stringify({
+            episodes: [], understanding, catalog_anchors: catalogAnchors,
+            person_pin: earlyPersonPin || undefined, organization_pin: earlyOrganizationPin || undefined, topic_pin: earlyTopicPin || undefined,
+            semantic: !!q_embedding, reranked: true, cache_hit: cacheHit, confidence_band: "low",
+            complex_query: true, complex_concepts: complexConcepts, verification,
+            no_relevant_results: true, reason: "no_relevant_results",
+            temporal_intent: temporal ? { window_days: temporal.windowDays, since: temporal.sinceIso, matched: temporal.matched, candidates: temporalCandidates } : undefined,
+            degraded_for_latency: degradedForLatency, soft_budget_ms: softBudgetMs, engine: `v${engN}`, ranking_version: RANKING_VERSION,
+            timing: { embed_ms: tEmb, rpc_ms: tRpc, verify_ms: verification.ms, total_ms: Date.now() - t0 },
+          }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+      }
+    }
+
     // Cohere reranker
     let cohereRerankUsed = false;
     let cohereLatency = 0;
     if (
       FF.cohere &&
+      !verification &&
       ordered.length >= 10 &&
       (confidenceBand === "high" || confidenceBand === "medium") &&
       !sectorFallback &&
@@ -2172,14 +2317,14 @@ Deno.serve(async (req) => {
         const tail = ordered.filter((e: any) => !rank.has(e.id));
         ordered = [...head, ...tail];
       }
-    } else if (FF.cohere && ordered.length >= 10 && !hasBudget(3500)) {
+    } else if (FF.cohere && !verification && ordered.length >= 10 && !hasBudget(3500)) {
       markLatencyDegrade();
     }
 
     // Gemini reranker fallback
     let rerankResult: { ids: string[]; why: Record<string, string> } | null = null;
     let rerankCacheHit = false;
-    if (wantRerank && !cohereRerankUsed) {
+    if (wantRerank && !cohereRerankUsed && !verification) {
       if (cachedRerank) {
         const present = new Set(ordered.map((e: any) => e.id));
         const filteredIds = cachedRerank.ids.filter((id) => present.has(id));
@@ -2221,7 +2366,7 @@ Deno.serve(async (req) => {
     const pinEntities = uniqueClean([
       ...((understanding?.entities as string[]) || []),
     ], 6).map((s) => s.toLowerCase()).filter((s) => s.length >= 3);
-    if (pinEntities.length) {
+    if (pinEntities.length && !verification) {
       const strictBrandMatch = (e: any): boolean => {
         const arrays: string[] = [
           ...(Array.isArray(e.people) ? e.people : []),
@@ -2264,7 +2409,7 @@ Deno.serve(async (req) => {
     // carrying it in title/show/tags) first. Name, show-pin and recency invariants below still win.
     let termCoverage: string | null = null;
     // Not for question-style searches: measured worse there (top-1 0.58 → 0.47 on 19 questions).
-    if (!isTickerQ && !naturalQuestion.isQuestion) {
+    if (!isTickerQ && !naturalQuestion.isQuestion && !verification) {
       const tc = rankByTermCoverage(ordered, q, { window: 30, minStrong: 3 });
       ordered = tc.list;
       termCoverage = tc.applied;
@@ -2339,7 +2484,10 @@ Deno.serve(async (req) => {
         natural_question: naturalQuestion.isQuestion ? naturalQuestion : undefined,
         natural_question_fallback: naturalQuestionFallback,
         semantic: !!q_embedding,
-        reranked: !!rerankResult,
+        reranked: !!rerankResult || !!verification,
+        complex_query: complexQuery || undefined,
+        complex_concepts: complexQuery ? complexConcepts : undefined,
+        verification: verification || undefined,
         term_coverage: termCoverage,
         rerank_cache_hit: rerankCacheHit,
         cache_hit: cacheHit,

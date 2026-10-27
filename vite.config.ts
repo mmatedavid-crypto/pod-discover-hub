@@ -32,6 +32,11 @@ export default defineConfig(({ mode }) => ({
       },
     },
   },
+  // Pre-bundle React and React Query up front so a mid-session dependency re-optimisation
+  // never serves an open tab a mixed pair of React chunks ("dispatcher is null" blank screen).
+  optimizeDeps: {
+    include: ["react", "react-dom", "react-dom/client", "react/jsx-runtime", "react/jsx-dev-runtime", "@tanstack/react-query"],
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

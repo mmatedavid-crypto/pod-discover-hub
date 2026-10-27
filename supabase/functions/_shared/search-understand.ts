@@ -14,7 +14,13 @@ export type Understanding = {
   // Caller MUST treat as topic_intent and downrank person-name matches whose surname
   // equals `adjective` (e.g. Orosz Ferenc must not dominate results for "orosz irodalom").
   adj_noun?: { adjective: string; noun: string } | null;
+  // Complex (sentence-like) searches only: subject phrases an answering episode is about.
+  concepts?: string[];
+  core_topic?: string;
+  mode?: "default" | "complex";
 };
+
+const COMPLEX_INSTRUCTION = "\n\nThis query is a natural-language request. ALSO return concepts: 2-6 short Hungarian subject phrases (1-3 words, dictionary form) that an episode answering it would be about — the subject matter itself, never question words, filler, or time words like 'mostanában'. Example: 'mit tegyek, ha a gyerekem nem alszik' → ['gyerek alvás', 'altatás', 'alvászavar', 'szülői tanácsok']. Also return core_topic: the single main subject in 1-4 words.";
 
 const EMPTY: Understanding = { entities: [], expanded_terms: [], synonyms: [], intent: "topic", language: "hu", adj_noun: null };
 
@@ -59,7 +65,8 @@ function cbRecordFail() {
   }
 }
 
-export async function understandQuery(q: string, timeoutMs = 1500): Promise<Understanding> {
+export async function understandQuery(q: string, timeoutMs = 1500, mode: "default" | "complex" = "default"): Promise<Understanding> {
+  const complex = mode === "complex";
   if (!q) return EMPTY;
   if (!cbAllow()) return EMPTY;
   const ctrl = new AbortController();
@@ -70,11 +77,11 @@ export async function understandQuery(q: string, timeoutMs = 1500): Promise<Unde
         model: "google/gemini-2.5-flash-lite",
         job_type: "search_understand",
         target_type: "search_query",
-        prompt_version: "search-understand-v2",
+        prompt_version: complex ? "search-understand-complex-v1" : "search-understand-v2",
         input_text: q,
         min_input_chars: 2,
         messages: [
-          { role: "system", content: "You expand a Hungarian-language podcast search query for hybrid search. Return concise, plain synonyms and entity names in the SAME language as the query (default Hungarian). Never invent facts.\n\nIMPORTANT — Hungarian aliases:\n• Fradi / FTC / Ferencváros → include Ferencvárosi Torna Club and labdarúgás/futball when relevant.\n• foci / futball / labdarúgás → treat as the same topic.\n• Magyar Telekom / Telekom / MTELEKOM / MTEL → same company/stock context.\n\nIMPORTANT — Stock tickers:\n• US tickers (2-5 uppercase letters, optional .B suffix): include BOTH symbol AND company name. Examples: ASTS → [\"ASTS\", \"AST SpaceMobile\"], NVDA → [\"NVDA\", \"Nvidia\"], TSLA → [\"TSLA\", \"Tesla\"], BRK.B → [\"BRK.B\", \"Berkshire Hathaway\"], PLTR → [\"PLTR\", \"Palantir\"], COIN → [\"COIN\", \"Coinbase\"].\n• BÉT (Budapesti Értéktőzsde) tickerek: OTP → [\"OTP\", \"OTP Bank\"], MOL → [\"MOL\", \"MOL Nyrt\"], RICHTER → [\"Richter Gedeon\", \"Gedeon Richter\"], MTELEKOM/MTEL → [\"Magyar Telekom\"], OPUS → [\"Opus Global\"], 4iG/4IG → [\"4iG\", \"4iG Nyrt\"], MASTERPLAST → [\"Masterplast\"], ANY → [\"ANY Biztonsági Nyomda\"], WABERER → [\"Waberer's\"], AKKO → [\"AKKO Invest\"], ALTEO → [\"ALTEO\"], AUTOWALLIS → [\"AutoWallis\"], DUNA → [\"Duna House\"], RABA → [\"Rába\"], ZWACK → [\"Zwack Unicum\"], CIG → [\"CIG Pannónia\"], PANNERGY → [\"PannErgy\"].\nSet intent=\"ticker\" only for stock/market-looking queries. Magyar tickereknél a szektor/iparág kerüljön expanded_terms-be magyarul (pl. \"bankszektor\", \"gyógyszeripar\", \"olajipar\"). Ha nem ismered fel a tickert, csak a szimbólumot add vissza entities-ben és intent=\"ticker\" — NE találj ki cégnevet." },
+          { role: "system", content: "You expand a Hungarian-language podcast search query for hybrid search. Return concise, plain synonyms and entity names in the SAME language as the query (default Hungarian). Never invent facts.\n\nIMPORTANT — Hungarian aliases:\n• Fradi / FTC / Ferencváros → include Ferencvárosi Torna Club and labdarúgás/futball when relevant.\n• foci / futball / labdarúgás → treat as the same topic.\n• Magyar Telekom / Telekom / MTELEKOM / MTEL → same company/stock context.\n\nIMPORTANT — Stock tickers:\n• US tickers (2-5 uppercase letters, optional .B suffix): include BOTH symbol AND company name. Examples: ASTS → [\"ASTS\", \"AST SpaceMobile\"], NVDA → [\"NVDA\", \"Nvidia\"], TSLA → [\"TSLA\", \"Tesla\"], BRK.B → [\"BRK.B\", \"Berkshire Hathaway\"], PLTR → [\"PLTR\", \"Palantir\"], COIN → [\"COIN\", \"Coinbase\"].\n• BÉT (Budapesti Értéktőzsde) tickerek: OTP → [\"OTP\", \"OTP Bank\"], MOL → [\"MOL\", \"MOL Nyrt\"], RICHTER → [\"Richter Gedeon\", \"Gedeon Richter\"], MTELEKOM/MTEL → [\"Magyar Telekom\"], OPUS → [\"Opus Global\"], 4iG/4IG → [\"4iG\", \"4iG Nyrt\"], MASTERPLAST → [\"Masterplast\"], ANY → [\"ANY Biztonsági Nyomda\"], WABERER → [\"Waberer's\"], AKKO → [\"AKKO Invest\"], ALTEO → [\"ALTEO\"], AUTOWALLIS → [\"AutoWallis\"], DUNA → [\"Duna House\"], RABA → [\"Rába\"], ZWACK → [\"Zwack Unicum\"], CIG → [\"CIG Pannónia\"], PANNERGY → [\"PannErgy\"].\nSet intent=\"ticker\" only for stock/market-looking queries. Magyar tickereknél a szektor/iparág kerüljön expanded_terms-be magyarul (pl. \"bankszektor\", \"gyógyszeripar\", \"olajipar\"). Ha nem ismered fel a tickert, csak a szimbólumot add vissza entities-ben és intent=\"ticker\" — NE találj ki cégnevet." + (complex ? COMPLEX_INSTRUCTION : "") },
           { role: "user", content: `Query: "${q}"\nReturn entities (people/companies/topics named in the query — for tickers include both symbol AND company name), 3-6 expanded_terms (closely related keywords), 3-6 synonyms, intent (one of: topic, person, company, ticker, episode, question, news), and language (ISO code).` },
         ],
         tools: [{
@@ -90,8 +97,14 @@ export async function understandQuery(q: string, timeoutMs = 1500): Promise<Unde
                 synonyms: { type: "array", items: { type: "string" }, maxItems: 8 },
                 intent: { type: "string" },
                 language: { type: "string" },
+                ...(complex ? {
+                  concepts: { type: "array", items: { type: "string" }, maxItems: 6 },
+                  core_topic: { type: "string" },
+                } : {}),
               },
-              required: ["entities", "expanded_terms", "synonyms", "intent", "language"],
+              required: complex
+                ? ["entities", "expanded_terms", "synonyms", "intent", "language", "concepts", "core_topic"]
+                : ["entities", "expanded_terms", "synonyms", "intent", "language"],
             },
           },
         }],
@@ -142,6 +155,11 @@ export async function understandQuery(q: string, timeoutMs = 1500): Promise<Unde
       intent,
       language: typeof p?.language === "string" ? p.language.toLowerCase().slice(0, 5) : "hu",
       adj_noun: adjNoun,
+      ...(complex ? {
+        concepts: Array.isArray(p?.concepts) ? p.concepts.slice(0, 6).map((c: unknown) => String(c ?? "")) : [],
+        core_topic: typeof p?.core_topic === "string" ? p.core_topic.slice(0, 60) : "",
+        mode: "complex" as const,
+      } : {}),
     };
   } catch (e) {
     clearTimeout(t);
