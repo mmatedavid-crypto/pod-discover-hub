@@ -117,3 +117,10 @@
 - [ ] Person–episode OpenAI batch paused: OpenAI account billing hard limit reached (blocked: owner raises/tops up the OpenAI account limit); 13,920 pairs waiting.
 - [ ] 47 shows labelled HU but detected English/other sit in language review (1,276 episodes held, not public) (blocked: owner language decision).
 - [ ] Topic catch-up (~26.8k pending, ~8.6k/day) and search re-embed (~133k, ≤900/h) run on their own; expected done ≈ early November.
+
+## Global search & recommendation quality (2026-10-27)
+- [x] AI-graded whole-set measurement (`search-quality-eval`): 557 searches (golden + visitor + Google queries) and 288 recommendations, 30% holdout, calibration sample, $1.5 cap.
+- [ ] Baseline run finishes, failure classes ranked by share.
+- [ ] Fix the largest vector-independent failure classes; keep only changes that improve the whole set with no query-type regression on the holdout.
+- [ ] Weekly measurement + Telegram alert on regression; trend on the admin search test page.
+- [ ] Re-measure after the old-vector rebuild finishes (~6 days).
