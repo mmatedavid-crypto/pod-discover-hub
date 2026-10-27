@@ -258,6 +258,25 @@ async function createRun(admin: any, body: any) {
 
   const seen = new Set<string>();
   const items: any[] = [];
+  // Re-measure exactly the same item set as an earlier run (before/after comparisons).
+  if (body.copy_from_run_id) {
+    const src: any[] = [];
+    for (let from = 0; ; from += 500) {
+      const { data, error: ce } = await admin.from("search_quality_items")
+        .select("kind,query,seed_episode_id,query_type,source,split,calibrate").eq("run_id", body.copy_from_run_id).range(from, from + 499);
+      if (ce) throw ce;
+      src.push(...(data || []));
+      if (!data || data.length < 500) break;
+    }
+    const only = body.only_kind ? String(body.only_kind) : null;
+    for (const r of src) if (!only || r.kind === only) items.push({ ...r, run_id: run.id });
+    for (let i = 0; i < items.length; i += 200) {
+      const { error: e } = await admin.from("search_quality_items").insert(items.slice(i, i + 200));
+      if (e) throw e;
+    }
+    if (body.start_drain) await admin.rpc("start_search_quality_drain_v1");
+    return { run_id: run.id, items: items.length, copied_from: body.copy_from_run_id, cost_cap_usd: cap };
+  }
   const add = (query: string, source: string, query_type: string | null) => {
     const q = cleanQuery(query);
     if (!q) return;
