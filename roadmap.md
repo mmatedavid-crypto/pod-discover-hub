@@ -111,3 +111,9 @@
 - [x] Both Astra jobs exempt from the visitor-first gate (owner decision); cost caps unchanged.
 - [ ] Owner list from Astra's recommendations (waits on the review above).
 - [x] Publish requested 2026-10-25 20:21 UTC.
+
+## Database status review (2026-10-27)
+- [x] SEO podcast-description jobs could never finish after a final failure and retried every 30 min; fixed, stuck job closed.
+- [ ] Person–episode OpenAI batch paused: OpenAI account billing hard limit reached (blocked: owner raises/tops up the OpenAI account limit); 13,920 pairs waiting.
+- [ ] 47 shows labelled HU but detected English/other sit in language review (1,276 episodes held, not public) (blocked: owner language decision).
+- [ ] Topic catch-up (~26.8k pending, ~8.6k/day) and search re-embed (~133k, ≤900/h) run on their own; expected done ≈ early November.
