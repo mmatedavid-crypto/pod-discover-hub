@@ -2339,6 +2339,7 @@ Deno.serve(async (req) => {
         natural_question_fallback: naturalQuestionFallback,
         semantic: !!q_embedding,
         reranked: !!rerankResult,
+        term_coverage: termCoverage,
         rerank_cache_hit: rerankCacheHit,
         cache_hit: cacheHit,
         must_gate: mustGateApplied,
