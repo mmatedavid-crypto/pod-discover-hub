@@ -329,8 +329,10 @@ async function tick(admin: any, body: any, startedAt: number) {
     .eq("run_id", run.id).in("status", ["pending", "claimed"]);
   const { data: fresh } = await admin.from("search_quality_runs").select("cost_used_usd,cost_cap_usd").eq("id", run.id).single();
   const finalized = remaining === 0 ? (await finalize(admin, { run_id: run.id })).complete : false;
-  if (finalized) await admin.rpc("stop_search_quality_drain_v1");
-  return { run_id: run.id, processed, failed, capped, remaining, finalized, cost_used_usd: fresh?.cost_used_usd, cost_cap_usd: fresh?.cost_cap_usd };
+  // Spend cap reached: close the run with partial metrics so nothing keeps polling.
+  const closedOnCap = capped && !finalized ? (await finalize(admin, { run_id: run.id, force: true }), true) : false;
+  if (finalized || closedOnCap) await admin.rpc("stop_search_quality_drain_v1");
+  return { run_id: run.id, processed, failed, capped, closed_on_cap: closedOnCap, remaining, finalized, cost_used_usd: fresh?.cost_used_usd, cost_cap_usd: fresh?.cost_cap_usd };
 }
 
 async function finalize(admin: any, body: any) {
@@ -386,7 +388,7 @@ async function finalize(admin: any, body: any) {
   };
   const complete = !all.some((r) => r.status === "pending" || r.status === "claimed");
   await admin.from("search_quality_runs").update({
-    metrics, ...(complete && body.close !== false ? { status: "completed", completed_at: new Date().toISOString() } : {}),
+    metrics, ...((complete || body.force) && body.close !== false ? { status: "completed", completed_at: new Date().toISOString() } : {}),
   }).eq("id", body.run_id);
   return { complete, metrics };
 }
