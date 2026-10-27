@@ -2,12 +2,16 @@ import { describe, expect, it } from "vitest";
 import { podcastPinAllowed, podcastTitleCore, wordAlignedMatch } from "../../supabase/functions/_shared/search-podcast-pin";
 
 describe("podcast name pin", () => {
-  it("does not pin a show whose title merely starts with or contains the searched word", () => {
+  it("does not pin a show whose title only shares characters with the searched word", () => {
     expect(podcastPinAllowed("AI", "Airbag [Tilos Rádió podcast]", "prefix")).toBe(false);
     expect(podcastPinAllowed("EU", "Eurovíziós Podcast", "prefix")).toBe(false);
     expect(podcastPinAllowed("Gulyás", "Gulyáságyú podcast hivatalos", "prefix")).toBe(false);
-    expect(podcastPinAllowed("Budapest", "Budapest Park", "token")).toBe(false);
-    expect(podcastPinAllowed("föld", "Föld/osztás - 24.hu", "prefix")).toBe(false);
+    expect(podcastPinAllowed("Tóta", "Totalcar Égéstér: Podcast autókról", "prefix")).toBe(false);
+  });
+
+  it("pins a show whose title contains the searched word as a whole word", () => {
+    expect(podcastPinAllowed("Telex", "Telex After", "prefix")).toBe(true);
+    expect(podcastPinAllowed("egészség", "Itt vagyok – élet és egészség podcast Bánhalmi Katával", "token")).toBe(true);
   });
 
   it("pins when the visitor typed the show's name, ignoring filler words and brackets", () => {
