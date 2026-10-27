@@ -94,3 +94,9 @@ describe("complex search path: request openers", () => {
     expect(looksComplex(shape("mirol beszeltek a magyar gazdasagrol mostanaban"))).toBe(true);
   });
 });
+
+describe("complex search path: names starting with a question-like word", () => {
+  it("'Mi Hazánk parlament' is not treated as a question", () => {
+    expect(looksComplex(shape("mi hazank parlament"))).toBe(false);
+  });
+});

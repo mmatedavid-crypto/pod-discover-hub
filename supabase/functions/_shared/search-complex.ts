@@ -23,7 +23,7 @@ export function meaningfulTokens(input: ComplexShapeInput): string[] {
 // Words that open a request in natural language ("miről beszéltek…", "ajánlj…").
 const REQUEST_OPENERS = new Set([
   "mirol", "kirol", "mivel", "kivel", "mitol", "kitol", "minek", "kinek", "mikor", "miert", "hogyan", "milyen", "melyik",
-  "mennyi", "mennyit", "mit", "mi", "ki", "hol", "ajanlj", "ajanlanal", "ajanlotok", "keresek", "szeretnek",
+  "mennyi", "mennyit", "mit", "hol", "ajanlj", "ajanlanal", "ajanlotok", "keresek", "szeretnek",
 ]);
 
 // Shape-only decision, made before any lookup so the AI step can start early.
