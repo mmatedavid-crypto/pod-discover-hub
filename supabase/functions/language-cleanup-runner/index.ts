@@ -12,6 +12,7 @@
 //
 // Only the service role (internal callers) or a signed-in admin may call this.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { feedBlocklistKey } from "../_shared/feed-blocklist.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -55,8 +56,6 @@ function chunks<T>(a: T[], n: number): T[][] {
   for (let i = 0; i < a.length; i += n) out.push(a.slice(i, i + n));
   return out;
 }
-
-const feedKey = (u: string) => u.trim().toLowerCase().replace(/\/+$/, "");
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -122,7 +121,7 @@ Deno.serve(async (req) => {
       // Block the feed first: if anything below fails, the show still cannot come back.
       if (blockFeed && t.rss_url) {
         const { error: bErr } = await admin.from("podcast_feed_blocklist").upsert({
-          rss_url_key: feedKey(t.rss_url), rss_url: t.rss_url, title: t.title,
+          rss_url_key: feedBlocklistKey(t.rss_url), rss_url: t.rss_url, title: t.title,
           reason: blockReason, blocked_by: "language-cleanup-runner",
         }, { onConflict: "rss_url_key" });
         if (bErr) { summary.errors.push(`${t.id}:block:${bErr.message}`); continue; }
