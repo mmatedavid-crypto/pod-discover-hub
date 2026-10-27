@@ -203,8 +203,6 @@ Deno.serve(async (req) => {
           await admin.from("wiki_safe_match_log").upsert({ run_id: runId, policy_version: WIKI_RESOLVE_POLICY_VERSION, entity_kind: "organization", entity_id: c.id,
             entity_name: c.name, decision: "error", reason: String(e instanceof Error ? e.message : e).slice(0, 200) }, { onConflict: "entity_kind,entity_id,policy_version", ignoreDuplicates: true });
         }
-      }
-    }
       } };
       await Promise.all([rworker(), rworker(), rworker()]);
     }
