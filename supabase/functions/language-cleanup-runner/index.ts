@@ -30,7 +30,17 @@ const EPISODE_ORPHAN_TABLES = [
 ];
 const PODCAST_ORPHAN_TABLES = ["podcast_language_review_queue", "podcast_embedding_failures"];
 
+function sameToken(a: string, b: string) {
+  if (a.length < 32 || a.length !== b.length) return false;
+  let d = 0; for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return d === 0;
+}
 async function authorized(admin: any, req: Request) {
+  const given = req.headers.get("x-internal-token") || "";
+  if (given) {
+    const { data } = await admin.from("internal_job_tokens").select("token").eq("job", "language-cleanup-runner").maybeSingle();
+    if (sameToken(String(data?.token || ""), given)) return true;
+  }
   const jwt = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
   if (!jwt) return false;
   if (jwt === Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")) return true;
