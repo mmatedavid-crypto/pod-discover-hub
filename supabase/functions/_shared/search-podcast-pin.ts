@@ -8,11 +8,11 @@ const FILLER = new Set([
   "a", "az", "the", "radio", "tilos", "epizod", "epizodok",
 ]);
 
-/** Accent-folded word tokens of a show title, without bracketed suffixes, publisher tails and filler words. */
+/** Accent-folded word tokens of a show title, without bracketed suffixes, web domains and filler words. */
 export function podcastTitleCore(title: string): string[] {
   const t = String(title || "")
     .replace(/\[[^\]]*\]|\([^)]*\)/g, " ")
-    .split(/\s[-–|:]\s/)[0]
+    .replace(/\b\S+\.(hu|com|net|org|eu)\b/gi, " ")
     .normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
     .replace(/[^a-z0-9]+/g, " ").trim();
   return t.split(" ").filter((w) => w && !FILLER.has(w));
