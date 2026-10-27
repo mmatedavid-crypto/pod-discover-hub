@@ -372,10 +372,15 @@ async function ingestJob(db: any, controls: Controls, job: any) {
   await db.from("person_relevance_batch_items").update({ status: "expired", error: "no_result_line", updated_at: new Date().toISOString() })
     .eq("job_id", job.id).eq("status", "submitted");
   if (job.tier !== "golden_eval") await db.rpc("release_person_openai_batch_job", { _job: job.id });
-  const { data: costs } = await db.from("person_relevance_batch_items").select("cost_usd,status").eq("job_id", job.id);
+  const { data: costs } = await db.from("person_relevance_batch_items").select("cost_usd,status,error").eq("job_id", job.id);
   const actual = (costs || []).reduce((n: number, r: any) => n + (Number(r.cost_usd) || 0), 0);
   const total = (costs || []).length || 1;
-  const bad = (costs || []).filter((r: any) => ["failed", "invalid", "refused"].includes(r.status)).length;
+  // Empty-balance failures of a batch submitted before the owner topped up and resumed are
+  // already explained; they must not re-pause the pipeline (they were not billed).
+  const resumedAt = Date.parse(String((controls as any).resumed_at || "")) || 0;
+  const beforeResume = !!job.submitted_at && Date.parse(job.submitted_at) < resumedAt;
+  const bad = (costs || []).filter((r: any) => ["failed", "invalid", "refused"].includes(r.status)
+    && !(beforeResume && /credit_balance_exhausted|billing/i.test(String(r.error || "")))).length;
   await db.from("person_relevance_batch_jobs").update({ status: "ingested", actual_cost_usd: actual, reserved_cost_usd: actual,
     ingested_at: new Date().toISOString(), updated_at: new Date().toISOString(), meta: { ...(job.meta || {}), anomalies, failure_rate: bad / total } }).eq("id", job.id);
   if (actual > 0) await db.rpc("add_ai_spend", { p_day: new Date().toISOString().slice(0, 10), p_kind: "person_relevance_openai", p_amount: actual, p_calls: total });
