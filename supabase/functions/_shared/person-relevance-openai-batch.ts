@@ -213,22 +213,21 @@ export function decidePolicy(raw: unknown, src: Source, ctx: { model: string; id
   };
 }
 
-// Owner decision 2026-10-27: a namesake / substring false match is closed as
-// rejected only when two independent AI reviews agree (primary model said so
-// AND the stronger escalation model says so with a verbatim source quote).
-// Everything else that is not a safe acceptance stays needs_review.
+// Owner decision 2026-10-27: a link is closed as rejected only when two
+// independent AI reviews agree (primary model suggested rejection AND the
+// stronger escalation model rejects with a verbatim source quote). Everything
+// else that is not a safe acceptance stays needs_review.
 export const NAMESAKE_IDENTITIES = ["different_person_same_name", "substring_false_positive"] as const;
-const isNamesake = (v: unknown) => (NAMESAKE_IDENTITIES as readonly string[]).includes(String(v));
 export function escalationFinal(
   primary: { identity_match?: unknown; ai_suggested_status?: unknown } | null | undefined,
   policy: PolicyResult,
 ): PolicyResult["final_status"] {
   if (policy.final_status === "accepted") return "accepted";
   const d = policy.decision as Decision & { ai_suggested_status: string };
-  const escalationSaysNamesake = d.status === "rejected" && isNamesake(d.identity_match)
+  const escalationRejects = d.status === "rejected"
     && Array.isArray(d.evidence_phrases) && d.evidence_phrases.length > 0;
-  const primarySaysNamesake = !!primary && primary.ai_suggested_status === "rejected" && isNamesake(primary.identity_match);
-  return escalationSaysNamesake && primarySaysNamesake ? "rejected" : "needs_review";
+  const primaryRejects = !!primary && primary.ai_suggested_status === "rejected";
+  return escalationRejects && primaryRejects ? "rejected" : "needs_review";
 }
 
 // Escalation requests use the stronger model; a tighter output cap keeps the
