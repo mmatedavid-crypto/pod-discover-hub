@@ -105,6 +105,35 @@ async function freeImage(admin: any, filename: string | null, path: string) {
     image_author: author || null, image_attribution: [author || "Wikimedia Commons", license].filter(Boolean).join(", ") };
 }
 
+const wikiApi = (params: Record<string, string>) => {
+  const q = new URL("https://hu.wikipedia.org/w/api.php");
+  for (const [k, v] of Object.entries({ action: "query", format: "json", ...params })) q.searchParams.set(k, v);
+  return getJson(q.toString());
+};
+
+// Article links (main namespace) of the disambiguation page for a name.
+async function disambigLinks(name: string, rejectedTitle: string | null): Promise<string[]> {
+  const titles = [rejectedTitle && /egyértelműsítő/i.test(rejectedTitle) ? rejectedTitle : null, `${name} (egyértelműsítő lap)`].filter(Boolean) as string[];
+  const out: string[] = [];
+  for (const t of [...new Set(titles)]) {
+    const j = await wikiApi({ titles: t, redirects: "1", prop: "links", plnamespace: "0", pllimit: "200" });
+    for (const p of Object.values(j?.query?.pages || {}) as any[]) for (const l of p.links || []) out.push(l.title);
+  }
+  return out;
+}
+
+// Which of the titles exist (after redirects), as distinct resolved article titles.
+async function existingTitles(titles: string[]): Promise<string[]> {
+  const out = new Set<string>();
+  for (let i = 0; i < titles.length; i += 40) {
+    const j = await wikiApi({ titles: titles.slice(i, i + 40).join("|"), redirects: "1", prop: "pageprops", ppprop: "disambiguation" });
+    for (const p of Object.values(j?.query?.pages || {}) as any[]) {
+      if (p.missing === undefined && p.invalid === undefined && p.pageprops?.disambiguation === undefined && p.title) out.add(p.title);
+    }
+  }
+  return [...out];
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const started = Date.now();
