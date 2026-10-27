@@ -31,7 +31,7 @@ describe("search term coverage", () => {
     expect(queryContentTerms("444 Orbán")).toEqual(["444", "orban"]);
   });
   it("plural query words match their singular stem ('párok' → 'Párkapcsolatok')", () => {
-    const r = rankByTermCoverage([ep("a", "Miért adjuk fel önmagunkat?"), ep("b", "Így mennek tönkre a párkapcsolatok, szétszakadnak")], "miért szakadnak szét a párok");
+    const r = rankByTermCoverage([ep("a", "Miért adjuk fel önmagunkat?"), ep("b", "Szakadás után: így mennek tönkre a párkapcsolatok")], "miért szakadnak szét a párok");
     expect(ids(r.list)).toEqual(["b", "a"]);
   });
 });
