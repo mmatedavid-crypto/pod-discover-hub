@@ -15,6 +15,7 @@ import { cleanTextNameTsQuery, isPersonEvidenceCandidate, personIdentityState, r
 import { episodeExactFields, exactCleanTextTsQuery, exactMatchLabel, exactPhraseMatch, exactWebsearchQuery, parseExactPhraseQuery, type ExactPhraseQuery } from "../_shared/search-exact-phrase.ts";
 import { detectTemporalIntent, isTemporalToken, preferWithinWindow } from "../_shared/search-temporal.ts";
 import { podcastPinAllowed, wordAlignedMatch } from "../_shared/search-podcast-pin.ts";
+import { rankByTermCoverage } from "../_shared/search-term-coverage.ts";
 
 // Per-query cap for the person-first branch; a slow source degrades to fewer
 // results instead of pushing the request past the client timeout.
@@ -2257,6 +2258,15 @@ Deno.serve(async (req) => {
         const strictTail = strictBrand.slice(6);
         ordered = [...strictHead, ...looseHits, ...strictTail, ...misses];
       }
+    }
+
+    // Query-term coverage: results covering every query word (or, for one-word queries,
+    // carrying it in title/show/tags) first. Name, show-pin and recency invariants below still win.
+    let termCoverage: string | null = null;
+    if (!isTickerQ) {
+      const tc = rankByTermCoverage(ordered, q, { window: 30, minStrong: 3 });
+      ordered = tc.list;
+      termCoverage = tc.applied;
     }
 
     // MMR diversity
