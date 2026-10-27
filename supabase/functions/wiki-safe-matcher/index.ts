@@ -156,7 +156,58 @@ Deno.serve(async (req) => {
   let seen = 0;
   const bump = (k: string) => { counts[k] = (counts[k] || 0) + 1; };
   try {
+    // Second pass first (small, ≤30 s): organizations whose exact-name article was a disambiguation
+    // page or the wrong thing get one try with qualified titles + disambiguation links.
+    const resolveLimit = Math.max(0, Math.min(40, Number(body.resolve ?? ctrl.resolve_per_run ?? 10)));
+    if (resolveLimit > 0) {
+      const { data: rc, error: rErr } = await admin.rpc("wiki_safe_resolve_candidates_v1", { _limit: resolveLimit, _base_policy: WIKI_POLICY_VERSION, _policy: WIKI_RESOLVE_POLICY_VERSION });
+      if (rErr) throw new Error(`resolve candidates: ${rErr.message}`);
+      const rlist = (rc || []) as any[];
+      seen += rlist.length;
+      for (const c of rlist) {
+        if (Date.now() - started > (body.only === "resolve" ? TIME_BUDGET_MS : 30_000)) break;
+        try {
+          const links = await disambigLinks(c.name, c.rejected_title);
+          const titles = await existingTitles(resolveTitles(c.name, c.org_type, c.rejected_title, links));
+          const context = ((c.mentions || []) as any[]).flatMap((m: any) => [m.title, m.evidence]).filter(Boolean);
+          const tried: any[] = [];
+          for (const t of titles.slice(0, 8)) {
+            const { page, extra } = await lookup(t, "organization", c.org_type);
+            if (page.title === c.rejected_title) continue;
+            tried.push({ title: page.title, qid: extra?.qid || null, page, extra,
+              decision: orgDecision({ name: c.name, orgType: c.org_type, aliases: c.aliases, context }, page) });
+            await new Promise((s) => setTimeout(s, 100));
+          }
+          const { pick, reason } = pickUnique(tried);
+          const summary = tried.map((x) => ({ title: x.title, qid: x.qid, decision: x.decision.decision, reason: x.decision.reason }));
+          if (pick && pick.page.title && pick.qid) {
+            const img = await freeImage(admin, pick.extra?.pageimage, `orgs/${c.id}-wiki`);
+            const why = `resolved(${c.base_reason}):${pick.decision.reason}`;
+            const patch: Record<string, unknown> = {
+              wikipedia_title: pick.page.title, wikipedia_url: `https://hu.wikipedia.org/wiki/${encodeURIComponent(pick.page.title.replace(/ /g, "_"))}`,
+              wikidata_id: pick.qid, wikipedia_extract: pick.page.extract || null, wikipedia_description: pick.page.description || null,
+              wikipedia_match_confidence: Math.min(pick.decision.confidence ?? 0.85, 0.85),
+              wikipedia_match_evidence: { policy: WIKI_RESOLVE_POLICY_VERSION, reason: why, rejected_title: c.rejected_title, tried: summary, p31: pick.page.p31 },
+              ...(img || {}),
+            };
+            const { data: res, error: aErr } = await admin.rpc("apply_wiki_safe_match_v1", { _kind: "organization", _id: c.id, _patch: patch, _run_id: runId,
+              _policy: WIKI_RESOLVE_POLICY_VERSION, _reason: why, _candidate: { wikipedia_title: pick.page.title, qid: pick.qid, tried: summary, image: !!img } });
+            if (aErr) throw new Error(aErr.message);
+            bump(`resolve:${res === "applied" ? "applied" : "skip"}`);
+          } else {
+            await admin.from("wiki_safe_match_log").upsert({ run_id: runId, policy_version: WIKI_RESOLVE_POLICY_VERSION, entity_kind: "organization", entity_id: c.id,
+              entity_name: c.name, decision: "review", reason, candidate: { tried: summary } }, { onConflict: "entity_kind,entity_id,policy_version", ignoreDuplicates: true });
+            bump(`resolve:review`);
+          }
+        } catch (e) {
+          bump("resolve:error");
+          await admin.from("wiki_safe_match_log").upsert({ run_id: runId, policy_version: WIKI_RESOLVE_POLICY_VERSION, entity_kind: "organization", entity_id: c.id,
+            entity_name: c.name, decision: "error", reason: String(e instanceof Error ? e.message : e).slice(0, 200) }, { onConflict: "entity_kind,entity_id,policy_version", ignoreDuplicates: true });
+        }
+      }
+    }
     for (const kind of ["organization", "person"] as const) {
+      if (body.only === "resolve") break;
       if (!perKind[kind]) continue;
       const { data: cands, error } = await admin.rpc("wiki_safe_match_candidates_v1", { _kind: kind, _limit: perKind[kind], _policy: WIKI_POLICY_VERSION });
       if (error) throw new Error(`${kind} candidates: ${error.message}`);
