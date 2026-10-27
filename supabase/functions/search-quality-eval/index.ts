@@ -7,7 +7,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { callLovableAI } from "../_shared/lovable-ai.ts";
 import {
-  aggregateMetrics, buildRecJudgeMessages, buildSearchJudgeMessages, cleanQuery, type CompactResult, foldQuery,
+  aggregateMetrics, buildRecJudgeMessages, detectRegressions, buildSearchJudgeMessages, cleanQuery, type CompactResult, foldQuery,
   itemMetrics, JUDGE_PROMPT_VERSION, JUDGE_TOOL, judgeAgreement, parseJudgment, REC_FAILURE_REASONS,
   SEARCH_FAILURE_REASONS, shouldCalibrate, splitFor, stripText,
 } from "../_shared/search-quality-eval.ts";
@@ -227,7 +227,24 @@ async function processItem(admin: any, run: any, item: any) {
   };
 }
 
+async function sendTelegram(text: string) {
+  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+  const tgKey = Deno.env.get("TELEGRAM_API_KEY");
+  const chatId = Deno.env.get("TELEGRAM_ALERT_CHAT_ID");
+  if (!lovableKey || !tgKey || !chatId) return { ok: false, error: "missing_telegram_env" };
+  const r = await fetch("https://connector-gateway.lovable.dev/telegram/sendMessage", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${lovableKey}`, "X-Connection-Api-Key": tgKey, "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, text, disable_web_page_preview: true }),
+  }).catch((e) => ({ ok: false, status: 0, text: async () => String(e) } as any));
+  return { ok: r.ok, error: r.ok ? undefined : `tg_${r.status}` };
+}
+
 async function createRun(admin: any, body: any) {
+  if (body.weekly) {
+    const { data: open } = await admin.from("search_quality_runs").select("id").eq("status", "open").limit(1);
+    if (open?.length) return { skipped: true, reason: "run_already_open", run_id: open[0].id };
+  }
   const cap = Math.min(2, Math.max(0.05, Number(body.cost_cap_usd) || 1.5));
   const calShare = Math.min(0.3, Math.max(0, Number(body.calibration_share ?? 0.15)));
   const { data: eng } = await admin.from("app_settings").select("value").eq("key", "search_engine").maybeSingle();
@@ -235,7 +252,7 @@ async function createRun(admin: any, body: any) {
     label: String(body.label || `Search quality ${new Date().toISOString().slice(0, 16)}`).slice(0, 120),
     ranking_version: Number(eng?.value?.ranking_version) || null,
     judge_model: JUDGE_MODEL, calibration_model: CALIBRATION_MODEL, cost_cap_usd: cap,
-    config: { calibration_share: calShare, prompt_version: JUDGE_PROMPT_VERSION, visitor_days: 90, gsc_days: 90 },
+    config: { calibration_share: calShare, prompt_version: JUDGE_PROMPT_VERSION, visitor_days: 90, gsc_days: 90, weekly: !!body.weekly },
   }).select("*").single();
   if (error) throw error;
 
@@ -280,7 +297,12 @@ async function createRun(admin: any, body: any) {
   [...gscAgg.values()].sort((a, b) => b.imp - a.imp).slice(0, Math.min(200, Number(body.max_gsc) || 80))
     .forEach((x) => add(x.q, "gsc", null));
 
-  const seeds: string[] = Array.isArray(body.rec_seed_ids) ? body.rec_seed_ids.slice(0, 200).map(String) : [];
+  let seeds: string[] = Array.isArray(body.rec_seed_ids) ? body.rec_seed_ids.slice(0, 200).map(String) : [];
+  if (!seeds.length && body.auto_seeds) {
+    const { data: auto, error: se } = await admin.rpc("sample_search_quality_rec_seeds_v1", { p_per_category: 6, p_salt: "sq1" });
+    if (se) throw se;
+    seeds = (auto || []).slice(0, 200).map(String);
+  }
   for (const id of seeds) {
     for (const rpc of ["similar_episodes", "related_embedding"]) {
       items.push({ run_id: run.id, kind: "recommendation", query: rpc, seed_episode_id: id, source: rpc, split: splitFor(id), calibrate: shouldCalibrate(rpc + id, calShare) });
@@ -291,6 +313,7 @@ async function createRun(admin: any, body: any) {
     const { error: e } = await admin.from("search_quality_items").insert(items.slice(i, i + 200));
     if (e) throw e;
   }
+  if (body.start_drain) await admin.rpc("start_search_quality_drain_v1");
   return { run_id: run.id, items: items.length, by_source: items.reduce((a: any, x) => ((a[x.source] = (a[x.source] || 0) + 1), a), {}), cost_cap_usd: cap };
 }
 
@@ -399,6 +422,26 @@ async function finalize(admin: any, body: any) {
     } : null,
   };
   const complete = !all.some((r) => r.status === "pending" || r.status === "claimed");
+  let regressions: any[] = [];
+  if (complete && body.close !== false) {
+    const { data: cur } = await admin.from("search_quality_runs").select("id,label,config,created_at").eq("id", body.run_id).single();
+    const { data: prev } = await admin.from("search_quality_runs").select("id,label,metrics")
+      .eq("status", "completed").neq("id", body.run_id).lt("created_at", cur.created_at)
+      .order("created_at", { ascending: false }).limit(1).maybeSingle();
+    if (prev?.metrics) {
+      regressions = [
+        ...detectRegressions(prev.metrics.search?.by_query_type || {}, metrics.search.by_query_type),
+        ...detectRegressions(prev.metrics.search?.by_split || {}, metrics.search.by_split),
+        ...detectRegressions(prev.metrics.recommendation || {}, metrics.recommendation),
+      ];
+      (metrics as any).compared_to = { run_id: prev.id, label: prev.label, regressions };
+      if (regressions.length && cur?.config?.weekly) {
+        const lines = regressions.slice(0, 8).map((r) => `• ${r.group} ${r.metric}: ${r.before} → ${r.after}`);
+        const tg = await sendTelegram(`Keresési minőség romlott (heti mérés)\n${lines.join("\n")}\nAdmin: /admin/search-benchmark`);
+        (metrics as any).compared_to.telegram = tg;
+      }
+    }
+  }
   await admin.from("search_quality_runs").update({
     metrics, ...((complete || body.force) && body.close !== false ? { status: "completed", completed_at: new Date().toISOString() } : {}),
   }).eq("id", body.run_id);
