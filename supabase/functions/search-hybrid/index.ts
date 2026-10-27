@@ -1508,7 +1508,8 @@ Deno.serve(async (req) => {
       : [];
     let complexLexQ: string | null = null;
     if (complexQuery && complexConcepts.length) {
-      complexLexQ = complexLexicalQuery(q, naturalQuestion.isQuestion, complexConcepts, naturalQuestion.isQuestion ? naturalQuestion.coreTerms : meaningfulTokens(complexShapeInput).slice(0, 6));
+      // Statements: literal phrase + concepts only; lone common words ("magyar") make the lexical scan slow and noisy.
+      complexLexQ = complexLexicalQuery(q, naturalQuestion.isQuestion, complexConcepts, naturalQuestion.isQuestion ? naturalQuestion.coreTerms : []);
       if (naturalQuestion.isQuestion) {
         naturalQuestion = { ...naturalQuestion, expandedTerms: complexConcepts, lexicalQuery: complexLexQ, semanticText: complexSemanticText(q, complexConcepts) };
       }
@@ -2253,7 +2254,7 @@ Deno.serve(async (req) => {
       }
       const cachedCount = known.size;
       const missing = pool.filter((e: any) => !known.has(e.id));
-      const model = String(engineCfg.verify_model || "google/gemini-2.5-flash-lite");
+      const model = String(engineCfg.verify_model || "google/gemini-3-flash-preview");
       const verifyTimeout = Math.min(6000, softBudgetMs - elapsed() - 700);
       const tv = Date.now();
       let fresh: Map<string, VerifyGrade> | null = null;
