@@ -249,7 +249,7 @@ async function createRun(admin: any, body: any) {
   const calShare = Math.min(0.3, Math.max(0, Number(body.calibration_share ?? 0.15)));
   const { data: eng } = await admin.from("app_settings").select("value").eq("key", "search_engine").maybeSingle();
   const { data: run, error } = await admin.from("search_quality_runs").insert({
-    label: String(body.label || `Search quality ${new Date().toISOString().slice(0, 16)}`).slice(0, 120),
+    label: (body.weekly ? `${String(body.label || "Weekly search quality")} ${new Date().toISOString().slice(0, 10)}` : String(body.label || `Search quality ${new Date().toISOString().slice(0, 16)}`)).slice(0, 120),
     ranking_version: Number(eng?.value?.ranking_version) || null,
     judge_model: JUDGE_MODEL, calibration_model: CALIBRATION_MODEL, cost_cap_usd: cap,
     config: { calibration_share: calShare, prompt_version: JUDGE_PROMPT_VERSION, visitor_days: 90, gsc_days: 90, weekly: !!body.weekly },
