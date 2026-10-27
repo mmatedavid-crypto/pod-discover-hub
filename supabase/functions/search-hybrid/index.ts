@@ -14,6 +14,7 @@ import { createFullNameMatcher, foldSearchName, fullNameTsQuery, isNameShapedQue
 import { cleanTextNameTsQuery, isPersonEvidenceCandidate, personIdentityState, rankPersonEvidence, type PersonCandidate, type PersonLink } from "../_shared/search-person-evidence.ts";
 import { episodeExactFields, exactCleanTextTsQuery, exactMatchLabel, exactPhraseMatch, exactWebsearchQuery, parseExactPhraseQuery, type ExactPhraseQuery } from "../_shared/search-exact-phrase.ts";
 import { detectTemporalIntent, isTemporalToken, preferWithinWindow } from "../_shared/search-temporal.ts";
+import { podcastPinAllowed } from "../_shared/search-podcast-pin.ts";
 
 // Per-query cap for the person-first branch; a slow source degrades to fewer
 // results instead of pushing the request past the client timeout.
@@ -517,10 +518,9 @@ async function resolvePodcastPin(supa: ReturnType<typeof createClient>, q: strin
   const top = Array.isArray(pmRes) && pmRes.length ? (pmRes[0] as any) : null;
   const sim = top && (typeof top.similarity === "number" ? top.similarity : (typeof top.sim === "number" ? top.sim : 0));
   const mtype = top?.match_type as string | undefined;
-  const pinAllowed = top && (
-    mtype === "alias" || mtype === "exact" || mtype === "token" || mtype === "prefix" ||
-    mtype === "slug" || mtype === "slug_prefix"
-  );
+  // Only pin when the visitor typed the show's name; a word that starts or appears in a
+  // title (AI → Airbag, Budapest → Budapest Park) must not hijack a topic search.
+  const pinAllowed = top && podcastPinAllowed(cleanedQ, String(top.title || ""), mtype);
   if (!pinAllowed) return null;
 
   const [{ data: pinMeta }, { data: pinEps }] = await Promise.all([
