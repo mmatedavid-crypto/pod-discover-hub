@@ -7,7 +7,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 import { runLog } from "../_shared/runner-run-log.ts";
-import { ORG_TYPE_ROOTS, orgDecision, personDecision, reusableLicense, WIKI_POLICY_VERSION, type WikiPage } from "../_shared/wiki-safe-match.ts";
+import { ORG_TYPE_ROOTS, orgDecision, personDecision, pickUnique, resolveTitles, reusableLicense, WIKI_POLICY_VERSION,
+  WIKI_RESOLVE_POLICY_VERSION, type WikiPage } from "../_shared/wiki-safe-match.ts";
 
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-internal-token" };
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
