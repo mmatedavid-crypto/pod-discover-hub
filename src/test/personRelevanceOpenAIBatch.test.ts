@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Source } from "../../supabase/functions/_shared/person-relevance-batch";
 import {
   actualCostUsd, buildCustomId, buildRequestLine, DEFAULT_CONTROLS, decidePolicy, goldenMetrics, mergeControls,
-  parseCustomId, parseOutputLine, requestCostUpperBoundUsd, submitBlockers, countsAsAttempt, isStaleClaim,
+  parseCustomId, parseOutputLine, requestCostUpperBoundUsd, submitBlockers, countsAsAttempt, isStaleClaim, escalationFinal,
 } from "../../supabase/functions/_shared/person-relevance-openai-batch";
 
 const P = "11111111-1111-1111-1111-111111111111";
@@ -125,5 +125,24 @@ describe("OpenAI batch adapter", () => {
     expect(isStaleClaim({ status: "claimed", created_at: "2026-10-26T20:29:00Z" }, now)).toBe(true);
     expect(isStaleClaim({ status: "claimed", created_at: "2026-10-26T20:45:00Z" }, now)).toBe(false);
     expect(isStaleClaim({ status: "submitted", created_at: "2026-10-25T00:00:00Z" }, now)).toBe(false);
+  });
+  it("closes a namesake link only when both AI reviews say it is a different person", () => {
+    const namesake = { ...accepted, status: "rejected", identity_match: "different_person_same_name", score: 0.9 };
+    const esc = decidePolicy(namesake, source(), { model: "gpt-6-sol", identityRisk: false, allowAiRejection: false, tier: "escalation" });
+    expect(esc.final_status).toBe("needs_review");
+    expect(escalationFinal({ ai_suggested_status: "rejected", identity_match: "different_person_same_name" }, esc)).toBe("rejected");
+    expect(escalationFinal({ ai_suggested_status: "rejected", identity_match: "substring_false_positive" }, esc)).toBe("rejected");
+    // Primary was only uncertain → no closing on a single AI opinion.
+    expect(escalationFinal({ ai_suggested_status: "needs_review", identity_match: "uncertain" }, esc)).toBe("needs_review");
+    expect(escalationFinal(null, esc)).toBe("needs_review");
+    // Escalation unsure or without a source quote → stays open.
+    const unsure = decidePolicy({ ...namesake, identity_match: "uncertain" }, source(), { model: "m", identityRisk: false, allowAiRejection: false, tier: "escalation" });
+    expect(escalationFinal({ ai_suggested_status: "rejected", identity_match: "different_person_same_name" }, unsure)).toBe("needs_review");
+    const unquoted = decidePolicy({ ...namesake, evidence_phrases: ["nincs ilyen idézet a szövegben"] }, source(), { model: "m", identityRisk: false, allowAiRejection: false, tier: "escalation" });
+    expect(escalationFinal({ ai_suggested_status: "rejected", identity_match: "different_person_same_name" }, unquoted)).toBe("needs_review");
+  });
+  it("keeps safe acceptances from the escalation review", () => {
+    const esc = decidePolicy(accepted, source(), { model: "gpt-6-sol", identityRisk: false, allowAiRejection: false, tier: "escalation" });
+    expect(escalationFinal({ ai_suggested_status: "needs_review", identity_match: "uncertain" }, esc)).toBe("accepted");
   });
 });
