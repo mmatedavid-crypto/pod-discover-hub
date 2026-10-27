@@ -445,14 +445,14 @@ async function tickAction(db: any) {
   const { data: jobs } = await db.from("person_relevance_batch_jobs").select("tier,status,reserved_cost_usd,actual_cost_usd,request_count,created_at")
     .not("status", "in", "(draft,aborted)").limit(5000);
   const dayStart = new Date(); dayStart.setUTCHours(0, 0, 0, 0);
-  let committed = 0, today = 0, used = 0, open = 0;
+  let committed = 0, today = 0, used = 0, open = 0, openEscalation = 0;
   const lane: Record<string, number> = { primary: 0, escalation: 0 };
   for (const j of jobs || []) {
     const c = Math.max(Number(j.reserved_cost_usd) || 0, Number(j.actual_cost_usd) || 0);
     committed += c; used += Number(j.request_count) || 0;
     lane[j.tier] = (lane[j.tier] || 0) + c;
     if (new Date(j.created_at) >= dayStart) today += c;
-    if (OPEN_STATUSES.includes(j.status)) open++;
+    if (OPEN_STATUSES.includes(j.status)) { open++; if (j.tier === "escalation") openEscalation++; }
   }
   const auth = controls.authorized_pilot;
   const totalCap = Math.min(controls.total_cap_usd, Number(auth?.total_cap_usd) || 0);
@@ -463,6 +463,8 @@ async function tickAction(db: any) {
   for (const tier of ["primary", "escalation"] as const) {
     if (open >= Math.max(1, controls.max_open_jobs)) { submits.push({ tier, reason: "open_job" }); break; }
     if (tier === "escalation" && !controls.escalation_enabled) continue;
+    // OpenAI's daily batch queue for the stronger model is ~1.35M tokens: one open escalation job at a time.
+    if (tier === "escalation" && openEscalation >= 1) { submits.push({ tier, reason: "escalation_job_open" }); continue; }
     const per = tier === "primary" ? TICK_UPPER_USD_PER_PAIR : TICK_UPPER_USD_PER_ESCALATION;
     const laneCap = tier === "primary" ? Number(controls.primary_total_cap_usd ?? Number.POSITIVE_INFINITY) : Number(controls.escalation_total_cap_usd || 0);
     const avail = Math.min(totalCap - committed, dailyCap - today, laneCap - (lane[tier] || 0));
