@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  aggregateMetrics, itemMetrics, judgeAgreement, parseJudgment, SEARCH_FAILURE_REASONS, splitFor,
+  aggregateMetrics, detectRegressions, itemMetrics, judgeAgreement, parseJudgment, SEARCH_FAILURE_REASONS, splitFor,
 } from "../../supabase/functions/_shared/search-quality-eval";
 
 describe("search quality evaluation rules", () => {
@@ -56,5 +56,14 @@ describe("search quality evaluation rules", () => {
       [{ idx: 0, score: 2, reason: null }, { idx: 1, score: 0, reason: "other" }],
     );
     expect(a).toEqual({ total: 2, exact: 1, within1: 2, binary: 2 });
+  });
+
+  it("flags a query type whose top-3 precision drops more than 5 points, ignoring tiny groups", () => {
+    const g = (p3: number, off: number, queries = 20) => ({ queries, p_at_1: 0, p_at_3: p3, p_at_10: 0, ndcg_at_10: 0, top1_off_topic_rate: off, top3_off_topic_rate: 0, off_topic_share_10: 0, empty_rate: 0 });
+    const regs = detectRegressions(
+      { topic: g(0.6, 0.1), person: g(0.8, 0.05), tiny: g(0.9, 0, 5) },
+      { topic: g(0.5, 0.1), person: g(0.78, 0.1), tiny: g(0.1, 0.9, 5) },
+    );
+    expect(regs.map((r) => `${r.group}:${r.metric}`)).toEqual(["topic:p_at_3", "person:top1_off_topic_rate"]);
   });
 });

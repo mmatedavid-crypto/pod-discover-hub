@@ -239,3 +239,32 @@ export function judgeAgreement(a: Judgment[], b: Judgment[]) {
   }
   return { total, exact, within1, binary };
 }
+
+type Agg = ReturnType<typeof aggregateMetrics>;
+
+/**
+ * Compare two runs' grouped metrics. A group regresses when both runs have at least
+ * `minQueries` graded queries in it and its P@3 drops by more than `dropP3` or its top-1
+ * off-topic rate rises by more than `riseOffTopic`.
+ */
+export function detectRegressions(
+  prev: Record<string, Agg>,
+  cur: Record<string, Agg>,
+  opts: { minQueries?: number; dropP3?: number; riseOffTopic?: number } = {},
+) {
+  const minQ = opts.minQueries ?? 15;
+  const dropP3 = opts.dropP3 ?? 0.05;
+  const rise = opts.riseOffTopic ?? 0.03;
+  const out: Array<{ group: string; metric: string; before: number; after: number }> = [];
+  for (const [group, c] of Object.entries(cur || {})) {
+    const p = prev?.[group];
+    if (!p || p.queries < minQ || c.queries < minQ) continue;
+    if (p.p_at_3 != null && c.p_at_3 != null && p.p_at_3 - c.p_at_3 > dropP3) {
+      out.push({ group, metric: "p_at_3", before: p.p_at_3, after: c.p_at_3 });
+    }
+    if (p.top1_off_topic_rate != null && c.top1_off_topic_rate != null && c.top1_off_topic_rate - p.top1_off_topic_rate > rise) {
+      out.push({ group, metric: "top1_off_topic_rate", before: p.top1_off_topic_rate, after: c.top1_off_topic_rate });
+    }
+  }
+  return out;
+}
