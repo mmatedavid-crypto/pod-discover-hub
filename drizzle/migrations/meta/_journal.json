@@ -883,6 +883,20 @@
       "when": 1793095342870,
       "tag": "0125_person_openai_escalation_claim_fix",
       "breakpoints": true
+    },
+    {
+      "idx": 126,
+      "version": "7",
+      "when": 1793098841542,
+      "tag": "0126_person_openai_two_ai_agree_rejection",
+      "breakpoints": true
+    },
+    {
+      "idx": 127,
+      "version": "7",
+      "when": 1793098921063,
+      "tag": "0127_person_openai_two_ai_agree_backfill",
+      "breakpoints": true
     }
   ]
 }
