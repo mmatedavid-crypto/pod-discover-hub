@@ -33,6 +33,10 @@ export type Controls = {
   pricing_source?: string;
   pricing_checked_at?: string;
   paused_reason?: string | null;
+  // Separate owner caps per lane (both still bounded by total_cap_usd / daily_cap_usd).
+  primary_total_cap_usd?: number | null;
+  escalation_total_cap_usd?: number | null;
+  escalation_hold_new?: boolean;
 };
 
 // Standard (non-batch) OpenAI list prices per 1M tokens, checked 2026-10-20 on
@@ -208,6 +212,28 @@ export function decidePolicy(raw: unknown, src: Source, ctx: { model: string; id
     final_status: final, escalate,
   };
 }
+
+// Owner decision 2026-10-27: a namesake / substring false match is closed as
+// rejected only when two independent AI reviews agree (primary model said so
+// AND the stronger escalation model says so with a verbatim source quote).
+// Everything else that is not a safe acceptance stays needs_review.
+export const NAMESAKE_IDENTITIES = ["different_person_same_name", "substring_false_positive"] as const;
+const isNamesake = (v: unknown) => (NAMESAKE_IDENTITIES as readonly string[]).includes(String(v));
+export function escalationFinal(
+  primary: { identity_match?: unknown; ai_suggested_status?: unknown } | null | undefined,
+  policy: PolicyResult,
+): PolicyResult["final_status"] {
+  if (policy.final_status === "accepted") return "accepted";
+  const d = policy.decision as Decision & { ai_suggested_status: string };
+  const escalationSaysNamesake = d.status === "rejected" && isNamesake(d.identity_match)
+    && Array.isArray(d.evidence_phrases) && d.evidence_phrases.length > 0;
+  const primarySaysNamesake = !!primary && primary.ai_suggested_status === "rejected" && isNamesake(primary.identity_match);
+  return escalationSaysNamesake && primarySaysNamesake ? "rejected" : "needs_review";
+}
+
+// Escalation requests use the stronger model; a tighter output cap keeps the
+// upper-bound reservation small (primary p99 output was ~400 tokens).
+export const ESCALATION_MAX_OUTPUT_TOKENS = 1000;
 
 export type JobStatus = "submitted" | "validating" | "in_progress" | "finalizing" | "completed" | "failed" | "expired" | "cancelling" | "cancelled";
 export function mapBatchStatus(s: string): JobStatus | null {
