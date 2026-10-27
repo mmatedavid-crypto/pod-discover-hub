@@ -9704,6 +9704,134 @@ export type Database = {
         }
         Relationships: []
       }
+      search_quality_items: {
+        Row: {
+          attempts: number
+          calibrate: boolean
+          calibration: Json | null
+          cost_usd: number
+          created_at: string
+          diagnostics: Json | null
+          error: string | null
+          id: string
+          judgments: Json | null
+          kind: string
+          latency_ms: number | null
+          lease_until: string | null
+          metrics: Json | null
+          query: string
+          query_type: string | null
+          results: Json | null
+          run_id: string
+          seed_episode_id: string | null
+          source: string
+          split: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          calibrate?: boolean
+          calibration?: Json | null
+          cost_usd?: number
+          created_at?: string
+          diagnostics?: Json | null
+          error?: string | null
+          id?: string
+          judgments?: Json | null
+          kind: string
+          latency_ms?: number | null
+          lease_until?: string | null
+          metrics?: Json | null
+          query: string
+          query_type?: string | null
+          results?: Json | null
+          run_id: string
+          seed_episode_id?: string | null
+          source: string
+          split: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          calibrate?: boolean
+          calibration?: Json | null
+          cost_usd?: number
+          created_at?: string
+          diagnostics?: Json | null
+          error?: string | null
+          id?: string
+          judgments?: Json | null
+          kind?: string
+          latency_ms?: number | null
+          lease_until?: string | null
+          metrics?: Json | null
+          query?: string
+          query_type?: string | null
+          results?: Json | null
+          run_id?: string
+          seed_episode_id?: string | null
+          source?: string
+          split?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "search_quality_items_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "search_quality_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      search_quality_runs: {
+        Row: {
+          calibration_model: string | null
+          completed_at: string | null
+          config: Json
+          cost_cap_usd: number
+          cost_used_usd: number
+          created_at: string
+          id: string
+          judge_model: string
+          label: string
+          metrics: Json | null
+          ranking_version: number | null
+          status: string
+        }
+        Insert: {
+          calibration_model?: string | null
+          completed_at?: string | null
+          config?: Json
+          cost_cap_usd: number
+          cost_used_usd?: number
+          created_at?: string
+          id?: string
+          judge_model: string
+          label: string
+          metrics?: Json | null
+          ranking_version?: number | null
+          status?: string
+        }
+        Update: {
+          calibration_model?: string | null
+          completed_at?: string | null
+          config?: Json
+          cost_cap_usd?: number
+          cost_used_usd?: number
+          created_at?: string
+          id?: string
+          judge_model?: string
+          label?: string
+          metrics?: Json | null
+          ranking_version?: number | null
+          status?: string
+        }
+        Relationships: []
+      }
       search_query_cache: {
         Row: {
           created_at: string
@@ -12085,6 +12213,39 @@ export type Database = {
         Args: { _job: string; _limit: number }
         Returns: Json[]
       }
+      claim_search_quality_items_v1: {
+        Args: { p_lease_seconds?: number; p_limit: number; p_run_id: string }
+        Returns: {
+          attempts: number
+          calibrate: boolean
+          calibration: Json | null
+          cost_usd: number
+          created_at: string
+          diagnostics: Json | null
+          error: string | null
+          id: string
+          judgments: Json | null
+          kind: string
+          latency_ms: number | null
+          lease_until: string | null
+          metrics: Json | null
+          query: string
+          query_type: string | null
+          results: Json | null
+          run_id: string
+          seed_episode_id: string | null
+          source: string
+          split: string
+          status: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "search_quality_items"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       classify_ai_referral_v1: {
         Args: { p_referrer: string; p_utm_source: string }
         Returns: string
@@ -13222,6 +13383,10 @@ export type Database = {
         Args: { _amount: number; _job: string; _requests: number }
         Returns: Json
       }
+      reserve_search_quality_cost_v1: {
+        Args: { p_amount: number; p_run_id: string }
+        Returns: boolean
+      }
       resolve_canonical_entity_alias: {
         Args: { p_alias: string; p_entity_kind: string }
         Returns: {
@@ -13542,6 +13707,10 @@ export type Database = {
           p_validation: Json
         }
         Returns: boolean
+      }
+      settle_search_quality_cost_v1: {
+        Args: { p_delta: number; p_run_id: string }
+        Returns: undefined
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
