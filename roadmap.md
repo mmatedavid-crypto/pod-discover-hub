@@ -134,4 +134,5 @@
 - [ ] In-episode passage search: not possible yet (only one summary chunk per episode, no passage index; transcripts private) — needs owner decision on building passage chunks.
 - [x] Final AI relevance check of top 24 (public metadata only), cached per query.
 - [x] Honest "nothing really matches" result + search-page message (frontend needs publish).
-- [ ] Full 557-search measurement vs. "After 3" baseline; keep only if holdout improves and names/shows/recency do not regress.
+- [x] Full 557-search measurement vs. "After 3": holdout top-1 60.2%→62.7%, off-topic share 26.2%→23.6%; questions top-1 63%→72%; names and show titles unchanged; no regressions flagged.
+- [ ] Frontend publish so visitors see the honest "nothing really matches" message (waits on user publish).
