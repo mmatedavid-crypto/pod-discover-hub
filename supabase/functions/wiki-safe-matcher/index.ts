@@ -258,7 +258,7 @@ Deno.serve(async (req) => {
       await Promise.all([worker(), worker(), worker()]);
     }
     // Backlog drained: switch the job off (re-reading controls so an owner change is never undone).
-    if (seen === 0) {
+    if (seen === 0 && body.only !== "resolve") {
       const { data: fresh } = await admin.from("app_settings").select("value").eq("key", CONTROLS_KEY).maybeSingle();
       await admin.from("app_settings").update({ value: { ...(fresh?.value || {}), enabled: false, paused_reason: "queue_empty", drained_at: new Date().toISOString() } }).eq("key", CONTROLS_KEY);
     }
