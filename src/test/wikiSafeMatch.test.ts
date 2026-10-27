@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { contextOverlap, orgDecision, personDecision, reusableLicense } from "../../supabase/functions/_shared/wiki-safe-match";
+import { contextOverlap, orgDecision, personDecision, pickUnique, resolveTitles, reusableLicense, titleCarriesName } from "../../supabase/functions/_shared/wiki-safe-match";
 
 const human = (extra: Record<string, unknown> = {}) => ({ exists: true, title: "Szalay Dániel", p31: ["Q5"],
   description: "magyar újságíró", extract: "Szalay Dániel magyar újságíró, podcaster, a Media1 híroldal alapítója.", ...extra });
@@ -47,5 +47,26 @@ describe("image licences", () => {
     expect(reusableLicense("Public domain", null)).toBe(true);
     expect(reusableLicense("Fair use", null)).toBe(false);
     expect(reusableLicense(null, null)).toBe(false);
+  });
+});
+
+describe("second pass for wrong-thing and disambiguation articles", () => {
+  it("tries the news-site titles for Telex and 444, never the rejected article", () => {
+    expect(resolveTitles("Telex", "media", "Telex", ["Telex.hu", "Ducsay Zsuzsanna", "Mandiner"])).toContain("Telex.hu");
+    expect(resolveTitles("Telex", "media", "Telex", ["Telex"])).not.toContain("Telex");
+    expect(resolveTitles("444", "media", "444", [])).toContain("444.hu");
+  });
+  it("ignores disambiguation links that do not carry the name", () => {
+    const t = resolveTitles("Telex", "media", "Telex", ["Ducsay Zsuzsanna", "Munk Veronika", "Mandiner", "Telex (egyértelműsítő lap)"]);
+    expect(t.some((x) => /Ducsay|Munk|Mandiner|egyértelműsítő/.test(x))).toBe(false);
+    expect(titleCarriesName("Ferencvárosi TC (labdarúgás)", "Ferencváros")).toBe(true);
+    expect(titleCarriesName("Nápoly", "Napoli")).toBe(false);
+  });
+  it("applies only when exactly one Wikidata item passes", () => {
+    const acc = { decision: "accept" as const, reason: "x" };
+    const rev = { decision: "review" as const, reason: "type_mismatch" };
+    expect(pickUnique([{ qid: "Q98924172", decision: acc }, { qid: "Q1", decision: rev }]).pick?.qid).toBe("Q98924172");
+    expect(pickUnique([{ qid: "Q1422", decision: acc }, { qid: "Q2", decision: acc }]).pick).toBeNull();
+    expect(pickUnique([{ qid: "Q1", decision: rev }]).reason).toBe("no_typed_candidate");
   });
 });

@@ -7,7 +7,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 import { runLog } from "../_shared/runner-run-log.ts";
-import { ORG_TYPE_ROOTS, orgDecision, personDecision, reusableLicense, WIKI_POLICY_VERSION, type WikiPage } from "../_shared/wiki-safe-match.ts";
+import { ORG_TYPE_ROOTS, orgDecision, personDecision, pickUnique, resolveTitles, resolveTypeKey, reusableLicense, WIKI_POLICY_VERSION,
+  WIKI_RESOLVE_POLICY_VERSION, type WikiPage } from "../_shared/wiki-safe-match.ts";
 
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-internal-token" };
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
@@ -104,6 +105,35 @@ async function freeImage(admin: any, filename: string | null, path: string) {
     image_author: author || null, image_attribution: [author || "Wikimedia Commons", license].filter(Boolean).join(", ") };
 }
 
+const wikiApi = (params: Record<string, string>) => {
+  const q = new URL("https://hu.wikipedia.org/w/api.php");
+  for (const [k, v] of Object.entries({ action: "query", format: "json", ...params })) q.searchParams.set(k, v);
+  return getJson(q.toString());
+};
+
+// Article links (main namespace) of the disambiguation page for a name.
+async function disambigLinks(name: string, rejectedTitle: string | null): Promise<string[]> {
+  const titles = [rejectedTitle && /egyértelműsítő/i.test(rejectedTitle) ? rejectedTitle : null, `${name} (egyértelműsítő lap)`].filter(Boolean) as string[];
+  const out: string[] = [];
+  for (const t of [...new Set(titles)]) {
+    const j = await wikiApi({ titles: t, redirects: "1", prop: "links", plnamespace: "0", pllimit: "200" });
+    for (const p of Object.values(j?.query?.pages || {}) as any[]) for (const l of p.links || []) out.push(l.title);
+  }
+  return out;
+}
+
+// Which of the titles exist (after redirects), as distinct resolved article titles.
+async function existingTitles(titles: string[]): Promise<string[]> {
+  const out = new Set<string>();
+  for (let i = 0; i < titles.length; i += 40) {
+    const j = await wikiApi({ titles: titles.slice(i, i + 40).join("|"), redirects: "1", prop: "pageprops", ppprop: "disambiguation" });
+    for (const p of Object.values(j?.query?.pages || {}) as any[]) {
+      if (p.missing === undefined && p.invalid === undefined && p.pageprops?.disambiguation === undefined && p.title) out.add(p.title);
+    }
+  }
+  return [...out];
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const started = Date.now();
@@ -126,7 +156,58 @@ Deno.serve(async (req) => {
   let seen = 0;
   const bump = (k: string) => { counts[k] = (counts[k] || 0) + 1; };
   try {
+    // Second pass first (small, ≤30 s): organizations whose exact-name article was a disambiguation
+    // page or the wrong thing get one try with qualified titles + disambiguation links.
+    const resolveLimit = Math.max(0, Math.min(40, Number(body.resolve ?? ctrl.resolve_per_run ?? 10)));
+    if (resolveLimit > 0) {
+      const { data: rc, error: rErr } = await admin.rpc("wiki_safe_resolve_candidates_v1", { _limit: resolveLimit, _base_policy: WIKI_POLICY_VERSION, _policy: WIKI_RESOLVE_POLICY_VERSION });
+      if (rErr) throw new Error(`resolve candidates: ${rErr.message}`);
+      const rlist = (rc || []) as any[];
+      seen += rlist.length;
+      const rDeadline = body.only === "resolve" ? TIME_BUDGET_MS : 30_000;
+      let ri = 0;
+      const rworker = async () => { while (true) {
+        const c = rlist[ri++];
+        if (!c || Date.now() - started > rDeadline) return;
+        try {
+          const links = await disambigLinks(c.name, c.rejected_title);
+          const titles = await existingTitles(resolveTitles(c.name, c.org_type, c.rejected_title, links));
+          const context = ((c.mentions || []) as any[]).flatMap((m: any) => [m.title, m.evidence]).filter(Boolean);
+          const looked = await Promise.all(titles.slice(0, 8).map((t) => lookup(t, "organization", resolveTypeKey(c.org_type))));
+          const tried: any[] = looked.filter(({ page }) => page.exists && page.title !== c.rejected_title).map(({ page, extra }) => ({
+            title: page.title, qid: extra?.qid || null, page, extra,
+            decision: orgDecision({ name: c.name, orgType: c.org_type, aliases: c.aliases, context }, page) }));
+          const { pick, reason } = pickUnique(tried);
+          const summary = tried.map((x) => ({ title: x.title, qid: x.qid, decision: x.decision.decision, reason: x.decision.reason }));
+          if (pick && pick.page.title && pick.qid) {
+            const img = await freeImage(admin, pick.extra?.pageimage, `orgs/${c.id}-wiki`);
+            const why = `resolved(${c.base_reason}):${pick.decision.reason}`;
+            const patch: Record<string, unknown> = {
+              wikipedia_title: pick.page.title, wikipedia_url: `https://hu.wikipedia.org/wiki/${encodeURIComponent(pick.page.title.replace(/ /g, "_"))}`,
+              wikidata_id: pick.qid, wikipedia_extract: pick.page.extract || null, wikipedia_description: pick.page.description || null,
+              wikipedia_match_confidence: Math.min(pick.decision.confidence ?? 0.85, 0.85),
+              wikipedia_match_evidence: { policy: WIKI_RESOLVE_POLICY_VERSION, reason: why, rejected_title: c.rejected_title, tried: summary, p31: pick.page.p31 },
+              ...(img || {}),
+            };
+            const { data: res, error: aErr } = await admin.rpc("apply_wiki_safe_match_v1", { _kind: "organization", _id: c.id, _patch: patch, _run_id: runId,
+              _policy: WIKI_RESOLVE_POLICY_VERSION, _reason: why, _candidate: { wikipedia_title: pick.page.title, qid: pick.qid, tried: summary, image: !!img } });
+            if (aErr) throw new Error(aErr.message);
+            bump(`resolve:${res === "applied" ? "applied" : "skip"}`);
+          } else {
+            await admin.from("wiki_safe_match_log").upsert({ run_id: runId, policy_version: WIKI_RESOLVE_POLICY_VERSION, entity_kind: "organization", entity_id: c.id,
+              entity_name: c.name, decision: "review", reason, candidate: { tried: summary } }, { onConflict: "entity_kind,entity_id,policy_version", ignoreDuplicates: true });
+            bump(`resolve:review`);
+          }
+        } catch (e) {
+          bump("resolve:error");
+          await admin.from("wiki_safe_match_log").upsert({ run_id: runId, policy_version: WIKI_RESOLVE_POLICY_VERSION, entity_kind: "organization", entity_id: c.id,
+            entity_name: c.name, decision: "error", reason: String(e instanceof Error ? e.message : e).slice(0, 200) }, { onConflict: "entity_kind,entity_id,policy_version", ignoreDuplicates: true });
+        }
+      } };
+      await Promise.all([rworker(), rworker(), rworker()]);
+    }
     for (const kind of ["organization", "person"] as const) {
+      if (body.only === "resolve") break;
       if (!perKind[kind]) continue;
       const { data: cands, error } = await admin.rpc("wiki_safe_match_candidates_v1", { _kind: kind, _limit: perKind[kind], _policy: WIKI_POLICY_VERSION });
       if (error) throw new Error(`${kind} candidates: ${error.message}`);
@@ -177,7 +258,7 @@ Deno.serve(async (req) => {
       await Promise.all([worker(), worker(), worker()]);
     }
     // Backlog drained: switch the job off (re-reading controls so an owner change is never undone).
-    if (seen === 0) {
+    if (seen === 0 && body.only !== "resolve") {
       const { data: fresh } = await admin.from("app_settings").select("value").eq("key", CONTROLS_KEY).maybeSingle();
       await admin.from("app_settings").update({ value: { ...(fresh?.value || {}), enabled: false, paused_reason: "queue_empty", drained_at: new Date().toISOString() } }).eq("key", CONTROLS_KEY);
     }
