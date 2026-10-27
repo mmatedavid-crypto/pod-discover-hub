@@ -146,6 +146,7 @@ export default function SearchPage() {
   const [timestampMatchCount, setTimestampMatchCount] = useState(0);
   // Set when the query asked for recent content ("mostanában", "a héten").
   const [recentWindowDays, setRecentWindowDays] = useState<number | null>(null);
+  const [noRelevant, setNoRelevant] = useState(false);
   const [exactInfo, setExactInfo] = useState<ExactPhraseInfo | null>(null);
   const exactQuery = useMemo(() => parseExactPhraseQuery(initial), [initial]);
   const plainQuery = exactQuery.plainText || initial.trim();
@@ -250,6 +251,7 @@ export default function SearchPage() {
     setDegradedSearch((cached?.metadata.degradedSearch as "timeout" | "fallback" | null) || null);
     setTimestampMatchCount(Number(cached?.metadata.timestampMatchCount || 0));
     setRecentWindowDays(Number(cached?.metadata.recentWindowDays) || null);
+    setNoRelevant(Boolean(cached?.metadata.noRelevant));
     setExactInfo((cached?.metadata.exactPhrase as ExactPhraseInfo | null | undefined) || null);
     answerAbortRef.current?.abort();
     if (!initial) { setPodcasts([]); setEpisodes([]); setAiAnswerLoading(false); return; }
@@ -299,6 +301,7 @@ export default function SearchPage() {
         if (cancelled) return;
         searchDiagnostics = phase1.data || null;
         setRecentWindowDays(Number(phase1.data?.temporal_intent?.window_days) || null);
+        setNoRelevant(Boolean(phase1.data?.no_relevant_results));
         const r1 = applyHybridResponse(phase1.data);
         mapped = r1.mapped;
         semantic = r1.semantic;
@@ -472,6 +475,7 @@ export default function SearchPage() {
           degradedSearch,
           timestampMatchCount: mapped.filter((e) => Number.isFinite(Number(e.chunk_match?.timestamp_start_seconds))).length,
           recentWindowDays: Number(searchDiagnostics?.temporal_intent?.window_days) || null,
+          noRelevant: Boolean(searchDiagnostics?.no_relevant_results),
           exactPhrase: exactMeta,
         },
         scrollY: previousCache?.scrollY || 0,
@@ -757,7 +761,9 @@ export default function SearchPage() {
 
         {initial && !loading && !exactQuery.hasExact && podcasts.length === 0 && displayedEpisodes.length === 0 && !piFallback && !heroPerson && !heroOrganization && !heroTopic && (
           <div className="mt-10 p-6 border border-border rounded-lg bg-card text-sm text-muted-foreground">
-            Nem találtunk elég erős egyezést. Próbálj meg más megfogalmazást vagy konkrétabb nevet/témát.
+            {noRelevant
+              ? "Átnéztük a legjobb jelölteket, de egyik epizód sem szól igazán arról, amit keresel. Inkább nem mutatunk gyenge találatokat. Próbáld meg más szavakkal, vagy írd le röviden a témát."
+              : "Nem találtunk elég erős egyezést. Próbálj meg más megfogalmazást vagy konkrétabb nevet/témát."}
             {suggestion && suggestion.toLowerCase() !== initial.toLowerCase() && (
               <> Esetleg erre gondoltál: <button onClick={() => { setQ(suggestion); setParams({ q: suggestion }); }} className="underline text-foreground font-medium">{suggestion}</button>?</>
             )}{" "}
