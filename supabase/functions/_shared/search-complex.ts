@@ -63,6 +63,14 @@ export function useComplexPath(i: ComplexDecisionInput): boolean {
   return i.enabled && i.shapeComplex && !i.isBot && !i.isTicker && !i.isPersonNameQuery && !i.hardPodcastPin && !i.nameOnly;
 }
 
+// The AI reading may still reveal a plain name search ("faragó attila krizsó szilvia"):
+// a non-question the AI classifies as a person / company / ticker lookup stays simple.
+export function aiSaysNameSearch(isQuestion: boolean, intent: unknown): boolean {
+  if (isQuestion) return false;
+  const i = String(intent || "").toLowerCase();
+  return i === "person" || i === "company" || i === "ticker";
+}
+
 // AI concepts are short subject phrases; drop question words, recency words and junk.
 export function cleanConcepts(raw: unknown, fold: (s: string) => string, isTemporal: (t: string) => boolean, max = 6): string[] {
   if (!Array.isArray(raw)) return [];

@@ -17,7 +17,7 @@ import { detectTemporalIntent, isTemporalToken, preferWithinWindow } from "../_s
 import { podcastPinAllowed, wordAlignedMatch } from "../_shared/search-podcast-pin.ts";
 import { rankByTermCoverage } from "../_shared/search-term-coverage.ts";
 import {
-  applyVerification, buildVerifyMessages, cleanConcepts, complexLexicalQuery, complexSemanticText, isNameOnlyQuery,
+  aiSaysNameSearch, applyVerification, buildVerifyMessages, cleanConcepts, complexLexicalQuery, complexSemanticText, isNameOnlyQuery,
   looksComplex, meaningfulTokens, parseVerifyGrades, useComplexPath, VERIFY_CACHE_VERSION, VERIFY_MAX_CANDIDATES,
   VERIFY_PROMPT_VERSION, VERIFY_TOOL, type VerifyCandidate, type VerifyGrade,
 } from "../_shared/search-complex.ts";
@@ -1424,7 +1424,7 @@ Deno.serve(async (req) => {
       FF.cohere = false;
     }
 
-    const complexQuery = useComplexPath({
+    let complexQuery = useComplexPath({
       shapeComplex: complexShape,
       isBot,
       isTicker: isTickerQ,
@@ -1501,6 +1501,7 @@ Deno.serve(async (req) => {
     understanding = u as Understanding;
     if (!q_embedding) q_embedding = embVal;
 
+    if (complexQuery && aiSaysNameSearch(naturalQuestion.isQuestion, understanding?.intent)) complexQuery = false;
     // Complex searches: AI concepts replace the hand-written synonym list, and the
     // meaning of the request (query + concepts) drives the semantic side.
     const complexConcepts = complexQuery

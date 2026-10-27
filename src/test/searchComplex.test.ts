@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  applyVerification, cleanConcepts, isNameOnlyQuery, looksComplex, meaningfulTokens, parseVerifyGrades, useComplexPath,
+  aiSaysNameSearch, applyVerification, cleanConcepts, isNameOnlyQuery, looksComplex, meaningfulTokens, parseVerifyGrades, useComplexPath,
   type VerifyCandidate,
 } from "../../supabase/functions/_shared/search-complex";
 import { foldSearchName } from "../../supabase/functions/_shared/search-name-match";
@@ -98,5 +98,14 @@ describe("complex search path: request openers", () => {
 describe("complex search path: names starting with a question-like word", () => {
   it("'Mi Hazánk parlament' is not treated as a question", () => {
     expect(looksComplex(shape("mi hazank parlament"))).toBe(false);
+  });
+});
+
+describe("complex search path: AI-recognised name searches", () => {
+  it("a four-word search the AI reads as people names stays simple", () => {
+    expect(aiSaysNameSearch(false, "person")).toBe(true);
+  });
+  it("a question about a person still gets the complex path", () => {
+    expect(aiSaysNameSearch(true, "person")).toBe(false);
   });
 });
