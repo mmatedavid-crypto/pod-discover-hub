@@ -196,6 +196,47 @@ async function processItem(admin: any, run: any, item: any) {
     return { status: "done", results, judgments: { query_type: null, grades: [] }, metrics: itemMetrics([]), diagnostics, latency, cost: 0 };
   }
 
+  // Before/after runs reuse the reference run's grade for the same query + episode, so an
+  // unchanged result keeps its grade and only changed results are judged (removes judge noise).
+  const refRunId = run.config?.reference_run_id;
+  if (refRunId) {
+    let rq = admin.from("search_quality_items").select("results,judgments").eq("run_id", refRunId).eq("kind", item.kind).eq("status", "done");
+    rq = item.kind === "search" ? rq.ilike("query", item.query.replace(/[%_\\]/g, "\\$&")) : rq.eq("query", item.query).eq("seed_episode_id", item.seed_episode_id);
+    const { data: refRows } = await rq.limit(1);
+    const ref = refRows?.[0];
+    const known = new Map<string, { score: number; reason: string | null }>();
+    for (const g of ref?.judgments?.grades || []) {
+      const eid = ref.results?.[g.idx]?.episode_id;
+      if (eid) known.set(eid, { score: g.score, reason: g.reason ?? null });
+    }
+    const unknown = results.filter((r) => !known.has(r.episode_id));
+    let fresh: any = { parsed: { query_type: ref?.judgments?.query_type || "other", grades: [] }, cost: 0 };
+    if (unknown.length) {
+      const sub = unknown.map((r, i) => ({ ...r, idx: i }));
+      const subMsgs = item.kind === "search"
+        ? buildSearchJudgeMessages(item.query, today, sub, detectTemporalIntent(item.query)?.windowDays ?? null)
+        : buildRecJudgeMessages(diagnostics.seed as CompactResult, sub);
+      fresh = await judge(admin, run.id, JUDGE_MODEL, subMsgs, sub.length, reasons, item.id, allowStale);
+      if ("capped" in fresh) return { capped: true };
+      if (!fresh.parsed) {
+        const fb: any = await judge(admin, run.id, CALIBRATION_MODEL, subMsgs, sub.length, reasons, item.id, allowStale);
+        if ("capped" in fb) return { capped: true };
+        if (!fb.parsed) return { status: "failed", error: fb.error || fresh.error, cost: (fresh.cost || 0) + (fb.cost || 0), results, diagnostics, latency };
+        fresh = { parsed: fb.parsed, cost: (fresh.cost || 0) + (fb.cost || 0) };
+      }
+    }
+    const freshBy = new Map<string, any>((fresh.parsed.grades as any[]).map((g) => [unknown[g.idx].episode_id, g]));
+    const grades = results.map((r, idx) => {
+      const k = known.get(r.episode_id) || freshBy.get(r.episode_id);
+      return { idx, score: k.score, reason: k.reason ?? null, reused: known.has(r.episode_id) };
+    });
+    return {
+      status: "done", results,
+      judgments: { model: JUDGE_MODEL, query_type: ref?.judgments?.query_type || fresh.parsed.query_type, grades, reused: results.length - unknown.length },
+      calibration: null, metrics: itemMetrics(grades.map((g) => g.score)), diagnostics, latency, cost: fresh.cost || 0,
+    };
+  }
+
   let primaryModel = JUDGE_MODEL;
   let primary: any = await judge(admin, run.id, JUDGE_MODEL, messages, results.length, reasons, item.id, allowStale);
   if ("capped" in primary) return { capped: true };
@@ -252,7 +293,8 @@ async function createRun(admin: any, body: any) {
     label: (body.weekly ? `${String(body.label || "Weekly search quality")} ${new Date().toISOString().slice(0, 10)}` : String(body.label || `Search quality ${new Date().toISOString().slice(0, 16)}`)).slice(0, 120),
     ranking_version: Number(eng?.value?.ranking_version) || null,
     judge_model: JUDGE_MODEL, calibration_model: CALIBRATION_MODEL, cost_cap_usd: cap,
-    config: { calibration_share: calShare, prompt_version: JUDGE_PROMPT_VERSION, visitor_days: 90, gsc_days: 90, weekly: !!body.weekly },
+    config: { calibration_share: calShare, prompt_version: JUDGE_PROMPT_VERSION, visitor_days: 90, gsc_days: 90, weekly: !!body.weekly,
+      reference_run_id: body.copy_from_run_id && body.reuse_grades !== false ? String(body.copy_from_run_id) : null },
   }).select("*").single();
   if (error) throw error;
 
