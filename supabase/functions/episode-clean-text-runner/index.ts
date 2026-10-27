@@ -341,6 +341,7 @@ Deno.serve(async (req) => {
       // Only flip to done when the write succeeded; kept-prior rows are always safe.
       const writtenIds = new Set(upsertRows.map((r) => r.episode_id));
       const safeDone = writeOk ? doneIds : doneIds.filter((id) => !writtenIds.has(id));
+      await log.beat(`pass_${passes}_status`);
       if (safeDone.length) await updateStatus(admin, safeDone, "done");
       if (skipIds.length) await updateStatus(admin, skipIds, "skipped");
       if (quarantineIds.length) await updateStatus(admin, quarantineIds, "quarantined");
@@ -401,9 +402,11 @@ Deno.serve(async (req) => {
       }, { onConflict: "key" });
     } catch (_) { /* non-fatal */ }
 
+    await log.finish("ok", summary as any);
     return json({ ok: true, ...summary });
   } catch (e) {
     console.error("episode-clean-text-runner err", e);
+    await log?.finish("error", { runtime_ms: Date.now() - startedAt }, e instanceof Error ? e.message : String(e));
     return json({ ok: false, error: e instanceof Error ? e.message : "Unknown" }, 500);
   }
 });
