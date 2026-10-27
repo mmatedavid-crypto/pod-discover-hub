@@ -9,6 +9,8 @@ import { ENTITY_COLUMN, ENTITY_LABEL, EntityKind, entityHref, entitySlug, matche
 import { compareByScore, episodeScore } from "@/lib/episodeRank";
 import { snippet } from "@/lib/text";
 import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
+import { fetchPublishedPodcasts, type PublishedPodcast } from "@/lib/podcastPublisher";
+import { PodcastCover } from "@/components/PodcastCover";
 
 const NOINDEX_BELOW = 5;
 const RICH_AT = 20;
@@ -80,11 +82,14 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
   const [related, setRelated] = useState<{ kind: EntityKind; v: string; n: number }[]>([]);
   const [distinctPodcastCount, setDistinctPodcastCount] = useState(0);
   const [totalMatchCount, setTotalMatchCount] = useState(0);
+  const [ownPodcasts, setOwnPodcasts] = useState<PublishedPodcast[]>([]);
 
   useEffect(() => {
     if (!slug) return;
     (async () => {
       setLoading(true);
+      setOwnPodcasts([]);
+      let ownIds = new Set<string>();
       const col = ENTITY_COLUMN[kind];
 
       // Curated profile (only meaningful for kind=person at the moment, but harmless to look up)
@@ -142,6 +147,11 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
             setProfile(prof);
           }
 
+          // A publisher's own shows are listed separately; their episodes are not "mentions".
+          const own = await fetchPublishedPodcasts(org.id).catch(() => [] as PublishedPodcast[]);
+          ownIds = new Set(own.map((p) => p.id));
+          setOwnPodcasts(own);
+
           const { data: mapRows } = await supabase
             .from("episode_organization_map")
             .select("episode_id, role, confidence, source_evidence")
@@ -161,7 +171,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
               .from("episodes")
               .select(selectCols)
               .in("id", epIds);
-            speakerMatches = (epRows || []).map((e: any) => ({
+            speakerMatches = (epRows || []).filter((e: any) => !ownIds.has(e.podcast_id)).map((e: any) => ({
               ...e,
               why_matched: organizationEvidenceReason(evidenceByEpisode.get(e.id)),
             }));
