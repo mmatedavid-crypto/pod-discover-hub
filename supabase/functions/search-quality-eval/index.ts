@@ -196,12 +196,24 @@ async function processItem(admin: any, run: any, item: any) {
     return { status: "done", results, judgments: { query_type: null, grades: [] }, metrics: itemMetrics([]), diagnostics, latency, cost: 0 };
   }
 
-  const primary = await judge(admin, run.id, JUDGE_MODEL, messages, results.length, reasons, item.id, allowStale);
+  let primaryModel = JUDGE_MODEL;
+  let primary: any = await judge(admin, run.id, JUDGE_MODEL, messages, results.length, reasons, item.id, allowStale);
   if ("capped" in primary) return { capped: true };
-  if (!primary.parsed) return { status: "failed", error: primary.error, cost: primary.cost, results, diagnostics, latency };
+  let fallbackCost = 0;
+  if (!primary.parsed) {
+    // The cheap judge sometimes emits malformed rows on long all-irrelevant lists; dropping those
+    // items would bias the metrics upward, so they are re-judged once by the calibration model.
+    fallbackCost = primary.cost || 0;
+    const fb: any = await judge(admin, run.id, CALIBRATION_MODEL, messages, results.length, reasons, item.id, allowStale);
+    if ("capped" in fb) return { capped: true };
+    if (!fb.parsed) return { status: "failed", error: fb.error || primary.error, cost: fallbackCost + (fb.cost || 0), results, diagnostics, latency };
+    primary = { parsed: fb.parsed, cost: fb.cost };
+    primaryModel = CALIBRATION_MODEL;
+  }
   let calibration: any = null;
   let spent = primary.cost;
-  if (item.calibrate) {
+  spent += fallbackCost;
+  if (item.calibrate && primaryModel === JUDGE_MODEL) {
     const cal = await judge(admin, run.id, CALIBRATION_MODEL, messages, results.length, reasons, item.id, allowStale);
     if (!("capped" in cal) && cal.parsed) {
       calibration = { model: CALIBRATION_MODEL, ...cal.parsed, agreement: judgeAgreement(primary.parsed.grades, cal.parsed.grades) };
@@ -210,7 +222,7 @@ async function processItem(admin: any, run: any, item: any) {
   }
   const scores = primary.parsed.grades.map((g) => g.score);
   return {
-    status: "done", results, judgments: { model: JUDGE_MODEL, ...primary.parsed }, calibration,
+    status: "done", results, judgments: { model: primaryModel, ...primary.parsed }, calibration,
     metrics: itemMetrics(scores), diagnostics, latency, cost: spent,
   };
 }
