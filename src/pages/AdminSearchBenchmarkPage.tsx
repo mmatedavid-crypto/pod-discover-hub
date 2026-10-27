@@ -6,6 +6,7 @@ import type { Database, Json } from "@/integrations/supabase/types";
 import { useNoindex } from "@/lib/useNoindex";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import SearchQualityTrend from "@/components/admin/SearchQualityTrend";
 
 type Golden = Database["public"]["Tables"]["search_golden_queries"]["Row"];
 type Run = Database["public"]["Tables"]["search_benchmark_runs"]["Row"];
@@ -621,6 +622,7 @@ export default function AdminSearchBenchmarkPage() {
   return (
     <Layout>
       <div className="container mx-auto py-8 space-y-6">
+        <SearchQualityTrend />
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
             <h1 className="text-3xl font-semibold">Search benchmark</h1>

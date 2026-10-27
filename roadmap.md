@@ -117,3 +117,12 @@
 - [ ] Person–episode OpenAI batch paused: OpenAI account billing hard limit reached (blocked: owner raises/tops up the OpenAI account limit); 13,920 pairs waiting.
 - [ ] 47 shows labelled HU but detected English/other sit in language review (1,276 episodes held, not public) (blocked: owner language decision).
 - [ ] Topic catch-up (~26.8k pending, ~8.6k/day) and search re-embed (~133k, ≤900/h) run on their own; expected done ≈ early November.
+
+## Global search & recommendation quality (2026-10-27)
+- [x] AI-graded whole-set measurement (`search-quality-eval`): 557 searches (golden + visitor + Google queries) and 288 recommendations, 30% holdout, calibration sample, $1.5 cap.
+- [x] Baseline run finished (557 searches: top-1 on target 61.6%, top-1 off topic 17.8%; recommendations 13.2% empty).
+- [x] Recommendations: bounded other-show fallback when the normal lookup is empty (empty 13.2% → 0%, top-3 precision +8–9 points incl. holdout).
+- [ ] Search: whole-word catalog matches + show pin only on whole-word title match — after-measurement running; keep only if whole set improves with no query-type regression.
+- [ ] Next classes: keyword-only matches on broad single words, natural questions matching filler words ("hogyan"), gibberish returning results.
+- [x] Weekly measurement (Mon 02:40 UTC, $1.5 cap) + Telegram alert on regression; trend on the admin search test page.
+- [ ] Re-measure after the old-vector rebuild finishes (~6 days).

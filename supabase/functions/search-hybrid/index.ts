@@ -14,6 +14,7 @@ import { createFullNameMatcher, foldSearchName, fullNameTsQuery, isNameShapedQue
 import { cleanTextNameTsQuery, isPersonEvidenceCandidate, personIdentityState, rankPersonEvidence, type PersonCandidate, type PersonLink } from "../_shared/search-person-evidence.ts";
 import { episodeExactFields, exactCleanTextTsQuery, exactMatchLabel, exactPhraseMatch, exactWebsearchQuery, parseExactPhraseQuery, type ExactPhraseQuery } from "../_shared/search-exact-phrase.ts";
 import { detectTemporalIntent, isTemporalToken, preferWithinWindow } from "../_shared/search-temporal.ts";
+import { podcastPinAllowed, wordAlignedMatch } from "../_shared/search-podcast-pin.ts";
 
 // Per-query cap for the person-first branch; a slow source degrades to fewer
 // results instead of pushing the request past the client timeout.
@@ -517,11 +518,13 @@ async function resolvePodcastPin(supa: ReturnType<typeof createClient>, q: strin
   const top = Array.isArray(pmRes) && pmRes.length ? (pmRes[0] as any) : null;
   const sim = top && (typeof top.similarity === "number" ? top.similarity : (typeof top.sim === "number" ? top.sim : 0));
   const mtype = top?.match_type as string | undefined;
-  const pinAllowed = top && (
-    mtype === "alias" || mtype === "exact" || mtype === "token" || mtype === "prefix" ||
-    mtype === "slug" || mtype === "slug_prefix"
-  );
-  if (!pinAllowed) return null;
+  // Hard pin only when the visitor typed the show's name. A partial title match (AI → Airbag,
+  // Budapest → Budapest Park, partiz → Partizán) is a soft match: its episodes join the candidate
+  // pool and must earn their position in ranking instead of being pinned above everything.
+  if (!top) return null;
+  const hardPin = podcastPinAllowed(cleanedQ, String(top.title || ""), mtype);
+  const softPin = !hardPin && (mtype === "token" || mtype === "prefix" || mtype === "slug_prefix");
+  if (!hardPin && !softPin) return null;
 
   const [{ data: pinMeta }, { data: pinEps }] = await Promise.all([
     supa.from("podcasts").select("image_url,description,summary,rss_status,language_decision").eq("id", top.podcast_id).maybeSingle(),
@@ -542,6 +545,7 @@ async function resolvePodcastPin(supa: ReturnType<typeof createClient>, q: strin
     similarity: sim,
     episodes,
     latest_episode_ids: episodes.map((e: any) => e.id).slice(0, 8),
+    soft: softPin,
   };
 }
 
@@ -805,8 +809,14 @@ async function resolveCatalogAnchors(supa: ReturnType<typeof createClient>, qNor
     const o = row.organizations;
     return o?.name && o.is_indexable !== false;
   });
+  // Prefix/infix lookups above are only candidate fetches; an anchor must match on whole words
+  // (alma ≠ Almási, mák ≠ makrogazdaság), otherwise it would pin unrelated people and topics.
+  for (const i of [0, 2, 4]) {
+    const r = settled[i] as any;
+    r.data = (r.data || []).filter((row: any) => wordAlignedMatch(qNorm, String(row.name || "")) || (i === 4 && wordAlignedMatch(qNorm, String(row.short_name || ""))));
+  }
   const out: CatalogAnchor[] = [];
-  if (earlyPodcastPin?.title) {
+  if (earlyPodcastPin?.title && !earlyPodcastPin.soft) {
     out.push({ kind: "podcast", id: earlyPodcastPin.podcast_id || null, name: earlyPodcastPin.title, slug: earlyPodcastPin.slug || null, score: 1000 });
   }
   for (const row of ((settled[0] as any).data || []).filter(isSafePublicPerson)) {
@@ -1184,7 +1194,7 @@ Deno.serve(async (req) => {
       const meaningful = tokens.filter((t) => t.length >= 2 && !RARE_GATE_STOPWORDS.has(t) && !/^\d+$/.test(t));
       const allGibberish = meaningful.length > 0 && meaningful.every((t) => looksLikeGibberish(t));
       if (tokens.length > 0 && (meaningful.length === 0 || allGibberish)) {
-        if (earlyPodcastPin?.episodes?.length) {
+        if (earlyPodcastPin?.episodes?.length && !earlyPodcastPin.soft) {
           return new Response(JSON.stringify({
             episodes: earlyPodcastPin.episodes,
             timing: { embed_ms: 0, rpc_ms: 0, total_ms: Date.now() - t0 },
@@ -2034,7 +2044,15 @@ Deno.serve(async (req) => {
     let podcastPinIds: string[] = [];
     if (!isTickerQ && qNorm.length >= 2 && qNorm.length <= 60) {
       const pin = earlyPodcastPin || await resolvePodcastPin(supa, q, qNorm, limit, 900);
-      if (pin) {
+      if (pin?.soft) {
+        // Soft title match: candidates only, ranked like any other hit (no pin, no podcast card).
+        for (const id of pin.latest_episode_ids) {
+          if (!strictIds.has(id)) {
+            strictRows.push({ episode_id: id, lex_score: 0.3, sem_score: 0.3, hybrid_score: 0.3 } as any);
+            strictIds.add(id);
+          }
+        }
+      } else if (pin) {
         podcastPinSlug = pin.slug;
         podcastPinTitle = pin.title;
         podcastPinImage = pin.image_url;
