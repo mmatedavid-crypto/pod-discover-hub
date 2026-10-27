@@ -7,7 +7,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 import { runLog } from "../_shared/runner-run-log.ts";
-import { ORG_TYPE_ROOTS, orgDecision, personDecision, pickUnique, resolveTitles, reusableLicense, WIKI_POLICY_VERSION,
+import { ORG_TYPE_ROOTS, orgDecision, personDecision, pickUnique, resolveTitles, resolveTypeKey, reusableLicense, WIKI_POLICY_VERSION,
   WIKI_RESOLVE_POLICY_VERSION, type WikiPage } from "../_shared/wiki-safe-match.ts";
 
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-internal-token" };
@@ -164,20 +164,19 @@ Deno.serve(async (req) => {
       if (rErr) throw new Error(`resolve candidates: ${rErr.message}`);
       const rlist = (rc || []) as any[];
       seen += rlist.length;
-      for (const c of rlist) {
-        if (Date.now() - started > (body.only === "resolve" ? TIME_BUDGET_MS : 30_000)) break;
+      const rDeadline = body.only === "resolve" ? TIME_BUDGET_MS : 30_000;
+      let ri = 0;
+      const rworker = async () => { while (true) {
+        const c = rlist[ri++];
+        if (!c || Date.now() - started > rDeadline) return;
         try {
           const links = await disambigLinks(c.name, c.rejected_title);
           const titles = await existingTitles(resolveTitles(c.name, c.org_type, c.rejected_title, links));
           const context = ((c.mentions || []) as any[]).flatMap((m: any) => [m.title, m.evidence]).filter(Boolean);
-          const tried: any[] = [];
-          for (const t of titles.slice(0, 8)) {
-            const { page, extra } = await lookup(t, "organization", c.org_type);
-            if (page.title === c.rejected_title) continue;
-            tried.push({ title: page.title, qid: extra?.qid || null, page, extra,
-              decision: orgDecision({ name: c.name, orgType: c.org_type, aliases: c.aliases, context }, page) });
-            await new Promise((s) => setTimeout(s, 100));
-          }
+          const looked = await Promise.all(titles.slice(0, 8).map((t) => lookup(t, "organization", resolveTypeKey(c.org_type))));
+          const tried: any[] = looked.filter(({ page }) => page.exists && page.title !== c.rejected_title).map(({ page, extra }) => ({
+            title: page.title, qid: extra?.qid || null, page, extra,
+            decision: orgDecision({ name: c.name, orgType: c.org_type, aliases: c.aliases, context }, page) }));
           const { pick, reason } = pickUnique(tried);
           const summary = tried.map((x) => ({ title: x.title, qid: x.qid, decision: x.decision.decision, reason: x.decision.reason }));
           if (pick && pick.page.title && pick.qid) {
@@ -205,6 +204,9 @@ Deno.serve(async (req) => {
             entity_name: c.name, decision: "error", reason: String(e instanceof Error ? e.message : e).slice(0, 200) }, { onConflict: "entity_kind,entity_id,policy_version", ignoreDuplicates: true });
         }
       }
+    }
+      } };
+      await Promise.all([rworker(), rworker(), rworker()]);
     }
     for (const kind of ["organization", "person"] as const) {
       if (body.only === "resolve") break;

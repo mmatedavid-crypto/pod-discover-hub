@@ -58,6 +58,9 @@ export const ORG_TYPE_ROOTS: Record<string, string[]> = {
   sport_team: ["Q12973014", "Q847017", "Q476028"],
   sport_league: ["Q623109", "Q13406554", "Q15991303", "Q1478437"],
   media: ["Q43229", "Q1002697", "Q11032", "Q35127", "Q14350", "Q1616075", "Q24634210", "Q2085381", "Q17232649"],
+  // Second pass only: a media outlet must be a periodical/newspaper/website/broadcaster/publisher,
+  // not merely "an organization" (Telex the band is an organization too).
+  media_strict: ["Q1002697", "Q11032", "Q35127", "Q14350", "Q1616075", "Q24634210", "Q2085381", "Q17232649", "Q1153191", "Q1110794"],
   radio_station: ["Q14350", "Q15265344"],
   other: ["Q43229", "Q7278"],
 };
@@ -93,6 +96,7 @@ export function reusableLicense(short: string | null | undefined, url: string | 
 // applied only when exactly one distinct Wikidata item passes, otherwise it stays in review.
 export const WIKI_RESOLVE_POLICY_VERSION = "wiki-safe-v1-resolve";
 export const RESOLVABLE_REASONS = ["type_mismatch", "disambiguation_page"];
+export const resolveTypeKey = (orgType: string) => (orgType === "media" ? "media_strict" : orgType);
 
 const QUALIFIERS: Record<string, string[]> = {
   media: ["{n}.hu", "{n} (hírportál)", "{n} (weboldal)", "{n} (televízióadó)", "{n} (rádióadó)", "{n} (folyóirat)", "{n} (napilap)", "{n} (újság)"],
