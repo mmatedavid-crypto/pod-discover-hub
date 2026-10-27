@@ -257,7 +257,8 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
       setLoading(false);
 
       const total = visible.length;
-      const noindex = total < NOINDEX_BELOW && !prof; // profile pages always indexable
+      // Profile pages and publishers with their own shows are always indexable.
+      const noindex = total < NOINDEX_BELOW && !prof && ownIds.size === 0;
       const entityType =
         kind === "person" ? "Person" :
         kind === "company" ? "Organization" :
@@ -326,7 +327,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
 
   if (loading) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Betöltés…</div></Layout>;
 
-  if (!eps.length && !mentionedEps.length) return (
+  if (!eps.length && !mentionedEps.length && !ownPodcasts.length) return (
     <NotFoundState
       title={`Nincs találat ehhez: ${displayName}`}
       message={`A Podiverzum még nem talált elegendő epizódot ${displayName} témájában. Próbálkozz a keresővel.`}
@@ -367,7 +368,8 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
             </p>
           )}
           <div className="mt-6 flex flex-wrap gap-3">
-            <Stat label="Epizódok" value={total} />
+            {ownPodcasts.length > 0 && <Stat label="Saját műsorok" value={ownPodcasts.length} />}
+            <Stat label={ownPodcasts.length > 0 ? "Említések" : "Epizódok"} value={total} />
             {kind === "person" && mentionedEps.length > 0 && <Stat label="Említve" value={mentionedEps.length} />}
             <Stat label="Új (30 nap)" value={last30Count} />
             <Stat label="Műsorok" value={distinctPodcastCount} />
@@ -376,12 +378,34 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
       </section>
 
       <div className="container mx-auto py-10 max-w-5xl space-y-12">
+        {ownPodcasts.length > 0 && (
+          <section>
+            <div className="mb-3">
+              <div className="text-[11px] uppercase tracking-[0.16em] text-primary mb-1">Kiadó</div>
+              <h2 className="text-xl font-semibold">{displayName} saját podcastjai</h2>
+              <p className="text-xs text-muted-foreground mt-1">Műsorok, amelyeket a hírcsatornájuk szerint {displayName} ad ki.</p>
+            </div>
+            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              {ownPodcasts.map((p) => (
+                <li key={p.id}>
+                  <Link to={`/podcast/${p.slug}`} className="group flex items-center gap-3 rounded-xl border border-border bg-card p-2 transition-colors hover:border-primary/50">
+                    <div className="w-14 shrink-0"><PodcastCover title={p.display_title || p.title} src={p.image_url} size="sm" /></div>
+                    <span className="text-sm font-medium leading-snug line-clamp-3 group-hover:text-primary">{p.display_title || p.title}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
         {eps.length > 0 && (
           <section>
             <div className="flex items-end justify-between mb-3">
               <div>
                 <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-1">Friss</div>
-                <h2 className="text-xl font-semibold">{kind === "person" ? "Legújabb kapcsolódó epizódok" : "Legújabb epizódok"}</h2>
+                <h2 className="text-xl font-semibold">
+                  {kind === "person" ? "Legújabb kapcsolódó epizódok" : ownPodcasts.length > 0 ? "Legújabb említések más műsorokban" : "Legújabb epizódok"}
+                </h2>
               </div>
             </div>
             <EpisodeList items={newest} showEntities />
