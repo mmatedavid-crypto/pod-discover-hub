@@ -30,6 +30,7 @@ describe("podcast name pin", () => {
   it("strips publisher tails and bracketed labels from titles", () => {
     expect(podcastTitleCore("Föld/osztás - 24.hu")).toEqual(["fold", "osztas"]);
     expect(podcastTitleCore("Airbag [Tilos Rádió podcast]")).toEqual(["airbag"]);
+    expect(podcastTitleCore("Ingatlan.com Podcast")).toEqual(["ingatlan", "com"]);
   });
 
   it("matches people, organizations and topics only on whole words", () => {

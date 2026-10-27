@@ -486,9 +486,13 @@ async function finalize(admin: any, body: any) {
   let regressions: any[] = [];
   if (complete && body.close !== false) {
     const { data: cur } = await admin.from("search_quality_runs").select("id,label,config,created_at").eq("id", body.run_id).single();
-    const { data: prev } = await admin.from("search_quality_runs").select("id,label,metrics")
-      .eq("status", "completed").neq("id", body.run_id).lt("created_at", cur.created_at)
-      .order("created_at", { ascending: false }).limit(1).maybeSingle();
+    // Compare with the run this one re-measures, else the previous completed weekly run
+    // (a recommendation-only or search-only run has no groups to compare against).
+    const prevQ = admin.from("search_quality_runs").select("id,label,metrics");
+    const { data: prev } = cur?.config?.reference_run_id
+      ? await prevQ.eq("id", cur.config.reference_run_id).maybeSingle()
+      : await prevQ.eq("status", "completed").neq("id", body.run_id).lt("created_at", cur.created_at)
+        .contains("config", { weekly: true }).order("created_at", { ascending: false }).limit(1).maybeSingle();
     if (prev?.metrics) {
       regressions = [
         ...detectRegressions(prev.metrics.search?.by_query_type || {}, metrics.search.by_query_type),

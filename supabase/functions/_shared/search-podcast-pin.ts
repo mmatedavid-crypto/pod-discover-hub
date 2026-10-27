@@ -10,9 +10,14 @@ const FILLER = new Set([
 
 /** Accent-folded word tokens of a show title, without bracketed suffixes, web domains and filler words. */
 export function podcastTitleCore(title: string): string[] {
-  const t = String(title || "")
-    .replace(/\[[^\]]*\]|\([^)]*\)/g, " ")
-    .replace(/\b\S+\.(hu|com|net|org|eu)\b/gi, " ")
+  const withoutDomains = podcastTitleWords(title, true);
+  // A title that is only a web address ("Ingatlan.com Podcast") keeps the address words.
+  return withoutDomains.length ? withoutDomains : podcastTitleWords(title, false);
+}
+
+function podcastTitleWords(title: string, stripDomains: boolean): string[] {
+  const base = String(title || "").replace(/\[[^\]]*\]|\([^)]*\)/g, " ");
+  const t = (stripDomains ? base.replace(/\b\S+\.(hu|com|net|org|eu)\b/gi, " ") : base)
     .normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
     .replace(/[^a-z0-9]+/g, " ").trim();
   return t.split(" ").filter((w) => w && !FILLER.has(w));
