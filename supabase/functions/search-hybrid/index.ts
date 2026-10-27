@@ -13,6 +13,7 @@ import { callLovableAI } from "../_shared/lovable-ai.ts";
 import { createFullNameMatcher, foldSearchName, fullNameTsQuery, isNameShapedQuery, nameEvidenceTier, rankFullNameMatches } from "../_shared/search-name-match.ts";
 import { cleanTextNameTsQuery, isPersonEvidenceCandidate, personIdentityState, rankPersonEvidence, type PersonCandidate, type PersonLink } from "../_shared/search-person-evidence.ts";
 import { episodeExactFields, exactCleanTextTsQuery, exactMatchLabel, exactPhraseMatch, exactWebsearchQuery, parseExactPhraseQuery, type ExactPhraseQuery } from "../_shared/search-exact-phrase.ts";
+import { detectTemporalIntent, isTemporalToken, preferWithinWindow } from "../_shared/search-temporal.ts";
 
 // Per-query cap for the person-first branch; a slow source degrades to fewer
 // results instead of pushing the request past the client timeout.
@@ -365,7 +366,8 @@ function stripHuPossessive(token: string): string {
 }
 
 function deriveNaturalQuestionPlan(q: string, qNorm: string): NaturalQuestionPlan {
-  const tokens = qNorm.split(/[^a-z0-9]+/).filter(Boolean);
+  // Recency words ("mostanában", "a héten") say when, not what: never search for them as topics.
+  const tokens = qNorm.split(/[^a-z0-9]+/).filter((t) => t && !isTemporalToken(t));
   const startsLikeQuestion = tokens.length > 0 && HU_QUESTION_STARTERS.has(tokens[0]);
   const hasQuestionMark = q.includes("?");
   const isQuestion = hasQuestionMark || startsLikeQuestion || /\b(miert|hogyan|milyen|melyik|mitol|mit tegyek|erdemes|lehet-e)\b/.test(qNorm);
@@ -1119,6 +1121,7 @@ Deno.serve(async (req) => {
     const markLatencyDegrade = () => { degradedForLatency = true; };
     let qNorm = normalizeQ(q);
     const naturalQuestion = deriveNaturalQuestionPlan(q, qNorm);
+    const temporal = detectTemporalIntent(q);
     const marketSymbol = compactMarketSymbol(q);
     const symbolAliases = marketSymbol ? (MARKET_SYMBOL_ALIASES[marketSymbol.toLowerCase()] || []) : [];
     const isTickerQ = !!marketSymbol && !COMMON_NON_TICKER_ACRONYMS.has(marketSymbol);
