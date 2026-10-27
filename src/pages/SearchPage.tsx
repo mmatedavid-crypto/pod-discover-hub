@@ -144,6 +144,8 @@ export default function SearchPage() {
   const [heroTopic, setHeroTopic] = useState<any | null>(null);
   const [degradedSearch, setDegradedSearch] = useState<"timeout" | "fallback" | null>(null);
   const [timestampMatchCount, setTimestampMatchCount] = useState(0);
+  // Set when the query asked for recent content ("mostanában", "a héten").
+  const [recentWindowDays, setRecentWindowDays] = useState<number | null>(null);
   const [exactInfo, setExactInfo] = useState<ExactPhraseInfo | null>(null);
   const exactQuery = useMemo(() => parseExactPhraseQuery(initial), [initial]);
   const plainQuery = exactQuery.plainText || initial.trim();
@@ -247,6 +249,7 @@ export default function SearchPage() {
     setHeroTopic(cached?.metadata.heroTopic || null);
     setDegradedSearch((cached?.metadata.degradedSearch as "timeout" | "fallback" | null) || null);
     setTimestampMatchCount(Number(cached?.metadata.timestampMatchCount || 0));
+    setRecentWindowDays(Number(cached?.metadata.recentWindowDays) || null);
     setExactInfo((cached?.metadata.exactPhrase as ExactPhraseInfo | null | undefined) || null);
     answerAbortRef.current?.abort();
     if (!initial) { setPodcasts([]); setEpisodes([]); setAiAnswerLoading(false); return; }
@@ -295,6 +298,7 @@ export default function SearchPage() {
         if (phase1.error) throw phase1.error;
         if (cancelled) return;
         searchDiagnostics = phase1.data || null;
+        setRecentWindowDays(Number(phase1.data?.temporal_intent?.window_days) || null);
         const r1 = applyHybridResponse(phase1.data);
         mapped = r1.mapped;
         semantic = r1.semantic;
@@ -467,6 +471,7 @@ export default function SearchPage() {
           personCandidates: Array.isArray(searchDiagnostics?.person_candidates) ? searchDiagnostics.person_candidates.slice(0, 6) : [],
           degradedSearch,
           timestampMatchCount: mapped.filter((e) => Number.isFinite(Number(e.chunk_match?.timestamp_start_seconds))).length,
+          recentWindowDays: Number(searchDiagnostics?.temporal_intent?.window_days) || null,
           exactPhrase: exactMeta,
         },
         scrollY: previousCache?.scrollY || 0,
@@ -1035,6 +1040,11 @@ export default function SearchPage() {
                   </p>
                 ) : (
                   <>
+                    {recentWindowDays && (
+                      <p className="text-xs text-muted-foreground -mt-1 mb-3">
+                        Elöl az elmúlt {recentWindowDays} nap epizódjai, utánuk a régebbiek.
+                      </p>
+                    )}
                     {confidence === "medium" && (
                       <p className="text-xs text-muted-foreground -mt-1 mb-3">A legvalószínűbb kapcsolódó találatok.</p>
                     )}

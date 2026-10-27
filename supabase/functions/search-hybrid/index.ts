@@ -13,6 +13,7 @@ import { callLovableAI } from "../_shared/lovable-ai.ts";
 import { createFullNameMatcher, foldSearchName, fullNameTsQuery, isNameShapedQuery, nameEvidenceTier, rankFullNameMatches } from "../_shared/search-name-match.ts";
 import { cleanTextNameTsQuery, isPersonEvidenceCandidate, personIdentityState, rankPersonEvidence, type PersonCandidate, type PersonLink } from "../_shared/search-person-evidence.ts";
 import { episodeExactFields, exactCleanTextTsQuery, exactMatchLabel, exactPhraseMatch, exactWebsearchQuery, parseExactPhraseQuery, type ExactPhraseQuery } from "../_shared/search-exact-phrase.ts";
+import { detectTemporalIntent, isTemporalToken, preferWithinWindow } from "../_shared/search-temporal.ts";
 
 // Per-query cap for the person-first branch; a slow source degrades to fewer
 // results instead of pushing the request past the client timeout.
@@ -333,6 +334,7 @@ const HU_NLQ_FILLER = new Set([
   "keresek", "keresnek", "talalok", "ajanlas", "ajanlj", "ajanlotok", "szeretnek",
   "tudok", "tudom", "legyen", "legjobb", "jo", "jobb", "tema", "temaban",
   "kapcsan", "rol", "roluk", "szol", "szolnak", "szolo", "valami", "valamilyen",
+  "beszeltek", "beszelnek", "beszelt", "mondtak", "mondanak",
 ]);
 
 const NLQ_DOMAIN_EXPANSIONS: Array<{ re: RegExp; terms: string[] }> = [
@@ -365,7 +367,8 @@ function stripHuPossessive(token: string): string {
 }
 
 function deriveNaturalQuestionPlan(q: string, qNorm: string): NaturalQuestionPlan {
-  const tokens = qNorm.split(/[^a-z0-9]+/).filter(Boolean);
+  // Recency words ("mostanában", "a héten") say when, not what: never search for them as topics.
+  const tokens = qNorm.split(/[^a-z0-9]+/).filter((t) => t && !isTemporalToken(t));
   const startsLikeQuestion = tokens.length > 0 && HU_QUESTION_STARTERS.has(tokens[0]);
   const hasQuestionMark = q.includes("?");
   const isQuestion = hasQuestionMark || startsLikeQuestion || /\b(miert|hogyan|milyen|melyik|mitol|mit tegyek|erdemes|lehet-e)\b/.test(qNorm);
@@ -1119,6 +1122,7 @@ Deno.serve(async (req) => {
     const markLatencyDegrade = () => { degradedForLatency = true; };
     let qNorm = normalizeQ(q);
     const naturalQuestion = deriveNaturalQuestionPlan(q, qNorm);
+    const temporal = detectTemporalIntent(q);
     const marketSymbol = compactMarketSymbol(q);
     const symbolAliases = marketSymbol ? (MARKET_SYMBOL_ALIASES[marketSymbol.toLowerCase()] || []) : [];
     const isTickerQ = !!marketSymbol && !COMMON_NON_TICKER_ACRONYMS.has(marketSymbol);
@@ -1681,7 +1685,7 @@ Deno.serve(async (req) => {
     }
 
     const alphaLex = isTickerQ ? 0.8 : (rawEntities.length > 0 || resolvedNames.length > 0) ? 0.65 : 0.45;
-    const decayLambda = (FF.decay && (intent === "news" || intent === "ticker" || intent === "company")) ? 0.15 : 0;
+    const decayLambda = (FF.decay && (temporal || intent === "news" || intent === "ticker" || intent === "company")) ? 0.15 : 0;
 
     // HyDE
     let hydeUsed = false;
@@ -1845,6 +1849,45 @@ Deno.serve(async (req) => {
       anchorEpisodeMatches = anchorResult?.matches || [];
       anchorEpisodeCandidates = prependNew(anchorResult?.rows || []);
     } else if (catalogAnchors.some((a) => a.id && a.kind !== "podcast")) {
+      markLatencyDegrade();
+    }
+
+    // Recency intent ("mostanában", "a héten", "idén"): the all-time candidate
+    // pools rarely contain recent episodes for broad topics, so fetch matches
+    // published inside the window separately. They are only added as
+    // candidates (not pinned); ordering puts in-window episodes first below.
+    let temporalCandidates = 0;
+    if (temporal && hasBudget(1800)) {
+      const recentTerms = uniqueClean([
+        ...(naturalQuestion.isQuestion ? naturalQuestion.coreTerms : temporal.coreTokens
+          .map(stripHuPossessive)
+          .filter((t) => t.length >= 3 && !RARE_GATE_STOPWORDS.has(t) && !HU_NLQ_FILLER.has(t))),
+        ...(curated.expansions || []),
+        ...((understanding?.synonyms as string[]) || []),
+        ...((understanding?.expanded_terms as string[]) || []),
+      ], 12).filter((t) => !isTemporalToken(t));
+      const recentRes: any = await withTimeout(
+        supa.rpc("search_episodes_recent_v1", {
+          q: recentTerms.length ? recentTerms.map(quoteWebSearchTerm).join(" OR ") : "",
+          q_embedding: q_embedding ? `[${q_embedding.join(",")}]` : null,
+          p_since: temporal.sinceIso,
+          limit_n: 60,
+          lang,
+        }) as unknown as Promise<any>,
+        Math.max(800, Math.min(2500, softBudgetMs - elapsed() - 1200)),
+        "search_episodes_recent_v1",
+      );
+      if (recentRes?.error) console.warn("recent rpc err", recentRes.error?.message || recentRes.error);
+      const recentRows: any[] = Array.isArray(recentRes?.data) ? recentRes.data : [];
+      for (let i = recentRows.length - 1; i >= 0; i--) {
+        const r = recentRows[i];
+        if (r?.episode_id && !strictIds.has(r.episode_id)) {
+          strictRows.unshift({ episode_id: r.episode_id, hybrid_score: Number(r.score) || 0, lex_rank: r.lex_rank, sem_rank: r.sem_rank } as any);
+          strictIds.add(r.episode_id);
+          temporalCandidates++;
+        }
+      }
+    } else if (temporal) {
       markLatencyDegrade();
     }
 
@@ -2082,6 +2125,8 @@ Deno.serve(async (req) => {
         return chunkMatch ? { ...e, chunk_match: chunkMatch } : e;
       })
       .sort((a: any, b: any) => (orderMap.get(a.id) ?? 999) - (orderMap.get(b.id) ?? 999));
+    // In-window episodes first so the reranker below scores the recent pool.
+    if (temporal) ordered = preferWithinWindow(ordered, temporal.sinceIso);
 
     // Cohere reranker
     let cohereRerankUsed = false;
@@ -2247,6 +2292,9 @@ Deno.serve(async (req) => {
       // query matches without imposing a person-only filter on topical searches.
       ordered = rankFullNameMatches(ordered, [q]);
     }
+    // Final invariant for recency queries: nothing above may push older
+    // episodes ahead of in-window ones (relative order otherwise kept).
+    if (temporal) ordered = preferWithinWindow(ordered, temporal.sinceIso);
 
     return new Response(
       JSON.stringify({
@@ -2289,6 +2337,7 @@ Deno.serve(async (req) => {
         hyde_used: hydeUsed,
         hyde_cache_hit: hydeCacheHit,
         chunk_augmented: chunkAugmented || undefined,
+        temporal_intent: temporal ? { window_days: temporal.windowDays, since: temporal.sinceIso, matched: temporal.matched, candidates: temporalCandidates } : undefined,
         degraded_for_latency: degradedForLatency,
         soft_budget_ms: softBudgetMs,
         engine: `v${engN}`,

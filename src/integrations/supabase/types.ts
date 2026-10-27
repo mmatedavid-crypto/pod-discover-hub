@@ -13309,6 +13309,22 @@ export type Database = {
           sem_rank: number
         }[]
       }
+      search_episodes_recent_v1: {
+        Args: {
+          alpha_lex?: number
+          lang?: string
+          limit_n?: number
+          p_since?: string
+          q: string
+          q_embedding?: string
+        }
+        Returns: {
+          episode_id: string
+          lex_rank: number
+          score: number
+          sem_rank: number
+        }[]
+      }
       search_swipe_anchors: {
         Args: { p_limit?: number; p_query: string }
         Returns: {
