@@ -13424,6 +13424,10 @@ export type Database = {
         Returns: Json
       }
       runner_pause_reason_v1: { Args: { p_runner: string }; Returns: string }
+      sample_search_quality_rec_seeds_v1: {
+        Args: { p_per_category?: number; p_salt?: string }
+        Returns: string[]
+      }
       search_backfill_batch: {
         Args: { _batch?: number; _table: string }
         Returns: number
@@ -13794,6 +13798,7 @@ export type Database = {
         Args: { p_hours?: number; p_reason?: string }
         Returns: Json
       }
+      start_search_quality_drain_v1: { Args: never; Returns: boolean }
       stop_search_quality_drain_v1: { Args: never; Returns: boolean }
       suggest_token_corrections: {
         Args: { p_tokens: string[] }
