@@ -14,7 +14,7 @@ import { createFullNameMatcher, foldSearchName, fullNameTsQuery, isNameShapedQue
 import { cleanTextNameTsQuery, isPersonEvidenceCandidate, personIdentityState, rankPersonEvidence, type PersonCandidate, type PersonLink } from "../_shared/search-person-evidence.ts";
 import { episodeExactFields, exactCleanTextTsQuery, exactMatchLabel, exactPhraseMatch, exactWebsearchQuery, parseExactPhraseQuery, type ExactPhraseQuery } from "../_shared/search-exact-phrase.ts";
 import { detectTemporalIntent, isTemporalToken, preferWithinWindow } from "../_shared/search-temporal.ts";
-import { podcastPinAllowed } from "../_shared/search-podcast-pin.ts";
+import { podcastPinAllowed, wordAlignedMatch } from "../_shared/search-podcast-pin.ts";
 
 // Per-query cap for the person-first branch; a slow source degrades to fewer
 // results instead of pushing the request past the client timeout.
@@ -805,6 +805,12 @@ async function resolveCatalogAnchors(supa: ReturnType<typeof createClient>, qNor
     const o = row.organizations;
     return o?.name && o.is_indexable !== false;
   });
+  // Prefix/infix lookups above are only candidate fetches; an anchor must match on whole words
+  // (alma ≠ Almási, mák ≠ makrogazdaság), otherwise it would pin unrelated people and topics.
+  for (const i of [0, 2, 4]) {
+    const r = settled[i] as any;
+    r.data = (r.data || []).filter((row: any) => wordAlignedMatch(qNorm, String(row.name || "")) || (i === 4 && wordAlignedMatch(qNorm, String(row.short_name || ""))));
+  }
   const out: CatalogAnchor[] = [];
   if (earlyPodcastPin?.title) {
     out.push({ kind: "podcast", id: earlyPodcastPin.podcast_id || null, name: earlyPodcastPin.title, slug: earlyPodcastPin.slug || null, score: 1000 });

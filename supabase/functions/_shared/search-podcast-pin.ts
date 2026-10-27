@@ -45,3 +45,23 @@ export function podcastPinAllowed(query: string, title: string, matchType: strin
   const tChars = tw.join(" ").length;
   return qChars / tChars >= 0.75;
 }
+
+function words(s: string): string[] {
+  return String(s || "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ").trim().split(" ").filter(Boolean);
+}
+
+/**
+ * Catalog anchors (people, organizations, topics) match a query only on whole words: every query
+ * word must appear as a contiguous whole-word run in the name. Character prefixes and infixes
+ * (alma → Almási, mák → Makó / makrogazdaság, híd → Hidas) are different words.
+ */
+export function wordAlignedMatch(query: string, name: string): boolean {
+  const q = words(query);
+  const n = words(name);
+  if (!q.length || !n.length || q.length > n.length) return false;
+  for (let i = 0; i + q.length <= n.length; i++) {
+    if (q.every((w, j) => n[i + j] === w)) return true;
+  }
+  return false;
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { podcastPinAllowed, podcastTitleCore } from "../../supabase/functions/_shared/search-podcast-pin";
+import { podcastPinAllowed, podcastTitleCore, wordAlignedMatch } from "../../supabase/functions/_shared/search-podcast-pin";
 
 describe("podcast name pin", () => {
   it("does not pin a show whose title merely starts with or contains the searched word", () => {
@@ -26,5 +26,16 @@ describe("podcast name pin", () => {
   it("strips publisher tails and bracketed labels from titles", () => {
     expect(podcastTitleCore("Föld/osztás - 24.hu")).toEqual(["fold", "osztas"]);
     expect(podcastTitleCore("Airbag [Tilos Rádió podcast]")).toEqual(["airbag"]);
+  });
+
+  it("matches people, organizations and topics only on whole words", () => {
+    expect(wordAlignedMatch("alma", "Almási Zsolt")).toBe(false);
+    expect(wordAlignedMatch("mák", "Makó Mariann")).toBe(false);
+    expect(wordAlignedMatch("mák", "makrogazdaság")).toBe(false);
+    expect(wordAlignedMatch("alma", "bántalmazó kapcsolat")).toBe(false);
+    expect(wordAlignedMatch("híd", "Hidas Judit")).toBe(false);
+    expect(wordAlignedMatch("Bolgár", "Bolgár György")).toBe(true);
+    expect(wordAlignedMatch("zelenszkij", "Volodimir Zelenszkij")).toBe(true);
+    expect(wordAlignedMatch("mesterséges intelligencia", "Mesterséges intelligencia")).toBe(true);
   });
 });
