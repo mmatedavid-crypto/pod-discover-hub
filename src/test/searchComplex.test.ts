@@ -88,3 +88,9 @@ describe("final AI check", () => {
     expect(parseVerifyGrades({ grades: cands.map((_, i) => ({ i, g: 5 })) }, cands)).toBeNull();
   });
 });
+
+describe("complex search path: request openers", () => {
+  it("'miről beszéltek a magyar gazdaságról mostanában' is complex", () => {
+    expect(looksComplex(shape("mirol beszeltek a magyar gazdasagrol mostanaban"))).toBe(true);
+  });
+});

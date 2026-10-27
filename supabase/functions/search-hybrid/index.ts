@@ -526,7 +526,7 @@ function toVerifyCandidate(e: any): VerifyCandidate {
     title: plainPublicText(e.display_title || e.title, 160),
     podcast: plainPublicText(p?.display_title || p?.title, 80),
     published: e.published_at ? String(e.published_at).slice(0, 10) : null,
-    text: plainPublicText(e.ai_summary || e.summary || e.description, 320),
+    text: plainPublicText(e.ai_summary || e.summary || e.description, 260),
   };
 }
 
@@ -2253,7 +2253,7 @@ Deno.serve(async (req) => {
       }
       const cachedCount = known.size;
       const missing = pool.filter((e: any) => !known.has(e.id));
-      const model = String(engineCfg.verify_model || "google/gemini-2.5-flash");
+      const model = String(engineCfg.verify_model || "google/gemini-2.5-flash-lite");
       const verifyTimeout = Math.min(6000, softBudgetMs - elapsed() - 700);
       const tv = Date.now();
       let fresh: Map<string, VerifyGrade> | null = null;

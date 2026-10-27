@@ -20,10 +20,19 @@ export function meaningfulTokens(input: ComplexShapeInput): string[] {
     .filter((t) => t.length >= 3 && !/^\d+$/.test(t) && !input.isStopword(t) && !input.isTemporal(t));
 }
 
+// Words that open a request in natural language ("miről beszéltek…", "ajánlj…").
+const REQUEST_OPENERS = new Set([
+  "mirol", "kirol", "mivel", "kivel", "mitol", "kitol", "minek", "kinek", "mikor", "miert", "hogyan", "milyen", "melyik",
+  "mennyi", "mennyit", "mit", "mi", "ki", "hol", "ajanlj", "ajanlanal", "ajanlotok", "keresek", "szeretnek",
+]);
+
 // Shape-only decision, made before any lookup so the AI step can start early.
 export function looksComplex(input: ComplexShapeInput): boolean {
   if (input.isQuestion) return true;
-  return meaningfulTokens(input).length >= 4;
+  const meaningful = meaningfulTokens(input);
+  const first = input.qNorm.split(/[^a-z0-9]+/).find(Boolean) || "";
+  if (REQUEST_OPENERS.has(first) && meaningful.length >= 2) return true;
+  return meaningful.length >= 4;
 }
 
 export type AnchorLike = { kind: string; name: string };
@@ -108,10 +117,10 @@ export type VerifyCandidate = {
 
 export type VerifyGrade = { g: 0 | 1 | 2; w?: string };
 
-export const VERIFY_PROMPT_VERSION = "search-complex-verify-v1";
+export const VERIFY_PROMPT_VERSION = "search-complex-verify-v2";
 // Bump to invalidate cached grades when the prompt or inputs change.
-export const VERIFY_CACHE_VERSION = 1;
-export const VERIFY_MAX_CANDIDATES = 30;
+export const VERIFY_CACHE_VERSION = 2;
+export const VERIFY_MAX_CANDIDATES = 24;
 
 export function buildVerifyMessages(q: string, today: string, cands: VerifyCandidate[], recentDays: number | null) {
   const system = [
@@ -123,7 +132,7 @@ export function buildVerifyMessages(q: string, today: string, cands: VerifyCandi
       ? `A kereső friss tartalmat kér: az utóbbi ${recentDays} napnál régebbi epizód legfeljebb 1.`
       : "A megjelenés dátuma nem számít.",
     "Csak a megadott cím, műsor, dátum és leírás alapján dönts, ne találgass.",
-    "A 2 és 1 pontos epizódokhoz írj egy legfeljebb 12 szavas magyar indoklást (w), hogy miért illik a kereséshez.",
+    "Csak a 2 pontos epizódokhoz írj egy legfeljebb 12 szavas magyar indoklást (w), hogy miért illik a kereséshez.",
   ].join(" ");
   const user = `Ma: ${today}\nKeresés: ${q}\nEpizódok:\n` + cands.map((c, i) =>
     `[${i}] ${c.title} — ${c.podcast}${c.published ? `, ${c.published}` : ""}\n    ${c.text}`
