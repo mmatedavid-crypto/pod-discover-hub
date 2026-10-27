@@ -85,3 +85,55 @@ export function reusableLicense(short: string | null | undefined, url: string | 
   if (!b.trim() || NON_FREE.some((h) => b.includes(h))) return false;
   return REUSABLE.some((h) => b.includes(h));
 }
+
+// Second pass (owner request 2026-10-27): an organization whose exact-name article was a
+// disambiguation page or the wrong thing (Telex → telex machine, 444 → the year 444) gets one more
+// AI-free try with the qualified titles Hungarian Wikipedia uses ("Telex.hu", "FC Barcelona") and the
+// links of the disambiguation page. Each candidate must pass the same orgDecision rules; a match is
+// applied only when exactly one distinct Wikidata item passes, otherwise it stays in review.
+export const WIKI_RESOLVE_POLICY_VERSION = "wiki-safe-v1-resolve";
+export const RESOLVABLE_REASONS = ["type_mismatch", "disambiguation_page"];
+
+const QUALIFIERS: Record<string, string[]> = {
+  media: ["{n}.hu", "{n} (hírportál)", "{n} (weboldal)", "{n} (televízióadó)", "{n} (rádióadó)", "{n} (folyóirat)", "{n} (napilap)", "{n} (újság)"],
+  radio_station: ["{n} (rádióadó)", "{n} (rádió)"],
+  sport_team: ["{n} FC", "FC {n}", "{n} (labdarúgóklub)", "{n} (sportegyesület)"],
+  sport_league: ["{n} (sportszövetség)", "{n} (bajnokság)"],
+  company: ["{n} (vállalat)", "{n} (cég)", "{n} (márka)"],
+  party: ["{n} (párt)", "{n} Mozgalom"],
+  institution: ["{n} (intézmény)", "{n} (szervezet)"],
+  research: ["{n} (intézmény)", "{n} (szervezet)"],
+  ngo: ["{n} (szervezet)", "{n} (egyesület)"],
+  university: ["{n} (egyetem)"],
+  church: ["{n} (egyház)"],
+  other: ["{n} (szervezet)"],
+};
+
+const norm = (s: string) => String(s || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").split(/[^a-z0-9]+/).filter(Boolean);
+
+// A candidate title must carry every word of the name (a title word may extend it: Ferencváros →
+// Ferencvárosi TC), so disambiguation links to unrelated people or places are never tried.
+export function titleCarriesName(title: string, name: string): boolean {
+  const t = norm(title.replace(/\s*\([^)]*\)\s*$/, "")), n = norm(name);
+  if (!n.length || !t.length) return false;
+  return n.every((w) => t.some((x) => x === w || (w.length >= 4 && x.startsWith(w))));
+}
+
+export function resolveTitles(name: string, orgType: string, rejectedTitle: string | null, disambigLinks: string[]): string[] {
+  const out: string[] = [];
+  const add = (t: string) => {
+    const v = t.trim();
+    if (v && v !== rejectedTitle && !/egyértelműsítő/i.test(v) && !out.includes(v) && titleCarriesName(v, name)) out.push(v);
+  };
+  for (const q of QUALIFIERS[orgType] || QUALIFIERS.other) add(q.replace("{n}", name));
+  for (const l of disambigLinks) add(l);
+  return out.slice(0, 20);
+}
+
+// Exactly one distinct Wikidata item among the accepted candidates, or nothing.
+export function pickUnique<T extends { qid: string | null; decision: Decision }>(cands: T[]): { pick: T | null; reason: string } {
+  const ok = cands.filter((c) => c.decision.decision === "accept" && c.qid);
+  const qids = [...new Set(ok.map((c) => c.qid))];
+  if (qids.length === 1) return { pick: ok[0], reason: "unique_typed_candidate" };
+  return { pick: null, reason: qids.length ? `ambiguous_${qids.length}_typed_candidates` : "no_typed_candidate" };
+}
