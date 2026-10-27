@@ -13481,6 +13481,10 @@ export type Database = {
         Args: { _kind: string; _limit: number; _policy: string }
         Returns: Json
       }
+      wiki_safe_resolve_candidates_v1: {
+        Args: { _base_policy: string; _limit: number; _policy: string }
+        Returns: Json
+      }
       youtube_source_quality_metrics_v1: { Args: never; Returns: Json }
     }
     Enums: {
