@@ -124,6 +124,14 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
           .eq("slug", decoded)
           .maybeSingle();
 
+        if (!org?.id) {
+          // Merged duplicates are hidden rows; follow them to the canonical page.
+          const { data: target } = await (supabase as any).rpc("resolve_org_redirect_v1", { _slug: decoded });
+          if (typeof target === "string" && target && target !== decoded) {
+            nav(`/ceg/${target}`, { replace: true });
+            return;
+          }
+        }
         if (org?.id) {
           if ((org as any).ai_duplicate_of_organization_id) {
             const { data: canonicalOrg } = await supabase
