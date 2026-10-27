@@ -514,6 +514,44 @@ async function rerankWithReasons(q: string, items: any[]): Promise<{ ids: string
 }
 const rerank = (q: string, items: any[], timeoutMs = 3000) => withTimeout(rerankWithReasons(q, items), timeoutMs, "rerank");
 
+function plainPublicText(s: unknown, max: number): string {
+  return String(s || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, max);
+}
+
+// Public metadata only (title, show, date, summary/description) — never transcript text.
+function toVerifyCandidate(e: any): VerifyCandidate {
+  const p = Array.isArray(e.podcasts) ? e.podcasts[0] : e.podcasts;
+  return {
+    id: String(e.id),
+    title: plainPublicText(e.display_title || e.title, 160),
+    podcast: plainPublicText(p?.display_title || p?.title, 80),
+    published: e.published_at ? String(e.published_at).slice(0, 10) : null,
+    text: plainPublicText(e.ai_summary || e.summary || e.description, 320),
+  };
+}
+
+async function verifyCandidates(q: string, cands: VerifyCandidate[], recentDays: number | null, model: string, timeoutMs: number) {
+  const messages = buildVerifyMessages(q, new Date().toISOString().slice(0, 10), cands, recentDays);
+  const ai = await withTimeout(callLovableAI({
+    model,
+    job_type: "search_complex_verify",
+    target_type: "search_query",
+    prompt_version: VERIFY_PROMPT_VERSION,
+    input_text: String(messages[1].content),
+    min_input_chars: 20,
+    messages,
+    tools: [VERIFY_TOOL],
+    tool_choice: { type: "function", function: { name: "grade" } },
+    max_tokens: 2400,
+    temperature: 0,
+  }), timeoutMs, "complex_verify");
+  if (!ai || !ai.ok) { if (ai) console.warn("complex verify ai error", ai.status, ai.error); return null; }
+  const args = ai.data?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+  const grades = parseVerifyGrades(args, cands);
+  if (!grades) console.warn("complex verify unparsable");
+  return grades;
+}
+
 async function resolvePodcastPin(supa: ReturnType<typeof createClient>, q: string, qNorm: string, limit: number, timeoutMs = 900) {
   if (qNorm.length < 2 || qNorm.length > 60) return null;
   const cleanedQ = qNorm.replace(/\b(podcast|podcasts|show|shows|episode|episodes|epizod|musor)\b/g, " ").replace(/\s+/g, " ").trim() || qNorm;
@@ -2202,11 +2240,61 @@ Deno.serve(async (req) => {
     // In-window episodes first so the reranker below scores the recent pool.
     if (temporal) ordered = preferWithinWindow(ordered, temporal.sinceIso);
 
+    // Complex searches: final AI check of the top candidates. Episodes that do not
+    // really cover the request are dropped instead of padding the list. If the check
+    // is unavailable (timeout, error) the usual rerankers below run as before.
+    let verification: { checked: number; relevant: number; partial: number; dropped: number; cached: number; model: string; ms: number } | null = null;
+    if (complexQuery && wantRerank && engineCfg.complex_verify_enabled !== false && ordered.length > 0) {
+      const pool = ordered.slice(0, VERIFY_MAX_CANDIDATES);
+      const known = new Map<string, VerifyGrade>();
+      for (const e of pool) {
+        const g = cachedVerify?.[e.id];
+        if (g && (g.g === 0 || g.g === 1 || g.g === 2)) known.set(e.id, g);
+      }
+      const cachedCount = known.size;
+      const missing = pool.filter((e: any) => !known.has(e.id));
+      const model = String(engineCfg.verify_model || "google/gemini-2.5-flash");
+      const verifyTimeout = Math.min(6000, softBudgetMs - elapsed() - 700);
+      const tv = Date.now();
+      let fresh: Map<string, VerifyGrade> | null = null;
+      if (missing.length && verifyTimeout >= 1500) {
+        fresh = await verifyCandidates(q, missing.map(toVerifyCandidate), temporal ? temporal.windowDays : null, model, verifyTimeout);
+      } else if (missing.length) {
+        markLatencyDegrade();
+      }
+      if (!missing.length || fresh) {
+        for (const [id, g] of fresh || []) known.set(id, g);
+        const applied = applyVerification(ordered, known, [...known.keys()]);
+        ordered = applied.list;
+        verification = { checked: known.size, relevant: applied.relevant, partial: applied.partial, dropped: applied.dropped, cached: cachedCount, model, ms: Date.now() - tv };
+        if (fresh && fresh.size) {
+          const merged = Object.fromEntries([...Object.entries(cachedVerify || {}), ...fresh.entries()].slice(-150));
+          supa.from("search_query_cache").update({
+            rerank: { verify: merged, __vv: VERIFY_CACHE_VERSION, __rv: RANKING_VERSION },
+            rerank_updated_at: new Date().toISOString(),
+          }).eq("q_norm", qNorm).then(() => {}, (e) => console.warn("verify cache write", e));
+        }
+        if (!ordered.length) {
+          return new Response(JSON.stringify({
+            episodes: [], understanding, catalog_anchors: catalogAnchors,
+            person_pin: earlyPersonPin || undefined, organization_pin: earlyOrganizationPin || undefined, topic_pin: earlyTopicPin || undefined,
+            semantic: !!q_embedding, reranked: true, cache_hit: cacheHit, confidence_band: "low",
+            complex_query: true, complex_concepts: complexConcepts, verification,
+            no_relevant_results: true, reason: "no_relevant_results",
+            temporal_intent: temporal ? { window_days: temporal.windowDays, since: temporal.sinceIso, matched: temporal.matched, candidates: temporalCandidates } : undefined,
+            degraded_for_latency: degradedForLatency, soft_budget_ms: softBudgetMs, engine: `v${engN}`, ranking_version: RANKING_VERSION,
+            timing: { embed_ms: tEmb, rpc_ms: tRpc, verify_ms: verification.ms, total_ms: Date.now() - t0 },
+          }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+      }
+    }
+
     // Cohere reranker
     let cohereRerankUsed = false;
     let cohereLatency = 0;
     if (
       FF.cohere &&
+      !verification &&
       ordered.length >= 10 &&
       (confidenceBand === "high" || confidenceBand === "medium") &&
       !sectorFallback &&
@@ -2227,14 +2315,14 @@ Deno.serve(async (req) => {
         const tail = ordered.filter((e: any) => !rank.has(e.id));
         ordered = [...head, ...tail];
       }
-    } else if (FF.cohere && ordered.length >= 10 && !hasBudget(3500)) {
+    } else if (FF.cohere && !verification && ordered.length >= 10 && !hasBudget(3500)) {
       markLatencyDegrade();
     }
 
     // Gemini reranker fallback
     let rerankResult: { ids: string[]; why: Record<string, string> } | null = null;
     let rerankCacheHit = false;
-    if (wantRerank && !cohereRerankUsed) {
+    if (wantRerank && !cohereRerankUsed && !verification) {
       if (cachedRerank) {
         const present = new Set(ordered.map((e: any) => e.id));
         const filteredIds = cachedRerank.ids.filter((id) => present.has(id));
@@ -2276,7 +2364,7 @@ Deno.serve(async (req) => {
     const pinEntities = uniqueClean([
       ...((understanding?.entities as string[]) || []),
     ], 6).map((s) => s.toLowerCase()).filter((s) => s.length >= 3);
-    if (pinEntities.length) {
+    if (pinEntities.length && !verification) {
       const strictBrandMatch = (e: any): boolean => {
         const arrays: string[] = [
           ...(Array.isArray(e.people) ? e.people : []),
@@ -2319,7 +2407,7 @@ Deno.serve(async (req) => {
     // carrying it in title/show/tags) first. Name, show-pin and recency invariants below still win.
     let termCoverage: string | null = null;
     // Not for question-style searches: measured worse there (top-1 0.58 → 0.47 on 19 questions).
-    if (!isTickerQ && !naturalQuestion.isQuestion) {
+    if (!isTickerQ && !naturalQuestion.isQuestion && !verification) {
       const tc = rankByTermCoverage(ordered, q, { window: 30, minStrong: 3 });
       ordered = tc.list;
       termCoverage = tc.applied;
@@ -2394,7 +2482,10 @@ Deno.serve(async (req) => {
         natural_question: naturalQuestion.isQuestion ? naturalQuestion : undefined,
         natural_question_fallback: naturalQuestionFallback,
         semantic: !!q_embedding,
-        reranked: !!rerankResult,
+        reranked: !!rerankResult || !!verification,
+        complex_query: complexQuery || undefined,
+        complex_concepts: complexQuery ? complexConcepts : undefined,
+        verification: verification || undefined,
         term_coverage: termCoverage,
         rerank_cache_hit: rerankCacheHit,
         cache_hit: cacheHit,

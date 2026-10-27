@@ -154,7 +154,8 @@ export const VERIFY_TOOL = {
   },
 };
 
-// Only fully valid answers count: every candidate graded exactly once, grades 0..2.
+// Valid grades only (0..2, first answer per candidate). At least 80% of the candidates
+// must be graded; ungraded ones count as unchecked and are not shown.
 export function parseVerifyGrades(args: unknown, cands: VerifyCandidate[]): Map<string, VerifyGrade> | null {
   let parsed: any = args;
   if (typeof args === "string") {
@@ -173,7 +174,7 @@ export function parseVerifyGrades(args: unknown, cands: VerifyCandidate[]): Map<
     const w = typeof r?.w === "string" ? r.w.replace(/\s+/g, " ").trim().slice(0, 140) : "";
     out.set(id, w && g > 0 ? { g, w } : { g });
   }
-  return out.size === cands.length ? out : null;
+  return out.size > 0 && out.size >= Math.ceil(cands.length * 0.8) ? out : null;
 }
 
 // Relevant episodes first, then partial ones, both in their earlier order.
