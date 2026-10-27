@@ -13165,6 +13165,7 @@ export type Database = {
           weight: number
         }[]
       }
+      resolve_org_redirect_v1: { Args: { _slug: string }; Returns: string }
       resolve_query_entities: {
         Args: { p_max?: number; p_q: string; p_threshold?: number }
         Returns: {
