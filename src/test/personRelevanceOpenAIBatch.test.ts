@@ -125,6 +125,9 @@ describe("OpenAI batch adapter", () => {
     expect(isStaleClaim({ status: "claimed", created_at: "2026-10-26T20:29:00Z" }, now)).toBe(true);
     expect(isStaleClaim({ status: "claimed", created_at: "2026-10-26T20:45:00Z" }, now)).toBe(false);
     expect(isStaleClaim({ status: "submitted", created_at: "2026-10-25T00:00:00Z" }, now)).toBe(false);
+    // Stuck before the file reached OpenAI: free its slot. Once a file exists, never.
+    expect(isStaleClaim({ status: "uploading", created_at: "2026-10-26T20:29:00Z", openai_input_file_id: null }, now)).toBe(true);
+    expect(isStaleClaim({ status: "uploading", created_at: "2026-10-26T20:29:00Z", openai_input_file_id: "file-1" }, now)).toBe(false);
   });
   it("closes a link as rejected only when both AI reviews reject it", () => {
     const namesake = { ...accepted, status: "rejected", identity_match: "different_person_same_name", score: 0.9 };

@@ -246,11 +246,13 @@ export const TERMINAL_BATCH = new Set(["completed", "failed", "expired", "cancel
 // requests that reached the model and came back count toward max_attempts.
 export const countsAsAttempt = (status: string | null | undefined) => status !== "released";
 
-// A job stuck in "claimed" this long was killed mid-submit (nothing uploaded,
-// nothing billed); it only blocks an open-job slot and its pairs' leases.
+// A job stuck in "claimed" (or "uploading" with no OpenAI file yet) this long
+// was killed mid-submit (nothing uploaded, nothing billed); it only blocks an
+// open-job slot and its pairs' leases.
 export const STALE_CLAIM_MS = 30 * 60_000;
-export function isStaleClaim(job: { status: string; created_at: string }, now = Date.now()): boolean {
-  return job.status === "claimed" && now - new Date(job.created_at).getTime() > STALE_CLAIM_MS;
+export function isStaleClaim(job: { status: string; created_at: string; openai_input_file_id?: string | null }, now = Date.now()): boolean {
+  const unsent = job.status === "claimed" || (job.status === "uploading" && !job.openai_input_file_id);
+  return unsent && now - new Date(job.created_at).getTime() > STALE_CLAIM_MS;
 }
 
 export type GateContext = {
