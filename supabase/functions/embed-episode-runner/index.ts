@@ -126,15 +126,21 @@ Deno.serve(async (req) => {
       await admin.rpc("add_ai_spend", { p_day: day, p_kind: "embed_episode", p_amount: c, p_calls: n });
       recordedCost = cost; recordedCalls = calls;
     };
+    // Once the missing lane returns a short page it is exhausted for this run (skips are only
+    // written at the end, so re-querying it would hand back the same skipped rows).
+    let missingExhausted = reembedOnly;
     while (!stop && embedded + skipped + errors < maxPerRun && Date.now() - startedAt < TIME_BUDGET_MS - 15_000 && spentBefore + cost < dailyBudget) {
-      let { data: rows, error } = reembedOnly ? { data: [], error: null } as any : await admin.rpc("select_embed_episode_candidates_v2", { _limit: batch });
+      let lane: "missing" | "reembed" = "missing";
+      let { data: rows, error } = missingExhausted ? { data: [], error: null } as any : await admin.rpc("select_embed_episode_candidates_v2", { _limit: batch });
       if (error) throw new Error("candidates: " + error.message);
+      if ((rows || []).length < batch) missingExhausted = true;
       // Missing vectors first; then, only if the owner set reembed_before, refresh older vectors
       // into the current (gateway) vector space, newest episodes first.
       if (!(rows || []).length && reembedBefore) {
         ({ data: rows, error } = await admin.rpc("select_reembed_episode_candidates_v1", { _before: reembedBefore, _limit: batch, _published_before: reembedCursor }));
         if (error) throw new Error("reembed candidates: " + error.message);
         if ((rows || []).length) {
+          lane = "reembed";
           reembedPasses++;
           // Keyset cursor (inclusive bound; equal timestamps are simply re-checked next pass).
           const last = (rows as any[])[(rows as any[]).length - 1]?.published_at;
@@ -172,7 +178,8 @@ Deno.serve(async (req) => {
       await bookSpend();
       // Too many failures in a row means the provider is down: stop instead of burning the run.
       if (errors > 20 && errors > embedded) break;
-      if (cands.length < batch) break;
+      // A short missing page falls through to the owner-approved re-embed lane next pass.
+      if (cands.length < batch && (lane === "reembed" || !reembedBefore)) break;
     }
 
     for (let k = 0; k < skipRows.length; k += 500) {
