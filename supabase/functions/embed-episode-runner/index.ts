@@ -178,7 +178,8 @@ Deno.serve(async (req) => {
       await bookSpend();
       // Too many failures in a row means the provider is down: stop instead of burning the run.
       if (errors > 20 && errors > embedded) break;
-      if (cands.length < batch) break;
+      // A short missing page falls through to the owner-approved re-embed lane next pass.
+      if (cands.length < batch && (lane === "reembed" || !reembedBefore)) break;
     }
 
     for (let k = 0; k < skipRows.length; k += 500) {
