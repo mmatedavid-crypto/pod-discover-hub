@@ -437,12 +437,13 @@ async function tickAction(db: any) {
   const polled = await (await pollAction(db, await loadControls(db), {})).json();
   // Jobs killed mid-submit stay "claimed" forever (nothing uploaded or billed):
   // abort them so they free their open-job slot and their pairs' leases.
-  const { data: claimed } = await db.from("person_relevance_batch_jobs").select("id,status,created_at").eq("status", "claimed").limit(20);
+  const { data: claimed } = await db.from("person_relevance_batch_jobs").select("id,status,created_at,openai_input_file_id")
+    .in("status", ["claimed", "uploading"]).is("openai_input_file_id", null).limit(20);
   let staleAborted = 0;
   for (const j of (claimed || []).filter((c: any) => isStaleClaim(c))) {
     await db.rpc("release_person_openai_batch_job", { _job: j.id });
     const r = await db.from("person_relevance_batch_jobs").update({ status: "aborted", reserved_cost_usd: 0, last_error: "stale_claim_killed_mid_submit", updated_at: new Date().toISOString() })
-      .eq("id", j.id).eq("status", "claimed").is("openai_input_file_id", null).select("id");
+      .eq("id", j.id).eq("status", j.status).is("openai_input_file_id", null).select("id");
     staleAborted += r.data?.length || 0;
   }
   const controls = await loadControls(db);
