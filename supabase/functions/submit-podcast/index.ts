@@ -5,6 +5,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { z } from "https://esm.sh/zod@3.23.8";
+import { assertPublicHttpUrl, safePublicFetch } from "../_shared/safe-public-fetch.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -51,8 +52,7 @@ Deno.serve(async (req) => {
 
   let rssUrl = parsed.data.rss_url;
   try {
-    const u = new URL(rssUrl);
-    if (!/^https?:$/.test(u.protocol)) return jr({ error: "invalid_protocol" }, 400);
+    const u = await assertPublicHttpUrl(rssUrl);
     rssUrl = u.toString();
   } catch {
     return jr({ error: "invalid_url" }, 400);
@@ -77,14 +77,13 @@ Deno.serve(async (req) => {
   // Dedup: already in queue?
   const { data: existingQueue } = await sb
     .from("discovery_queue")
-    .select("id, status, import_status, imported_podcast_id")
+    .select("id")
     .eq("rss_url", rssUrl)
     .maybeSingle();
   if (existingQueue) {
     return jr({
       status: "already_submitted",
       message: "Ez a feed már sorban áll feldolgozásra.",
-      queue: existingQueue,
     });
   }
 
@@ -93,10 +92,9 @@ Deno.serve(async (req) => {
   try {
     const ac = new AbortController();
     const t = setTimeout(() => ac.abort(), 8000);
-    const res = await fetch(rssUrl, {
+    const res = await safePublicFetch(rssUrl, {
       signal: ac.signal,
       headers: { "User-Agent": "PodiverzumSubmitBot/1.0 (+https://podiverzum.hu)" },
-      redirect: "follow",
     });
     clearTimeout(t);
     if (!res.ok) return jr({ error: "feed_unreachable", status: res.status }, 400);
@@ -104,7 +102,8 @@ Deno.serve(async (req) => {
     const slice = buf.slice(0, 200_000);
     feedText = new TextDecoder("utf-8", { fatal: false }).decode(slice);
   } catch (e) {
-    return jr({ error: "feed_fetch_failed", message: String((e as Error).message ?? e) }, 400);
+    const reason = String((e as Error)?.message ?? "");
+    return jr({ error: reason === "blocked_host" || reason === "blocked_port" ? "invalid_url" : "feed_fetch_failed" }, 400);
   }
 
   const looksLikeRss = /<rss[\s>]|<feed[\s>]/i.test(feedText) && /<(channel|entry|item)[\s>]/i.test(feedText);
@@ -150,7 +149,8 @@ Deno.serve(async (req) => {
     .single();
 
   if (insertErr) {
-    return jr({ error: "insert_failed", message: insertErr.message }, 500);
+    console.error("submit-podcast insert failed", insertErr.code);
+    return jr({ error: "insert_failed" }, 500);
   }
 
   // Fire-and-forget Telegram alert
