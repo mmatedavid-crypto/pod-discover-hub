@@ -271,7 +271,7 @@ async function tick(db: any) {
     if (limit < 1) continue;
     if (openKinds.has(kind)) { nothingLeft = false; continue; }
     if (openCount >= c.max_open_jobs) { nothingLeft = false; break; }
-    const r = await submit(db, c, kind, limit);
+    const r: any = await submit(db, c, kind, limit);
     submitted.push(r);
     if (r.submitted) { openCount++; nothingLeft = false; }
     else if (r.reason !== "no_candidates") nothingLeft = false;
