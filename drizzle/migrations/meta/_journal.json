@@ -967,6 +967,13 @@
       "when": 1793383216793,
       "tag": "0137_entity_description_openai_batch",
       "breakpoints": true
+    },
+    {
+      "idx": 138,
+      "version": "7",
+      "when": 1793396255032,
+      "tag": "0138_fast_embed_chunk_candidates",
+      "breakpoints": true
     }
   ]
 }
