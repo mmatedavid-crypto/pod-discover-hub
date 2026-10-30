@@ -68,7 +68,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
     const body = await req.json().catch(() => ({}));
-    const q = String(body.q || "").trim();
+    const q = String(body.q || "").trim().slice(0, 300);
     const episodes = Array.isArray(body.episodes) ? body.episodes.slice(0, 6) : [];
     if (!q || episodes.length === 0) {
       return new Response(JSON.stringify({ error: "missing input" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
