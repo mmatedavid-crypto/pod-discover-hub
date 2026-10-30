@@ -24,6 +24,17 @@ const SITE = Deno.env.get("PUBLIC_SITE_URL") || "https://podiverzum.hu";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON = Deno.env.get("SUPABASE_ANON_KEY")!;
 
+// JSON-LD is inlined in a <script> element: escape characters that could close
+// the element or start markup, so feed-supplied titles cannot inject HTML.
+function safeJsonLd(value: unknown): string {
+  return JSON.stringify(value)
+    .replace(/</g, "\\u003c")
+    .replace(/>/g, "\\u003e")
+    .replace(/&/g, "\\u0026")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029");
+}
+
 const PODCAST_SEO_CTA = "Hallgasd ingyen, regisztráció nélkül a Podiverzumon.";
 const PODCAST_SEO_DESCRIPTION_MAX = 160;
 
@@ -338,7 +349,7 @@ function shell(opts: {
 }) {
   const ogImg = opts.ogImage || `${SITE}/og-image.jpg`;
   const ld = [siteIdentityJsonLd(), ...opts.jsonLd]
-    .map((j) => `<script type="application/ld+json">${JSON.stringify(j)}</script>`)
+    .map((j) => `<script type="application/ld+json">${safeJsonLd(j)}</script>`)
     .join("\n");
 return `<!doctype html>
 <html lang="hu">
