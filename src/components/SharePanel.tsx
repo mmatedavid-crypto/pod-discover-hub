@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Share2, Check, Link2, Facebook, MessageCircle, Send } from "lucide-react";
+import { withShareUtm, type SharePlatform } from "@/lib/shareUtm";
 
 // Explicit platform icons for X (Twitter) and Messenger — lucide has no dedicated X icon.
 function XIcon({ className }: { className?: string }) {
@@ -21,7 +22,7 @@ function MessengerIcon({ className }: { className?: string }) {
 export function SharePanel({ title, url, compact = false }: { title: string; url?: string; compact?: boolean }) {
   const [copied, setCopied] = useState(false);
   const shareUrl = url || (typeof window !== "undefined" ? window.location.href : "");
-  const encodedUrl = encodeURIComponent(shareUrl);
+  const linkFor = (platform: SharePlatform) => encodeURIComponent(withShareUtm(shareUrl, platform));
   const encodedTitle = encodeURIComponent(title);
 
   const track = (platform: string) => {
@@ -36,14 +37,14 @@ export function SharePanel({ title, url, compact = false }: { title: string; url
   const onNativeShare = async () => {
     track("native");
     if (typeof navigator !== "undefined" && (navigator as any).share) {
-      try { await (navigator as any).share({ title, url: shareUrl }); return; } catch {}
+      try { await (navigator as any).share({ title, url: withShareUtm(shareUrl, "share_sheet") }); return; } catch {}
     }
     onCopy();
   };
   const onCopy = async () => {
     track("copy");
     try {
-      await navigator.clipboard.writeText(shareUrl);
+      await navigator.clipboard.writeText(withShareUtm(shareUrl, "copy"));
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {}
@@ -51,10 +52,10 @@ export function SharePanel({ title, url, compact = false }: { title: string; url
 
   const btn = "inline-flex items-center gap-1.5 px-2.5 py-2 rounded-md border border-border bg-card text-xs font-medium text-foreground/85 hover:border-primary/40 hover:text-primary transition-colors";
 
-  const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`;
-  const messengerUrl = `fb-messenger://share?link=${encodedUrl}`;
-  const xUrl = `https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedTitle}`;
-  const whatsappUrl = `https://wa.me/?text=${encodedTitle}%20${encodedUrl}`;
+  const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${linkFor("facebook")}`;
+  const messengerUrl = `fb-messenger://share?link=${linkFor("messenger")}`;
+  const xUrl = `https://twitter.com/intent/tweet?url=${linkFor("x")}&text=${encodedTitle}`;
+  const whatsappUrl = `https://wa.me/?text=${encodedTitle}%20${linkFor("whatsapp")}`;
 
   if (compact) {
     return (

@@ -3,6 +3,7 @@ import { Share2, X, Download, Link2, Check } from "lucide-react";
 import { toPng } from "html-to-image";
 import { useSmartPlayer, formatTime } from "./SmartPlayerProvider";
 import { imageSrcSet, optimizedImageUrl } from "@/lib/image";
+import { withShareUtm } from "@/lib/shareUtm";
 
 export function ShareMomentButton({ className = "" }: { className?: string }) {
   const { currentEpisode, currentTime } = useSmartPlayer();
@@ -80,7 +81,7 @@ function ShareMomentModal({
 
   const copyLink = async () => {
     try {
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(withShareUtm(url, "copy"));
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
@@ -97,7 +98,7 @@ function ShareMomentModal({
       await navigator.share({
         title: episode?.title,
         text: `${episode?.title} — ${formatTime(atSec)}-tól`,
-        url,
+        url: withShareUtm(url, "share_sheet"),
       });
     } catch {
       /* user cancelled */
