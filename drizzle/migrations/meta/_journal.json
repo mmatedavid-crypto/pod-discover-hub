@@ -974,6 +974,13 @@
       "when": 1793396255032,
       "tag": "0138_fast_embed_chunk_candidates",
       "breakpoints": true
+    },
+    {
+      "idx": 139,
+      "version": "7",
+      "when": 1793396281850,
+      "tag": "0139_lock_embed_chunk_candidate_rpcs",
+      "breakpoints": true
     }
   ]
 }
