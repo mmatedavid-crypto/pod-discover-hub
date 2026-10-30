@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // rss-transcript-tag-audit
 // One-shot audit: fetches RSS feeds for HU podcasts, parses for
 // <podcast:transcript url=... type=...> tags (Podcasting 2.0 spec), and
@@ -151,6 +152,7 @@ async function runAudit(opts: { tiers?: string[]; limit?: number; podcast_ids?: 
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "rss-transcript-tag-audit"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
     const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};

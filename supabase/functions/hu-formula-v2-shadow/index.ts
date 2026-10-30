@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // HU Formula v2 shadow scoring.
 //
 // Fully automatic, no manual seed list:
@@ -193,6 +194,7 @@ function confidenceFor(p: any, content: any, mp: any, act: any, langFlag: string
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "hu-formula-v2-shadow"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   const supabase = createClient(

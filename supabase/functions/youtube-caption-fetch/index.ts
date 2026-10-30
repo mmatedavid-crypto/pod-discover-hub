@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // youtube-caption-fetch: zero-cost replacement for the Supadata transcript
 // pipeline.
 //
@@ -194,6 +195,7 @@ async function resolveCaption(
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "youtube-caption-fetch"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const startedAt = Date.now();
   try {

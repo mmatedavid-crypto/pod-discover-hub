@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Compute prefetch targets — Trends-first version.
 //
 // Insight (2026-07-14): GSC on podiverzum.hu is still tiny (~500 clicks total),
@@ -260,6 +261,7 @@ function computePriorityAndActions(c: {
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "compute-prefetch-targets"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const json = (b: unknown, s = 200) =>
     new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });

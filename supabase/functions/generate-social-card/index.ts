@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Branded Podiverzum social card generator (1200x675 PNG).
 // Builds an SVG composition (cover + hook + podcast name + entity tag + brand mark),
 // rasterizes it with resvg-wasm, then uploads to the public `social-cards` bucket.
@@ -205,6 +206,7 @@ function jsonRes(obj: any, status = 200): Response {
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "generate-social-card"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method === "GET") return jsonRes({ ok: true, function: "generate-social-card" });
 

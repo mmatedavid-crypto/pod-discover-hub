@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Hungarian AI bio + overview generator for People
 // Cost-safe mode: no GPT/Pro models in backlog runners. Controls are fail-closed.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
@@ -645,6 +646,7 @@ SZABÁLYOK:
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "person-bio-generator"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   const admin = createClient(SUPABASE_URL, SERVICE_KEY);
   const body = await req.json().catch(() => ({}));

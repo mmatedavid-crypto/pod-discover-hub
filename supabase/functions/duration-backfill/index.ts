@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // duration-backfill: fills episodes.duration_seconds for HU episodes
 // using existing enrichment data — Spotify first (episode_spotify_meta.duration_ms),
 // YouTube second (episode_youtube_links.youtube_duration_seconds). $0 cost.
@@ -11,6 +12,7 @@ const cors = {
 };
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "duration-backfill"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   const supa = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   let body: { limit?: number; source?: string } = {};

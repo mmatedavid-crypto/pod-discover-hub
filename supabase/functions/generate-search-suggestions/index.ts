@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Generates 6–8 trending search suggestion chips using Lovable AI Gateway,
 // then stores them in app_settings.search_suggestions for the homepage to read.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
@@ -17,6 +18,7 @@ const FALLBACK = [
 ];
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "generate-search-suggestions"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const json = (b: unknown, s = 200) =>
     new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });

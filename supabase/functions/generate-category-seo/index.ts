@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Generates per-category SEO title + description using Lovable AI Gateway.
 // Stores results into public.categories.seo_title / seo_description.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
@@ -9,6 +10,7 @@ const cors = {
 };
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "generate-category-seo"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const json = (b: unknown, s = 200) =>
     new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });

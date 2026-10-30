@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Incremental refresh for already fully-backfilled podcasts.
 // Picks podcasts where full_backfill_completed_at IS NOT NULL, oldest last_fetched_at first.
 // Uses fetch-one.ts (bulk dedupe + bulk upsert). episodeCap small — only newest items matter.
@@ -29,6 +30,7 @@ async function processPool<T>(items: T[], concurrency: number, fn: (it: T) => Pr
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "incremental-refresh"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {

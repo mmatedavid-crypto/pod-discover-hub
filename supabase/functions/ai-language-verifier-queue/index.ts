@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // AI language verifier for the discovery_queue (Approval Queue).
 // Identifies non-Hungarian pending items via Gemini using title + description,
 // and rejects confident non-HU entries so the approval queue stays Hungarian-only.
@@ -69,6 +70,7 @@ async function detectLanguage(model: string, title: string, description: string)
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "ai-language-verifier-queue"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   const started = Date.now();

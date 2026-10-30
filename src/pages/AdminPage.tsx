@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useNoindex } from "@/lib/useNoindex";
+import { csvCell } from "@/lib/csvSafe";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { PodcastCover } from "@/components/PodcastCover";
@@ -148,11 +149,7 @@ export default function AdminPage() {
     const VALID = new Set(["S", "A", "B", "C", "D", "E"]);
     const rows = podcasts.filter((p) => p.rank_label && !VALID.has(p.rank_label));
     const cols = ["id","title","rank_label","podiverzum_rank","shadow_rank","rank_updated_at","shadow_computed_at","rss_status","health_state","full_backfill_completed_at","created_at"];
-    const esc = (v: any) => {
-      if (v == null) return "";
-      const s = String(v).replace(/"/g, '""');
-      return /[",\n]/.test(s) ? `"${s}"` : s;
-    };
+    const esc = (v: any) => (v == null ? "" : csvCell(v));
     const lines = [cols.join(",")];
     for (const p of rows) {
       lines.push(cols.map((c) => esc(c === "health_state" ? p.shadow_rank_components?.health_state : (p as any)[c])).join(","));

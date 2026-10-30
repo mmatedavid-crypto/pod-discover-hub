@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // deno-lint-ignore-file no-explicit-any
 // Episode Q&A pilot generator ("Milyen kérdésekre kapsz választ?").
 // Only for frozen pilot TREATMENT episodes. Grounded strictly in the episode
@@ -242,6 +243,7 @@ async function processEpisode(episodeId: string, version: string, reverify = fal
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "episode-answer-generator"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
   const body = await req.json().catch(() => ({}));

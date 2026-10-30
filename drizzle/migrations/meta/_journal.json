@@ -981,6 +981,13 @@
       "when": 1793396281850,
       "tag": "0139_lock_embed_chunk_candidate_rpcs",
       "breakpoints": true
+    },
+    {
+      "idx": 140,
+      "version": "7",
+      "when": 1793398182785,
+      "tag": "0140_lock_internal_jobs_and_tighten_policies",
+      "breakpoints": true
     }
   ]
 }

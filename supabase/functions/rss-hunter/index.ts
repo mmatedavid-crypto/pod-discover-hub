@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Proactive RSS Hunter
 // Picks candidates likely to have a stale/migrated RSS URL, queries Podcast Index,
 // verifies via title sim + GUID overlap, auto-recovers on high confidence,
@@ -80,6 +81,7 @@ async function verifyFeed(url: string, expectedTitle: string) {
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "rss-hunter"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   try {
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
@@ -257,7 +259,7 @@ Deno.serve(async (req) => {
           try {
             await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/fetch-rss`, {
               method: "POST",
-              headers: { "Content-Type": "application/json", apikey: Deno.env.get("SUPABASE_ANON_KEY")! },
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!}`, apikey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")! },
               body: JSON.stringify({ podcast_id: p.id }),
             }).catch(() => {});
           } catch { /* noop */ }

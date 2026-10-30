@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // person-wiki-review-runner
 // For people with wikipedia_match_status='needs_review' (confidence 0.4–0.65):
 // GPT-5 (medium reasoning) decides verified vs no_match using the wiki candidate
@@ -160,6 +161,7 @@ Döntsd el: ugyanaz a személy?`;
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "person-wiki-review-runner"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
     const admin = createClient(SUPABASE_URL, SERVICE_KEY);

@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Weekly Editorial Post generator — HVG "Fülszöveg"-style curator's note.
 // Picks 4-5 of the strongest Hungarian episodes from the last 7 days,
 // asks a capped non-Pro model to write a magazine-style intro + per-episode mini-blocks
@@ -651,6 +652,7 @@ function buildCaptions(intro: string, items: { title: string; podcast_name: stri
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "weekly-editorial-post"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method === "GET") return json({ ok: true, function: "weekly-editorial-post" });
 

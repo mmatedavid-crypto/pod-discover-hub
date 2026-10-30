@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // AI-based exact language verifier for podcasts.
 // Uses Gemini on title + description (+ up to 3 recent episode titles) to decide
 // the primary spoken language. Authoritative: overrides the heuristic gate.
@@ -102,6 +103,7 @@ async function authorized(admin: any, req: Request) {
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "ai-language-verifier"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   if (!(await authorized(supabase, req))) {

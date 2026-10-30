@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Daily autonomous growth cycle.
 // Refreshes feeds, recomputes ranks, runs limited discovery, auto-adds high-rank candidates.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
@@ -88,6 +89,7 @@ async function piSearch(term: string, apiKey: string, apiSecret: string, max: nu
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "daily-growth-run"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);

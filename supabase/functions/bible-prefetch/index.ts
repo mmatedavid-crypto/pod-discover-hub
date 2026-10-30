@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Bible-prefetch: create tomorrow's "N. nap" placeholder episode a few hours before
 // the RSS drops at 01:00 CEST. The placeholder is NOT empty — it contains the day's
 // scripture references, the Great Adventure Timeline period, and a ~400-word AI reflection
@@ -113,6 +114,7 @@ function buildBody(plan: PlanRow, reflection: string): { html: string; plain: st
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "bible-prefetch"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const json = (b: unknown, s = 200) =>
     new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });

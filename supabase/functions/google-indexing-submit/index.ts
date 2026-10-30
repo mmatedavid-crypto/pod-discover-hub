@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Google Indexing API — DISABLED for Podiverzum pages (2026-10-24).
 //
 // Google's Indexing API only supports pages with JobPosting or BroadcastEvent
@@ -23,6 +24,7 @@ const cors = {
 };
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "google-indexing-submit"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const json = (b: unknown, s = 200) =>
     new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });

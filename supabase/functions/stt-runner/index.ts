@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // stt-runner: drains `stt` jobs and writes Gemini audio transcripts
 // into episode_transcripts.
 //
@@ -82,6 +83,7 @@ async function callGeminiSTT(model: string, audioBase64: string, mime: string) {
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "stt-runner"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const startedAt = Date.now();
   const TIME_BUDGET_MS = 110_000;

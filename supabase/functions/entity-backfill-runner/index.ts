@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Backfills entities (people/companies/tickers/topics) on episodes that already
 // have ai_summary but ai_entities_version = 0. Cheap, focused, separate from SEO.
 //
@@ -177,6 +178,7 @@ function shouldKeepOrganization(name: string, type: string, evidence: string | n
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "entity-backfill-runner"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const startedAt = Date.now();
   const TIME_BUDGET_MS = 110_000;

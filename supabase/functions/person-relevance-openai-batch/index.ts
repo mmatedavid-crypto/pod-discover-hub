@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Admin-only OpenAI Batch orchestration for person–episode relevance review.
 // Actions: status | preview (dry run, no OpenAI call) | label_golden |
 // submit | poll | cancel | release | rollback. Submission is blocked unless the
@@ -493,6 +494,7 @@ async function tickAction(db: any) {
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "person-relevance-openai-batch"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   try {

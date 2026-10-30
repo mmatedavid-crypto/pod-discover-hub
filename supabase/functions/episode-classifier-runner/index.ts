@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Full HU episode-level AI classifier.
 // For each HU-eligible episode with ai_summary:
 //   1. Build source_hash (title+desc+ai_summary+podcast_id+taxonomy_version)
@@ -125,6 +126,7 @@ async function callAI(model: string, messages: any[]) {
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "episode-classifier-runner"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const t0 = Date.now();
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);

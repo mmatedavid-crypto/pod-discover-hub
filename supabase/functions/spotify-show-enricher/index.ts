@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Spotify SHOW enricher — runs against the WHOLE catalog (HU podcasts).
 // Two passes:
 //   A) Match unknown podcasts via /v1/search (1 req per podcast, ~3 req/s safe)
@@ -90,6 +91,7 @@ async function setCooldown(supabase: any, ms: number, reason: string) {
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "spotify-show-enricher"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   const startedAt = Date.now();
   try {

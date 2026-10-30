@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Backfills podcasts.hosts from RSS <itunes:author>, <itunes:owner><itunes:name>,
 // <managingEditor>, or <author>. Only writes when the value looks like a personal
 // name (filters out publishers like "Rádió X", "Spotler Media Kft", etc.).
@@ -118,6 +119,7 @@ async function fetchRss(url: string, signal: AbortSignal): Promise<string | null
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "rss-host-backfill"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   const t0 = Date.now();
   let body: any = {};

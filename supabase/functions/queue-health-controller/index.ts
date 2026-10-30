@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // queue-health-controller: univerzális queue-alapú runner felügyelet.
 //
 // Szabályok (mindegyik runnerre):
@@ -207,6 +208,7 @@ async function sendTelegram(text: string): Promise<{ ok: boolean; error?: string
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "queue-health-controller"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 

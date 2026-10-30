@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Maps frequent free-text episode topic labels (episodes.topics[]) onto canonical
 // topic hubs by seeding public.topic_aliases.
 //
@@ -66,6 +67,7 @@ function normalizeAlias(v: string) {
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "topic-alias-mapper"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const started = Date.now();
   try {

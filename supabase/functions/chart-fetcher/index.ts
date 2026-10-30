@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // chart-fetcher: daily snapshots of Apple HU / Spotify HU / YouTube proxy
 // top podcasts. Writes to public.podcast_charts so the homepage
 // "Felkapott műsorok" rail can compute a cumulated trending score
@@ -179,6 +180,7 @@ async function fetchYouTubeStats(channelIds: string[]): Promise<Map<string, { su
 
 // ---------- main ----------
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "chart-fetcher"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   const t0 = Date.now();

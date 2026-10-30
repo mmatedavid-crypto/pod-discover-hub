@@ -2,6 +2,12 @@ import { defineTool } from "@lovable.dev/mcp-js";
 import { z } from "zod";
 import { getSupabase, json, err } from "../supabase";
 
+// Strip PostgREST filter syntax (, . ( ) : " \ * %) so the visitor's text stays a plain search term.
+function safeLike(q: unknown): string {
+  return String(q ?? "").replace(/[,.()":\\*%_]/g, " ").replace(/\s+/g, " ").trim().slice(0, 120);
+}
+
+
 export default defineTool({
   name: "search_podcasts",
   title: "Podcast keresés",
@@ -21,7 +27,7 @@ export default defineTool({
         .select("id, slug, title, description, categories, rank_label, podiverzum_rank, image_url, language")
         .ilike("language", "hu%")
         .eq("rss_status", "active")
-        .or(`title.ilike.%${query}%,description.ilike.%${query}%`)
+        .or(`title.ilike.%${safeLike(query)}%,description.ilike.%${safeLike(query)}%`)
         .order("podiverzum_rank", { ascending: false, nullsFirst: false })
         .limit(lim);
       if (error) return err(error.message);

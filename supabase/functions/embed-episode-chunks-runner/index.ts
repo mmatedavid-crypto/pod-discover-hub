@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Multi-chunk episode embedder. Uses promoted episode_clean_text only,
 // prefers timestamped transcript segments when their hash matches the clean text,
 // falls back to char windows, prepends stable episode context, embeds each chunk,
@@ -81,6 +82,7 @@ async function embed(model: string, text: string): Promise<{ vec: number[]; toke
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "embed-episode-chunks-runner"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const startedAt = Date.now();
   // CPU-budget on edge runtime is tight when each chunk = 768 floats + sha256.

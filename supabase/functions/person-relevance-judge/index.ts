@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Batched, source-grounded pair review. Durable decisions survive write retries.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
@@ -45,6 +46,7 @@ async function checkedRpc(db: any, name: string, args: Record<string, unknown>) 
 }
 
 Deno.serve(async req => {
+  { const denied = await denyUntrustedCaller(req, "person-relevance-judge"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   let body: any = {};

@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Apple Marketing top podcasts JSON ingest.
 // Fetches https://rss.applemarketingtools.com/api/v2/{country}/podcasts/top/{limit}/podcasts.json
 // for each country, resolves each item by iTunes ID via PodcastIndex,
@@ -58,6 +59,7 @@ async function fetchAppleTop(country: string, limit: number) {
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "apple-rss-charts-ingest"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   const t0 = Date.now();

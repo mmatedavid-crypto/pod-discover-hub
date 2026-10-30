@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // organization-ai-reviewer
 // Reviews organizations (companies, parties, media, institutions, etc.) extracted
 // from HU podcast episodes. Recommends action, applies safe auto-downgrades.
@@ -308,6 +309,7 @@ async function selectCandidates(admin: any, limit: number): Promise<string[]> {
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "organization-ai-reviewer"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   const admin = createClient(SUPABASE_URL, SERVICE_KEY);
   const body = await req.json().catch(() => ({}));

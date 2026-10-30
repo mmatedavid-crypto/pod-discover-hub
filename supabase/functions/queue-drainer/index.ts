@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Auto-drainer: runs on a schedule, processes up to 10 Rank>=4 queue items,
 // honors enable flag + lock in app_settings.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
@@ -123,6 +124,7 @@ async function writeSetting(admin: any, value: any) {
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "queue-drainer"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;

@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Apple iTunes genre top-podcasts ingest.
 // Uses legacy iTunes RSS feed which supports per-genre charts:
 //   https://itunes.apple.com/{country}/rss/toppodcasts/limit={limit}/genre={id}/json
@@ -86,6 +87,7 @@ async function fetchAppleGenre(country: string, genreId: number, limit: number) 
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "apple-genre-charts-ingest"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   const t0 = Date.now();

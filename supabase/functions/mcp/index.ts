@@ -28,6 +28,9 @@ function err(msg) {
 }
 
 // src/lib/mcp/tools/search-podcasts.ts
+function safeLike(q) {
+  return String(q ?? "").replace(/[,.()":\\*%_]/g, " ").replace(/\s+/g, " ").trim().slice(0, 120);
+}
 var search_podcasts_default = defineTool({
   name: "search_podcasts",
   title: "Podcast keres\xE9s",
@@ -41,7 +44,7 @@ var search_podcasts_default = defineTool({
     try {
       const sb = getSupabase();
       const lim = limit ?? 15;
-      const { data, error } = await sb.from("podcasts").select("id, slug, title, description, categories, rank_label, podiverzum_rank, image_url, language").ilike("language", "hu%").eq("rss_status", "active").or(`title.ilike.%${query}%,description.ilike.%${query}%`).order("podiverzum_rank", { ascending: false, nullsFirst: false }).limit(lim);
+      const { data, error } = await sb.from("podcasts").select("id, slug, title, description, categories, rank_label, podiverzum_rank, image_url, language").ilike("language", "hu%").eq("rss_status", "active").or(`title.ilike.%${safeLike(query)}%,description.ilike.%${safeLike(query)}%`).order("podiverzum_rank", { ascending: false, nullsFirst: false }).limit(lim);
       if (error) return err(error.message);
       const items = (data || []).map((p) => ({
         ...p,

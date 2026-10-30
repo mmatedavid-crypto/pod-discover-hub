@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // AI categorizer for podcasts. Picks uncategorized EN podcasts (S>A>B>C),
 // asks Gemini to assign one of 21 canonical category slugs (with confidence
 // + alternate). Drains in a loop within one invocation, respects daily $ budget,
@@ -133,6 +134,7 @@ async function callAI(model: string, prompt: string, targetId?: string) {
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "categorize-podcast-runner"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const startedAt = Date.now();
   const TIME_BUDGET_MS = 110_000;

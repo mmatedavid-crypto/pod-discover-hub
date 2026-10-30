@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Database Quality Fast Lane.
 // Top-level orchestrator for same-day catalog quality repair. It runs
 // no-AI, non-destructive repairs aggressively and lets AI workers run only
@@ -98,6 +99,7 @@ async function loadControls(admin: ReturnType<typeof createClient>) {
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "database-quality-fast-lane"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const startedAt = Date.now();
 

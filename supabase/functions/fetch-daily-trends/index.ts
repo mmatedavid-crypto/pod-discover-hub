@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Fetch HU Google Trends via Apify and match top podcast episodes for each trend.
 // Trigger: pg_cron (twice daily) or manual POST.
 //
@@ -291,6 +292,7 @@ async function resolveEntity(
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "fetch-daily-trends"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
 

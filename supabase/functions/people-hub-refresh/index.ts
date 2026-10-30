@@ -1,7 +1,9 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "people-hub-refresh"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,

@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Topic page enricher — grounded Hungarian intro + FAQ for every public topic.
 // Input is STRICTLY the topic's indexed episodes (titles, summaries, shows).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
@@ -35,6 +36,7 @@ const json = (b: unknown, status = 200) =>
   new Response(JSON.stringify(b), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "topic-page-enricher"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY) as any;
   let body: any = {};

@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import Layout from "@/components/Layout";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { toast } from "sonner";
+import { csvCell } from "@/lib/csvSafe";
 import { Loader2, Mail, Download, RefreshCw, CheckCircle2, XCircle, Clock } from "lucide-react";
 
 type Row = {
@@ -141,7 +142,7 @@ export default function AdminOutreachPage() {
       r.last_contacted_at ?? "",
     ]);
     const csv = [header, ...rowsCsv]
-      .map((row) => row.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","))
+      .map((row) => row.map((v) => csvCell(v)).join(","))
       .join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);

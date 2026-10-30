@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // youtube-views-backfill — refreshes youtube_view_count on confirmed episode_youtube_links
 // Batches 50 video IDs per YouTube Data API videos.list call (very cheap on quota: 1 unit/call).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
@@ -8,6 +9,7 @@ const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const YT_KEY = Deno.env.get("YOUTUBE_API_KEY")!;
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "youtube-views-backfill"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
     const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};

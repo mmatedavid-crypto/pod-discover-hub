@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Matches publisher article pages to podcast episodes.
 // Conservative by design: only configured outlet feeds are read, and only high
 // title/date/token agreement becomes confirmed evidence for best-text-source.
@@ -317,6 +318,7 @@ async function runPairer(admin: ReturnType<typeof createClient>, body: Record<st
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "episode-article-pairer"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const startedAt = Date.now();
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);

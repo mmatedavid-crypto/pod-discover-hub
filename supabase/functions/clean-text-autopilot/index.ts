@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Clean Text Autopilot.
 // Cron-safe orchestrator for large catalogs: plans a safe refresh, generates
 // candidates, and promotes only changed candidates that passed quality gates.
@@ -67,6 +68,7 @@ async function aiEnrichSpendToday(admin: any): Promise<number> {
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "clean-text-autopilot"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const startedAt = Date.now();
 

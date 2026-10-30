@@ -1,3 +1,4 @@
+import { safePublicFetch } from "../_shared/safe-public-fetch.ts";
 // OG image edge function: SVG card for podcast/episode/site sharing.
 // Dynamic SVG response cached by CDN. No external deps.
 const corsHeaders = {
@@ -58,10 +59,11 @@ Deno.serve(async (req: Request) => {
     try {
       const ctrl = new AbortController();
       const t = setTimeout(() => ctrl.abort(), 4000);
-      const r = await fetch(image, { signal: ctrl.signal });
+      const r = await safePublicFetch(image, { signal: ctrl.signal });
       clearTimeout(t);
-      if (r.ok) {
-        const ct = r.headers.get("content-type") || "image/jpeg";
+      const rawCt = (r.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
+      const ct = /^image\/(png|jpeg|jpg|webp|gif)$/.test(rawCt) ? rawCt : "";
+      if (r.ok && ct) {
         const buf = new Uint8Array(await r.arrayBuffer());
         if (buf.byteLength < 800_000) {
           let bin = "";

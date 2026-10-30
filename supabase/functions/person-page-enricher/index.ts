@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Person page enricher — grounded Hungarian page summary + FAQ (Q&A) for the
 // most-mentioned people. Input is STRICTLY the person's indexed episode data:
 // no outside knowledge, no speculation. Output feeds the person page and the
@@ -40,6 +41,7 @@ const clean = (v: unknown, max: number) =>
   String(v ?? "").replace(/\s+/g, " ").trim().slice(0, max);
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "person-page-enricher"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
 

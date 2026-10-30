@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // pipeline-watchdog: autonóm felügyelő minden AI-runner cost / error / liveness state-ére.
 // Cron: 5 percenként. Olvassa app_settings.watchdog_state-et, evaluálja a rule-okat,
 // dry_run=false esetén autonóm pause (*_controls.enabled=false), és Telegram alert minden eventnél.
@@ -190,6 +191,7 @@ async function sendTelegram(text: string): Promise<{ ok: boolean; error?: string
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "pipeline-watchdog"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
 
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);

@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Growth Autopilot orchestrator.
 // One "tick" — safe to call from cron (every 10 min) or manually.
 // State stored in app_settings.key='growth_autopilot' (jsonb).
@@ -55,6 +56,7 @@ async function callFunction(path: string, body: any) {
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "growth-autopilot"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);

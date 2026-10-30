@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // deno-lint-ignore-file no-explicit-any
 // GPT-6 Astra quality audit for public people + organizations.
 // Fully automatic: confident verdicts are applied, uncertain ones are only
@@ -210,6 +211,7 @@ async function authorized(req: Request): Promise<boolean> {
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "entity-astra-audit"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   if (!(await authorized(req))) return Response.json({ error: "forbidden" }, { status: 403, headers: cors });
   const body = await req.json().catch(() => ({}));

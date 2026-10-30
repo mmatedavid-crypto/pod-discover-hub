@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // youtube-channel-scout: finds the YouTube channel matching each podcast.
 //
 // Flow:
@@ -111,6 +112,7 @@ function scoreChannel(podcast: any, ch: any): number {
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "youtube-channel-scout"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const startedAt = Date.now();
   try {

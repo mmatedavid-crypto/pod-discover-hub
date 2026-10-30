@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // episode-topic-extractor: bottom-up, taxonomy-free topic discovery.
 // For each pending episode (clean_text present), asks the LLM: "What is this episode about?"
 // Returns 3-7 free-form topic labels — NO predefined list, NO hints, NO taxonomy injection.
@@ -136,6 +137,7 @@ function normalize(s: string): string {
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "episode-topic-extractor"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const startedAt = Date.now();
 

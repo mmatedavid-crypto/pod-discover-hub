@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // person-ai-reviewer
 // Reviews extracted people for quality, recommends activation action, applies only
 // safe automatic downgrades. Uses Lovable AI Gateway (google/gemini-2.5-flash).
@@ -426,6 +427,7 @@ async function selectCandidates(admin: any, limit: number): Promise<string[]> {
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "person-ai-reviewer"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   const admin = createClient(SUPABASE_URL, SERVICE_KEY);
   const body = await req.json().catch(() => ({}));

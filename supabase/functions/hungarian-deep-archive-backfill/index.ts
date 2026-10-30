@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // HU deep archive backfill orchestrator.
 // - HU-strict at SQL level via language_decision='accept_hungarian'.
 // - Per-podcast: run RSS exhaustion (fetch-one) if full_backfill_completed_at IS NULL,
@@ -159,6 +160,7 @@ async function updateRun(admin: any, id: string, patch: any) {
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "hungarian-deep-archive-backfill"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   const startedAt = new Date().toISOString();

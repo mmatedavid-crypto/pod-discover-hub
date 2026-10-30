@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // youtube-episode-pairer: for podcasts with youtube_channel_id, list channel
 // uploads playlist, fuzzy-match against RSS episodes, write episode_youtube_links.
 //
@@ -417,6 +418,7 @@ async function claimPodcasts(admin: ReturnType<typeof createClient>, plan: Adapt
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "youtube-episode-pairer"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const startedAt = Date.now();
   try {

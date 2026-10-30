@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // PodcastIndex episode backfill — pulls ALL episodes PI knows for a podcast,
 // even ones that have aged out of the live RSS feed. Drains in one invocation
 // up to TIME_BUDGET, then returns. Safe to call repeatedly.
@@ -189,6 +190,7 @@ async function processPodcast(supabase: any, podcast: any, dryRun: boolean) {
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "pi-episode-backfill"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   const t0 = Date.now();
