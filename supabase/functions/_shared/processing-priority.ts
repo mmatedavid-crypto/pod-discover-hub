@@ -3,7 +3,7 @@
 // back by the visitor-first gate — the external OpenAI person batch (dedicated API) and the two Astra
 // jobs (only problem cases / advisory review, nothing else waits on them). Their own cost caps, leases
 // and acceptance policy still apply.
-export const EXTERNAL_API_JOBS = new Set(["person_relevance_openai_batch"]);
+export const EXTERNAL_API_JOBS = new Set(["person_relevance_openai_batch", "entity_description_openai_batch"]);
 export const OWNER_GATE_EXEMPT_JOBS = new Set(["entity_astra_audit", "clean_text_astra_review"]);
 
 export function gateExempt(job: string): boolean {
