@@ -1,3 +1,4 @@
+import { takePublicAiCall } from "../_shared/public-ai-cap.ts";
 // search-suggest: typeahead completions for the search box.
 // POST { prefix: string } -> { suggestions: string[] }
 // Strategy: cache lookup (24h) -> AI completion (gemini-2.5-flash-lite) seeded by prefix-matched episode titles.
@@ -96,6 +97,9 @@ Deno.serve(async (req) => {
       .map((r: any) => String(r.title || "").slice(0, 100))
       .filter(Boolean);
 
+    if (!(await takePublicAiCall("search_suggest"))) {
+      return new Response(JSON.stringify({ suggestions: [], capped: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
     const suggestions = await aiSuggest(prefix, seed);
     const dedup = Array.from(new Set(suggestions)).slice(0, 5);
 
