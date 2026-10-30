@@ -9,6 +9,7 @@ import { loadCuratedSynonyms } from "../_shared/search-synonyms.ts";
 import { getHydeExpansion, blendEmbeddings } from "../_shared/search-hyde.ts";
 import { cohereRerank, type CohereRerankInput } from "../_shared/cohere-rerank.ts";
 import { detectBot } from "../_shared/bot-detect.ts";
+import { takePublicAiCall } from "../_shared/public-ai-cap.ts";
 import { callLovableAI } from "../_shared/lovable-ai.ts";
 import { createFullNameMatcher, foldSearchName, fullNameTsQuery, isNameShapedQuery, nameEvidenceTier, rankFullNameMatches } from "../_shared/search-name-match.ts";
 import { cleanTextNameTsQuery, isPersonEvidenceCandidate, personIdentityState, rankPersonEvidence, type PersonCandidate, type PersonLink } from "../_shared/search-person-evidence.ts";
@@ -1109,7 +1110,12 @@ Deno.serve(async (req) => {
     // quality as people. Those internal callers prove it with AGENT_SEARCH_KEY.
     const botCheck = detectBot(req);
     const trustedAgent = isTrustedAgentSearch(req);
-    const isBot = botCheck.isBot && !trustedAgent;
+    let isBot = botCheck.isBot && !trustedAgent;
+    // Visitor AI calls share a daily cap; over it, visitors get the free lexical path.
+    if (!isBot && !trustedAgent && !(await takePublicAiCall("search_hybrid"))) {
+      isBot = true;
+      console.log("search-hybrid daily visitor AI cap reached — lexical path");
+    }
     if (trustedAgent) console.log("search-hybrid trusted agent path", { agent: String(req.headers.get("x-podiverzum-agent") || "").slice(0, 40) });
     else if (isBot) console.log("search-hybrid bot path", { reason: botCheck.reason, ua: botCheck.ua.slice(0, 80) });
 

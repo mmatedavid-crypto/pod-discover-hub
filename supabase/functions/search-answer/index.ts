@@ -1,3 +1,4 @@
+import { takePublicAiCall } from "../_shared/public-ai-cap.ts";
 // search-answer: returns a 2-3 sentence Hungarian AI summary for the top episodes of a query.
 // HU-only on podiverzum.hu — we no longer stream raw model tokens to the browser. The model is
 // called once, validated by hu-language-guard, regenerated once if not Hungarian, and finally a
@@ -79,6 +80,10 @@ Deno.serve(async (req) => {
     const bot = detectBot(req);
     if (bot.isBot) {
       console.log("search-answer bot gated", { reason: bot.reason, ua: bot.ua.slice(0, 80) });
+      return emitSse(huFallback(q));
+    }
+    if (!(await takePublicAiCall("search_answer"))) {
+      console.log("search-answer daily visitor AI cap reached — fallback");
       return emitSse(huFallback(q));
     }
     const compact = episodes.map((e: any, i: number) => ({
