@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Admin endpoint: status, controls update, scope expansion, manual enqueue/run.
 // Requires admin role for any write action; reads are public-safe (no secrets exposed).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
@@ -18,6 +19,7 @@ async function isAdmin(admin: any, authHeader: string | null) {
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "seo-enrich-admin"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   const url = new URL(req.url);

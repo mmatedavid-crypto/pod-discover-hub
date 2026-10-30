@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // PI episode backfill PEEK — dry-run only, NEM ír episodes táblába.
 // Lekéri a PI-ből az epizód-listát, megszámolja a meglévő guid+link alapján a duplikátumokat,
 // és podcasts.pi_backfill_dry_run JSONB-be cache-eli az eredményt.
@@ -104,6 +105,7 @@ async function peekOne(supabase: any, podcast: any) {
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "pi-backfill-peek"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   const t0 = Date.now();

@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Re-checks language for peeked B/C podcasts using Gemini on title+description.
 // If non-HU, sets language to detected code AND pi_backfill_completed_at=now()
 // + pi_backfill_approved=false so they drop out of the backfill pipeline + HU homepage.
@@ -69,6 +70,7 @@ async function detectLanguage(title: string, description: string): Promise<{ lan
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "pi-language-recheck"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   try {

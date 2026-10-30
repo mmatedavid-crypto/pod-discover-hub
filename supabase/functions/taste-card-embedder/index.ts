@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Admin: embed taste_cards.hidden_embedding_prompt -> taste_cards.card_embedding (768D)
 // Uses google/gemini-embedding-001 (same as episode_embeddings) for vector-space parity.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
@@ -18,6 +19,7 @@ async function embed(text: string): Promise<number[]> {
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "taste-card-embedder"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   try {
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);

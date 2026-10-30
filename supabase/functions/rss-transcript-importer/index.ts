@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // rss-transcript-importer
 // One-shot importer: re-fetches RSS feeds listed in `app_settings.rss_transcript_audit.hits`,
 // extracts <podcast:transcript url type> per <item>, downloads each transcript, normalizes
@@ -176,6 +177,7 @@ async function sha256Hex(s: string): Promise<string> {
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "rss-transcript-importer"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   const t0 = Date.now();
   try {

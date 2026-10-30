@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Weekly Google Search Console insights runner.
 // - Pulls last 7 days (vs previous 7 days) from GSC via Lovable connector gateway.
 // - Computes totals, deltas, top queries/pages, rising/falling movers, striking-distance opportunities.
@@ -73,6 +74,7 @@ function pct(a: number, b: number): number {
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "gsc-weekly-insights"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const json = (b: unknown, s = 200) =>
     new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });

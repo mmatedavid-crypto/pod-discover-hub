@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // AI summary + entity extraction with daily cap & enable flag from app_settings.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { callLovableAI, recordAiCall } from "../_shared/lovable-ai.ts";
@@ -149,6 +150,7 @@ function cleanPersonArray(values: unknown): string[] {
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "ai-enrich"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
     const { type, id } = await req.json();

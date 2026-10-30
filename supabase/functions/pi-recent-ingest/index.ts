@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Cloud-only ingest of Podcast Index "recent" feeds into pi_feed_staging.
 // Uses the bounded /recent/newfeeds + /recent/feeds endpoints (max=1000).
 // This is NOT a search/crawl — it's a single, capped pull of fresh feeds.
@@ -34,6 +35,7 @@ async function piFetch(path: string, params: Record<string, string>) {
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "pi-recent-ingest"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);

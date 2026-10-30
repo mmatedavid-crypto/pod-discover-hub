@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Fetches engagement metrics for recently published X posts and updates social_posts.
 // Runs every 6 hours via cron, scans last 14 days of status='success' posts.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
@@ -96,6 +97,7 @@ function computeDerived(pm: any, npm: any, om: any) {
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "x-metrics-fetch"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   const startedAt = Date.now();
   try {

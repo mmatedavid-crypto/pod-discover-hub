@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Bulk-pull all Hungarian feeds from PodcastIndex into pi_feed_staging.
 // Uses /recent/feeds?lang=hu&max=1000 paginated by `since` (unix sec) walking backwards.
 // POST { months_back?: number (default 36), max_pages?: number (default 60) }
@@ -15,6 +16,7 @@ async function sha1Hex(input: string) {
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "pi-hu-bulk-pull"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
     const apiKey = Deno.env.get("PODCAST_INDEX_API_KEY");

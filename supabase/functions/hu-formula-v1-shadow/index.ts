@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // hu-formula-v1-shadow
 // Phase B shadow scoring for Hungarian podcast ranking.
 //
@@ -204,6 +205,7 @@ function scoreMarket(rrf: number, srcCount: number): { score: number; rrf: numbe
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "hu-formula-v1-shadow"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   const supabase = createClient(

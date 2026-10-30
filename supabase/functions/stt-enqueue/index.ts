@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // stt-enqueue: enqueues `stt` jobs into ai_enrichment_jobs for HU episodes
 // that don't yet have a transcript for the current model.
 //
@@ -30,6 +31,7 @@ async function sha256Hex(s: string) {
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "stt-enqueue"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
 
   try {

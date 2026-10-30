@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Wikimedia/Wikidata matcher + image cache for People
 // Matches person name against Wikidata, verifies via description + sitelinks,
 // fetches commons image if license is reusable, caches to entity-images bucket.
@@ -410,6 +411,7 @@ async function processPerson(admin: any, personId: string): Promise<any> {
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "person-wikimedia-enricher"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   const admin = createClient(SUPABASE_URL, SERVICE_KEY);
   const body = await req.json().catch(() => ({}));

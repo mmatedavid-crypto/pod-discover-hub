@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Stage 4 persistence: bulk-update gate results, quality results, and shadow ranks.
 // Body: { gate?: GateRow[], quality?: QualRow[], shadow?: ShadowRow[] }
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
@@ -8,6 +9,7 @@ const cors = {
 };
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "stage4-persist"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   try {
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);

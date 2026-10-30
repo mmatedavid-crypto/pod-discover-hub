@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Process unprocessed staging rows: score, decide (auto_add/queue/hide), hydrate via RSS.
 // Body (optional): { import_id?, batch?: number (default 100) }
 // Caps per call: 100 staging rows scored, 5 auto-adds (subject to settings.max_auto_add_per_run).
@@ -53,6 +54,7 @@ function initialRankLabel(score: number) {
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "pi-dump-process"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);

@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Drains duplicate episodes in small batches within a single invocation.
 // Runs by cron until backlog is empty. Calls dedup_episodes_guid_batch then
 // dedup_episodes_audio_url_batch repeatedly until time budget exhausted or
@@ -15,6 +16,7 @@ const RESERVE_MS = 5_000;
 const BATCH = 2000;
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "episode-dedup-runner"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   const t0 = Date.now();
   try {

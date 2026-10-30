@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // mp3-duration-probe v2
 // Fills `episodes.duration_seconds` for HU episodes by probing the MP3 file.
 //
@@ -128,6 +129,7 @@ async function probeOne(url: string): Promise<number | null> {
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "mp3-duration-probe"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY);

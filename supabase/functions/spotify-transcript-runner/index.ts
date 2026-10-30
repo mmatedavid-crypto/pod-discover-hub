@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Spotify native transcript runner.
 // Default-disabled and operator-controlled: stores Spotify private API text for
 // indexing only, never for public transcript display.
@@ -127,6 +128,7 @@ async function invokeBestTextSourceRunner(episodeIds: string[]) {
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "spotify-transcript-runner"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
   const startedAt = Date.now();

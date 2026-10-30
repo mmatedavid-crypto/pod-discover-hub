@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Selects the best available processing text for each episode — incrementally.
 //
 // 0) Fast lane: durable source-change queue (episode_source_change_queue, filled
@@ -143,6 +144,7 @@ function runLog(admin: any) {
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "episode-best-text-source-runner"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const startedAt = Date.now();
   let admin: any = null;

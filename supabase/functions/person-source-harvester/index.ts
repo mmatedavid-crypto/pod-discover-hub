@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // person-source-harvester
 // Collects trusted external biographical sources for people (hosts + guests),
 // scrapes them via Firecrawl, and runs an AI name-match gate before publishing.
@@ -456,6 +457,7 @@ async function harvestForPerson(sb: any, personId: string, dry: boolean): Promis
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "person-source-harvester"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   const sb = createClient(SUPABASE_URL, SERVICE_KEY);
   const body = await req.json().catch(() => ({}));

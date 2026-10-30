@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Admin controls + scheduler for automatic deep hydration.
 // Service-role writes; admin verified via user_roles. Cron-callable (anon apikey)
 // will hit action="scheduled_run" which is allowed without admin.
@@ -22,6 +23,7 @@ function json(b: any, s = 200) {
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "deep-hydrate-admin"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;

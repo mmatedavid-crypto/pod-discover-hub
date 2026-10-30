@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Person + topic entity extractor.
 // Reads HU-approved episodes, uses already-extracted `episodes.people`,
 // `episodes.mentioned` and `podcasts.hosts` arrays. Upserts canonical
@@ -99,6 +100,7 @@ function canonicalPersonInput(name: string) {
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "person-entity-extractor"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 

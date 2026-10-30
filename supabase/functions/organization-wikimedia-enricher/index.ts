@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Wikimedia/Wikidata matcher + logo cache for Organizations
 // Mirrors person-wikimedia-enricher but tuned for org_type expectations.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
@@ -286,6 +287,7 @@ async function processOrg(admin: any, orgId: string): Promise<any> {
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "organization-wikimedia-enricher"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   const admin = createClient(SUPABASE_URL, SERVICE_KEY);
   const body = await req.json().catch(() => ({}));

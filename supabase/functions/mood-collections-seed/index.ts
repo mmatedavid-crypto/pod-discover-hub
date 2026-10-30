@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Auto-seeds mood_collections.podcast_ids by embedding each mood's seed_query
 // and finding the top S/A podcasts via cosine similarity.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
@@ -66,6 +67,7 @@ async function embed(text: string): Promise<number[]> {
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "mood-collections-seed"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const json = (b: unknown, s = 200) =>
     new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });

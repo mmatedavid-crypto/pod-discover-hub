@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Proactive RSS Hunter
 // Picks candidates likely to have a stale/migrated RSS URL, queries Podcast Index,
 // verifies via title sim + GUID overlap, auto-recovers on high confidence,
@@ -80,6 +81,7 @@ async function verifyFeed(url: string, expectedTitle: string) {
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "rss-hunter"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   try {
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);

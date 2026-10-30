@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // editorial-people-seed-matcher: matches admin-curated seed names against
 // Hungarian-approved podcast episodes/descriptions, attaches them to people
 // (creating new person rows if strong evidence exists), seeds aliases &
@@ -246,6 +247,7 @@ async function processSeed(admin: any, seed: Seed, dryRun: boolean): Promise<any
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "editorial-people-seed-matcher"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   const admin = createClient(SUPABASE_URL, SERVICE_KEY);
   const body = await req.json().catch(() => ({}));

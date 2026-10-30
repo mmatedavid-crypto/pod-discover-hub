@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Cloud-only PI search-by-term ingest into pi_feed_staging.
 // Body: { terms: string[], max?: number (per term, ≤40), lang?: "en" }
 // Bounded: max 8 terms per call, max 40 results per term.
@@ -33,6 +34,7 @@ async function piFetch(path: string, params: Record<string, string>) {
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "pi-topic-ingest"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);

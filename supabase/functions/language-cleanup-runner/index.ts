@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // language-cleanup-runner: cascades deletion of podcasts that have been classified
 // as confirmed non-Hungarian. Writes a row to podcast_language_cleanup_log per podcast
 // with full per-table delete counts BEFORE removing data. Safe to re-run; only
@@ -58,6 +59,7 @@ function chunks<T>(a: T[], n: number): T[][] {
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "language-cleanup-runner"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   const started = Date.now();
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);

@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Spotify EPISODE matcher — paginates /v1/shows/{id}/episodes for each matched podcast
 // and pairs Spotify episodes with our episodes by (release_date + fuzzy title).
 // Rate-limit hardened: max 60s Retry-After, global cooldown_until, 90s wall budget.
@@ -85,6 +86,7 @@ async function setCooldown(supabase: any, ms: number, reason: string) {
 const KNOWN_PAGES_STOP = 2;
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "spotify-episode-matcher"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   const startedAt = Date.now();
   try {

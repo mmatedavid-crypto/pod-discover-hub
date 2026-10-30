@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Fetch one podcast feed (RSS or Atom) and upsert episodes.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { fetchOne } from "../_shared/fetch-one.ts";
@@ -8,6 +9,7 @@ const corsHeaders = {
 };
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "fetch-rss"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
     const { podcast_id, episode_cap } = await req.json();

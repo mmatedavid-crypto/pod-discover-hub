@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Enqueues podcast + episode SEO enrichment jobs based on ai_seo_controls scope.
 // Idempotent (input_hash unique per kind/target).
 //
@@ -51,6 +52,7 @@ function isHealthy(p: any): boolean {
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "seo-enrich-enqueue"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   try {
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);

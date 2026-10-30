@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Recompute mood_collections.recommended_episode_count for all active moods.
 // Cheap: just calls the SQL function which loops over active moods and runs
 // the existing recommendation RPC (vector lookup + HU language filter).
@@ -9,6 +10,7 @@ const corsHeaders = {
 };
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "mood-recommended-counts-runner"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   const admin = createClient(

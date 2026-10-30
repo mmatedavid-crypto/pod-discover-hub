@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Entity Quality Autopilot v2 — organization quality hold.
 // No AI calls, no cost. Keeps ambiguous / non-entity organizations (e.g. "Toronto", "Pride")
 // out of search indexing and hub lists, while their pages, chips and episode links stay.
@@ -54,6 +55,7 @@ async function readControls(admin: ReturnType<typeof createClient>) {
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "entity-quality-autopilot"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const startedAt = Date.now();
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);

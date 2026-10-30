@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // episode-clean-text-runner: deterministic ($0) pass over pending Hungarian episodes.
 // Writes episode_clean_text and flips episodes.clean_text_status.
 //
@@ -65,6 +66,7 @@ async function updateStatus(admin: any, ids: string[], status: string) {
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "episode-clean-text-runner"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const startedAt = Date.now();
   let log: ReturnType<typeof runLog> | null = null;

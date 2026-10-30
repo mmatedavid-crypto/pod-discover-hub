@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // One-time Foundation Import runner.
 // Loops pi-dump-process in foundation mode until either:
 //   - no unprocessed staged candidates remain, or
@@ -12,6 +13,7 @@ const corsHeaders = {
 };
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "foundation-runner"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);

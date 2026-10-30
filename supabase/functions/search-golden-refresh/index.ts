@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
@@ -67,6 +68,7 @@ async function loadEntityMonitoringCoverage(supa: ReturnType<typeof createClient
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "search-golden-refresh"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   const startedAt = Date.now();

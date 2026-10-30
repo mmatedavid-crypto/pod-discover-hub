@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Refresh sitemap: regenerates per-type sitemaps and uploads them to the
 // public `sitemaps` Storage bucket. Triggered by pg_cron daily.
 // Two run modes (CPU budget split):
@@ -138,6 +139,7 @@ async function submitGoogleSearchConsoleSitemap(feedpath: string): Promise<Googl
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "refresh-sitemap"); if (denied) return denied; }
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   const url = new URL(req.url);

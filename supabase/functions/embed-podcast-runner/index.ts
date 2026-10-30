@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Podcast similarity embeddings ("Hasonló podcastok"), v2.
 // - Every accepted, healthy HU podcast (all rank tiers) gets an embedding.
 // - Input: podcast metadata + RSS episode titles + topic labels (_shared/podcast-embedding-content.ts).
@@ -36,6 +37,7 @@ async function sha256(s: string) {
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "embed-podcast-runner"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const startedAt = Date.now();
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);

@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Permanent RSS self-healing job. Runs every 30min via pg_cron.
 // Picks failed/broken feeds (high quality first), tries to rediscover via Podcast Index,
 // auto-recovers on high confidence, flags for manual review on medium, marks not_found otherwise.
@@ -74,6 +75,7 @@ async function verifyFeed(url: string, expectedTitle: string) {
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "rss-self-healing"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   try {
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);

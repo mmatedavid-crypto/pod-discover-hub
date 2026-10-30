@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Drains ai_enrichment_jobs (kind = seo_podcast | seo_episode).
 // - Respects pause flag and daily $ budget cap.
 // - Caches by input_hash (already enforced via unique index at enqueue time).
@@ -88,6 +89,7 @@ async function callAI(model: string, messages: any[], tools: any[], toolName: st
 
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "seo-enrich-runner"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const startedAt = Date.now();
   const TIME_BUDGET_MS = 80_000;

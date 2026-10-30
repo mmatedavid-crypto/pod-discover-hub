@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // Editorial card generator — renders cover + quote slides for weekly editorial posts.
 // Two formats per item:
 //   IG 4:5 (1080 x 1350)
@@ -180,6 +181,7 @@ function json(o: any, status = 200) {
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "generate-editorial-cards"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method === "GET") return json({ ok: true, function: "generate-editorial-cards" });
 

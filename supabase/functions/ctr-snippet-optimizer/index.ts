@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // CTR snippet optimizer.
 //
 // Finds URLs that already rank well in Google (position <= max_position) but get
@@ -121,6 +122,7 @@ const SYSTEM = [
 ].join(" ");
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "ctr-snippet-optimizer"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const json = (b: unknown, s = 200) =>
     new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });

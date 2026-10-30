@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // IndexNow submitter — pings Bing/Yandex/etc. with recently changed URLs.
 // Docs: https://www.indexnow.org/documentation
 //
@@ -120,6 +121,7 @@ async function collectRecent(
 }
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "indexnow-submit"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {

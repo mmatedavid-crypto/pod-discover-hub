@@ -1,3 +1,4 @@
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 // topic-cluster-runner: deterministic clustering of episode_extracted_topics
 // into canonical Hungarian topic_clusters. NO AI calls. Idempotent.
 //
@@ -130,6 +131,7 @@ const ALIASES: Record<string, string> = {
 };
 
 Deno.serve(async (req) => {
+  { const denied = await denyUntrustedCaller(req, "topic-cluster-runner"); if (denied) return denied; }
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const startedAt = Date.now();
   try {
