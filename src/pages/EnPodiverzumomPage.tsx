@@ -11,6 +11,7 @@ import { setSeo } from "@/lib/seo";
 import RecommendedForYou from "@/components/taste/RecommendedForYou";
 import { imageSrcSet, optimizedImageUrl } from "@/lib/image";
 import { categoryLabel } from "@/lib/categoryLabels";
+import { withShareUtm } from "@/lib/shareUtm";
 
 const MOOD_OPTIONS = [
   "Reggel fókusz",
@@ -409,7 +410,7 @@ function SettingsTab({
 
   const copyLink = () => {
     if (!publicUrl) return;
-    navigator.clipboard.writeText(publicUrl).then(() => toast.success("Link másolva"));
+    navigator.clipboard.writeText(withShareUtm(publicUrl, "copy")).then(() => toast.success("Link másolva"));
   };
 
   const deleteAccount = async () => {

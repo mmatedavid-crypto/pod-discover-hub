@@ -23,6 +23,7 @@ import { imageSrcSet, optimizedImageUrl } from "@/lib/image";
 import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
 import { categoryLabel } from "@/lib/categoryLabels";
 import { setSeo } from "@/lib/seo";
+import { withShareUtm } from "@/lib/shareUtm";
 
 // Mystical match label — never expose the score, only a feeling.
 function mysticMatch(score: number, idx: number): string {
@@ -174,13 +175,13 @@ async function copyText(text: string): Promise<boolean> {
 async function shareProfileLink(opts: { title: string; text: string; url: string }): Promise<"shared" | "copied" | "cancelled" | "error"> {
   try {
     if (navigator.share) {
-      await navigator.share(opts);
+      await navigator.share({ ...opts, url: withShareUtm(opts.url, "share_sheet") });
       return "shared";
     }
   } catch (e: any) {
     if (e?.name === "AbortError") return "cancelled";
   }
-  return (await copyText(opts.url)) ? "copied" : "error";
+  return (await copyText(withShareUtm(opts.url, "copy"))) ? "copied" : "error";
 }
 
 function stableHash(input: string): number {
@@ -1693,7 +1694,7 @@ function ResultView({
         toast.error("Nem sikerült létrehozni a linket.");
         return;
       }
-      const copied = await copyText(created.url);
+      const copied = await copyText(withShareUtm(created.url, "copy"));
       if (!copied) throw new Error("copy failed");
       trackProfileEvent("profile_link_copied", {
         share_id: created.share_id,
