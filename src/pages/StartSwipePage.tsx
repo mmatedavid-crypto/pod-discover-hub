@@ -23,6 +23,7 @@ import { imageSrcSet, optimizedImageUrl } from "@/lib/image";
 import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
 import { categoryLabel } from "@/lib/categoryLabels";
 import { setSeo } from "@/lib/seo";
+import { withShareUtm } from "@/lib/shareUtm";
 
 // Mystical match label — never expose the score, only a feeling.
 function mysticMatch(score: number, idx: number): string {

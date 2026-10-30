@@ -11,6 +11,7 @@ import { setSeo } from "@/lib/seo";
 import RecommendedForYou from "@/components/taste/RecommendedForYou";
 import { imageSrcSet, optimizedImageUrl } from "@/lib/image";
 import { categoryLabel } from "@/lib/categoryLabels";
+import { withShareUtm } from "@/lib/shareUtm";
 
 const MOOD_OPTIONS = [
   "Reggel fókusz",
