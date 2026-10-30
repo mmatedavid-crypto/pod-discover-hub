@@ -1437,6 +1437,161 @@ export type Database = {
         }
         Relationships: []
       }
+      entity_description_drafts: {
+        Row: {
+          applied_at: string | null
+          attempt: number
+          confidence: number | null
+          cost_usd: number | null
+          created_at: string
+          custom_id: string
+          description_hu: string | null
+          entity_id: string
+          entity_kind: string
+          evidence: Json | null
+          id: string
+          input_tokens: number | null
+          job_id: string
+          output_tokens: number | null
+          prev_values: Json | null
+          reject_reason: string | null
+          rolled_back_at: string | null
+          source: Json
+          source_hash: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          applied_at?: string | null
+          attempt?: number
+          confidence?: number | null
+          cost_usd?: number | null
+          created_at?: string
+          custom_id: string
+          description_hu?: string | null
+          entity_id: string
+          entity_kind: string
+          evidence?: Json | null
+          id?: string
+          input_tokens?: number | null
+          job_id: string
+          output_tokens?: number | null
+          prev_values?: Json | null
+          reject_reason?: string | null
+          rolled_back_at?: string | null
+          source: Json
+          source_hash: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          applied_at?: string | null
+          attempt?: number
+          confidence?: number | null
+          cost_usd?: number | null
+          created_at?: string
+          custom_id?: string
+          description_hu?: string | null
+          entity_id?: string
+          entity_kind?: string
+          evidence?: Json | null
+          id?: string
+          input_tokens?: number | null
+          job_id?: string
+          output_tokens?: number | null
+          prev_values?: Json | null
+          reject_reason?: string | null
+          rolled_back_at?: string | null
+          source?: Json
+          source_hash?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entity_description_drafts_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "entity_description_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      entity_description_jobs: {
+        Row: {
+          actual_cost_usd: number | null
+          completed_at: string | null
+          created_at: string
+          id: string
+          ingested_at: string | null
+          kind: string
+          last_error: string | null
+          lease_token: string | null
+          lease_until: string | null
+          meta: Json
+          model: string
+          openai_batch_id: string | null
+          openai_error_file_id: string | null
+          openai_input_file_id: string | null
+          openai_output_file_id: string | null
+          prompt_version: string
+          request_count: number
+          reserved_cost_usd: number
+          rolled_back_at: string | null
+          status: string
+          submitted_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          actual_cost_usd?: number | null
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          ingested_at?: string | null
+          kind: string
+          last_error?: string | null
+          lease_token?: string | null
+          lease_until?: string | null
+          meta?: Json
+          model: string
+          openai_batch_id?: string | null
+          openai_error_file_id?: string | null
+          openai_input_file_id?: string | null
+          openai_output_file_id?: string | null
+          prompt_version: string
+          request_count?: number
+          reserved_cost_usd?: number
+          rolled_back_at?: string | null
+          status?: string
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          actual_cost_usd?: number | null
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          ingested_at?: string | null
+          kind?: string
+          last_error?: string | null
+          lease_token?: string | null
+          lease_until?: string | null
+          meta?: Json
+          model?: string
+          openai_batch_id?: string | null
+          openai_error_file_id?: string | null
+          openai_input_file_id?: string | null
+          openai_output_file_id?: string | null
+          prompt_version?: string
+          request_count?: number
+          reserved_cost_usd?: number
+          rolled_back_at?: string | null
+          status?: string
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       entity_extraction_runs: {
         Row: {
           created_person_count: number
@@ -11957,6 +12112,10 @@ export type Database = {
         Args: { p_batch_id: string; p_items: Json }
         Returns: Json
       }
+      apply_entity_description_draft_v1: {
+        Args: { _draft: string }
+        Returns: string
+      }
       apply_episode_entities_v1: {
         Args: {
           p_episode_id: string
@@ -12399,6 +12558,10 @@ export type Database = {
       enqueue_email: {
         Args: { payload: Json; queue_name: string }
         Returns: number
+      }
+      entity_description_sources_v1: {
+        Args: { _kind: string; _limit: number }
+        Returns: Json
       }
       episode_cards_backfill_tick: { Args: never; Returns: number }
       episode_classifier_stats: { Args: never; Returns: Json }
@@ -13379,6 +13542,10 @@ export type Database = {
         Args: { p_items: Json; p_model: string; p_prompt_version: string }
         Returns: Json
       }
+      reserve_entity_description_cost_v1: {
+        Args: { _amount: number; _job: string; _requests: number }
+        Returns: Json
+      }
       reserve_person_openai_batch_cost: {
         Args: { _amount: number; _job: string; _requests: number }
         Returns: Json
@@ -13418,6 +13585,10 @@ export type Database = {
       rollback_clean_text_repair_v1: {
         Args: { p_batch_id: string }
         Returns: Json
+      }
+      rollback_entity_description_job_v1: {
+        Args: { _job: string }
+        Returns: number
       }
       rollback_person_openai_batch_job: {
         Args: { _job: string }
