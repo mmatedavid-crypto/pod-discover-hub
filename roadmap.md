@@ -138,4 +138,4 @@
 - [ ] Frontend publish so visitors see the honest "nothing really matches" message (waits on user publish).
 
 ## Paid public search cost cap (2026-10-30)
-- [ ] Daily server-side call cap for the AI parts of search, AI answer and suggestions (over the cap: free lexical search / plain fallback); trusted agent search exempt.
+- [x] Daily server-side call cap for the AI parts of search, AI answer and suggestions (over the cap: free lexical search / plain fallback); trusted agent search exempt.
