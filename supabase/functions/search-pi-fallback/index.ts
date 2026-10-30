@@ -57,7 +57,7 @@ Deno.serve(async (req) => {
     const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
     const url = new URL(req.url);
     const q = String(body.query || url.searchParams.get("q") || "").trim();
-    const maxStage = Math.min(Number(body.maxStage || 5), 10);
+    const maxStage = Math.max(0, Math.min(Number(body.maxStage) || 5, 5));
     if (q.length < 3) {
       return new Response(JSON.stringify({ ok: true, candidates: [], staged: 0, reason: "too_short" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -139,7 +139,9 @@ Deno.serve(async (req) => {
         description: p.description || null,
         score,
       });
-      if (!stagedSet.has(p.url) && toStage.length < maxStage) {
+      // Visitor searches only stage Hungarian-language PodcastIndex results; the
+      // caller picks the search term, never the stored feed data.
+      if (!stagedSet.has(p.url) && toStage.length < maxStage && normLang(p.language) === "hu") {
         toStage.push(p);
       }
     }
