@@ -6,13 +6,12 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { checkProcessingPriority } from "../_shared/processing-priority.ts";
-import { DEFAULT_CONTROLS, actualCostUsd, parseOutputLine as _unused } from "../_shared/person-relevance-openai-batch.ts";
+import { DEFAULT_CONTROLS, actualCostUsd } from "../_shared/person-relevance-openai-batch.ts";
 import {
   buildCustomId, buildDescriptionLine, DESCRIPTION_PROMPT_VERSION, lineCostUpperBoundUsd, verifyDescription,
   type EntitySource, type Kind,
 } from "../_shared/entity-description.ts";
 
-void _unused;
 const OPENAI = "https://api.openai.com/v1";
 const CONTROLS_KEY = "entity_description_openai_batch_controls";
 const JOB = "entity-description-openai-batch";
