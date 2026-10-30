@@ -9332,6 +9332,30 @@ export type Database = {
         }
         Relationships: []
       }
+      public_ai_call_budget: {
+        Row: {
+          calls: number
+          day: string
+          denied: number
+          kind: string
+          updated_at: string
+        }
+        Insert: {
+          calls?: number
+          day: string
+          denied?: number
+          kind: string
+          updated_at?: string
+        }
+        Update: {
+          calls?: number
+          day?: string
+          denied?: number
+          kind?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       queue_health_events: {
         Row: {
           action: string
@@ -13980,6 +14004,7 @@ export type Database = {
           token: string
         }[]
       }
+      take_public_ai_call_v1: { Args: { p_kind: string }; Returns: boolean }
       token_idf: {
         Args: { p_tokens: string[] }
         Returns: {

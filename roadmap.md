@@ -136,3 +136,6 @@
 - [x] Honest "nothing really matches" result + search-page message (frontend needs publish).
 - [x] Full 557-search measurement vs. "After 3": holdout top-1 60.2%→62.7%, off-topic share 26.2%→23.6%; questions top-1 63%→72%; names and show titles unchanged; no regressions flagged.
 - [ ] Frontend publish so visitors see the honest "nothing really matches" message (waits on user publish).
+
+## Paid public search cost cap (2026-10-30)
+- [ ] Daily server-side call cap for the AI parts of search, AI answer and suggestions (over the cap: free lexical search / plain fallback); trusted agent search exempt.
