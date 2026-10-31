@@ -366,8 +366,11 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Telegram alert csak ÉLES módban + dedup után.
-      if (!dryRun && !suppressed && (action === "pause_stall" || action === "resume")) {
+      // Telegram alert csak ÉLES módban + dedup után. A queue_empty → resume a normál
+      // napi ritmus (új epizód érkezett), nem riasztás: csak a beragadás (stall) és az
+      // abból / napi keretből való felépülés megy ki (owner kérés, 2026-10-31).
+      const routineResume = action === "resume" && ctrl.auto_paused_reason === "queue_empty";
+      if (!dryRun && !suppressed && !routineResume && (action === "pause_stall" || action === "resume")) {
         const icon = action === "pause_stall" ? "🛑" : "▶️";
         alerts.push(
           `${icon} <b>queue-health: ${r.name}</b>\n<b>Action:</b> ${action}\n${reason}\n` +
