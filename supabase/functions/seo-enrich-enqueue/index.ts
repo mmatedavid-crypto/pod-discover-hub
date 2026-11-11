@@ -110,16 +110,24 @@ Deno.serve(async (req) => {
     // which filtered to podcasts still missing SEO. Since podcast SEO is ~92%
     // complete, this starved the episode queue (~590 podcasts only). Now we
     // enqueue episodes from ALL eligible S/A/B/C podcasts independently.
-    let epPq = admin.from("podcasts")
-      .select("id, title, display_title, language, language_decision, podiverzum_rank, rank_label, shadow_rank_components, full_backfill_completed_at, rss_status")
-      .in("rank_label", allowedTiers)
-      .in("rss_status", ["active", "not_checked"])
-      .eq("language_decision", "accept_hungarian")
-      .order("podiverzum_rank", { ascending: false })
-      .limit(2000);
-    if (requireBackfill) epPq = epPq.not("full_backfill_completed_at", "is", null);
-    const { data: epPodsRaw, error: epPErr } = fullPass ? await epPq : { data: [] as any[], error: null };
-    if (epPErr) throw epPErr;
+    // Paged: the API returns at most 1,000 rows per request, so a single .limit(2000) silently
+    // dropped every podcast ranked below ~1,000 and their new episodes never got an SEO job.
+    const epPodsRaw: any[] = [];
+    for (let from = 0; fullPass && from < 4000; from += 1000) {
+      let epPq = admin.from("podcasts")
+        .select("id, title, display_title, language, language_decision, podiverzum_rank, rank_label, shadow_rank_components, full_backfill_completed_at, rss_status")
+        .in("rank_label", allowedTiers)
+        .in("rss_status", ["active", "not_checked"])
+        .eq("language_decision", "accept_hungarian")
+        .order("podiverzum_rank", { ascending: false })
+        .order("id", { ascending: true })
+        .range(from, from + 999);
+      if (requireBackfill) epPq = epPq.not("full_backfill_completed_at", "is", null);
+      const { data: page, error: epPErr } = await epPq;
+      if (epPErr) throw epPErr;
+      epPodsRaw.push(...(page || []));
+      if (!page || page.length < 1000) break;
+    }
     const epPods = (epPodsRaw || []).filter(isHealthy);
     const epPodIds = epPods.map((p) => p.id);
     const podPriById = new Map(epPods.map((p) => [p.id, podPriority(p)]));
