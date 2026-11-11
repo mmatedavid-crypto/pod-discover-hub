@@ -8,6 +8,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 import { embeddingTokenCostUsd } from "../_shared/ai-pricing.ts";
 import { embedText } from "../_shared/gateway-embed.ts";
+import { creditBreakerOpen } from "../_shared/lovable-ai.ts";
 import { runLog } from "../_shared/runner-run-log.ts";
 import {
   buildEpisodeEmbeddingContent, embeddingSkipReason, EPISODE_EMBED_MODEL, EPISODE_EMBED_VERSION, nextAttemptDelayMs,
@@ -117,7 +118,7 @@ Deno.serve(async (req) => {
       skipRows.push({ episode_id: id, reason, attempts, next_attempt_at: new Date(Date.now() + nextAttemptDelayMs(reason, attempts)).toISOString(), updated_at: new Date().toISOString() });
     };
 
-    let stop = false;
+    let stop = false, providerOutage = false;
     let recordedCost = 0, recordedCalls = 0;
     // Spend is booked after every pass, so a worker killed by the platform cannot bypass the cap.
     const bookSpend = async () => {
@@ -161,6 +162,9 @@ Deno.serve(async (req) => {
           const content = buildEpisodeEmbeddingContent(e, model);
           calls++;
           const vec = await embedText(content, { model, taskType: "SEMANTIC_SIMILARITY" });
+          // An open credit breaker (402) means the provider refused, not that this episode is
+          // broken: stop without a backoff entry so the episode is retried as soon as credit returns.
+          if (!vec && await creditBreakerOpen()) { stop = true; providerOutage = true; return; }
           if (!vec) { errors++; markSkip(e.id, "embed_failed"); if (errorSamples.length < 3) errorSamples.push(`${e.id}:embed_failed`); continue; }
           cost += embeddingTokenCostUsd(model, Math.ceil(content.length / 4));
           pending.push({ episode_id: e.id, podcast_id: e.podcast_id, model, embedding: `[${vec.join(",")}]`,
@@ -187,7 +191,7 @@ Deno.serve(async (req) => {
     }
     await bookSpend();
 
-    const summary = { ok: true, embedded, skipped, errors, passes, reembed_passes: reembedPasses, cost_usd: Number(cost.toFixed(5)), spent_today: Number((spentBefore + cost).toFixed(4)),
+    const summary = { ok: true, embedded, skipped, errors, provider_outage: providerOutage, passes, reembed_passes: reembedPasses, cost_usd: Number(cost.toFixed(5)), spent_today: Number((spentBefore + cost).toFixed(4)),
       daily_budget_usd: dailyBudget, error_samples: errorSamples, runtime_ms: Date.now() - startedAt };
     // Re-read controls right before writing so a pause set during this run is kept.
     const latest = await readControls(admin);

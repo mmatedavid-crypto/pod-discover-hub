@@ -60,7 +60,11 @@ Rules:
 - Hungarian labels. Lowercase except proper nouns. No hashtags, no punctuation.
 - Do NOT map onto any predefined taxonomy. Invent the most natural label for what you actually see.`;
 
-async function extract(model: string, text: string, title: string, episodeId: string, timeoutMs = 25000): Promise<{ topics: any[]; usage: any } | null> {
+// Returned when the AI provider refuses for balance/rate reasons (402 / 429 / open credit breaker):
+// the episode is fine, so it goes back to pending instead of being marked as a topic error.
+const PROVIDER_UNAVAILABLE = "provider_unavailable" as const;
+
+async function extract(model: string, text: string, title: string, episodeId: string, timeoutMs = 25000): Promise<{ topics: any[]; usage: any } | null | typeof PROVIDER_UNAVAILABLE> {
   const body = `CÍM: ${title}\n\nSZÖVEG:\n${text.slice(0, 12000)}`;
   const ctrl = new AbortController();
   const tm = setTimeout(() => ctrl.abort(), timeoutMs);
@@ -85,6 +89,7 @@ async function extract(model: string, text: string, title: string, episodeId: st
         ctrl.signal.addEventListener("abort", () => resolve(null), { once: true });
       }),
     ]);
+    if (ai && !ai.ok && (ai.status === 402 || ai.status === 429)) return PROVIDER_UNAVAILABLE;
     if (!ai || !ai.ok) {
       console.warn("topic extractor ai skipped/error", ai?.status, ai?.error);
       return null;
@@ -215,6 +220,7 @@ Deno.serve(async (req) => {
       }
     }
 
+    let providerOutage = false;
     // Drain loop: keep claiming batches until time budget exhausted, queue empty, or budget exhausted
     while (Date.now() - startedAt < maxRuntimeMs) {
       // Need at least ~25s headroom per batch (AI calls can take 20s+)
@@ -269,6 +275,7 @@ Deno.serve(async (req) => {
 
       const doneIds: string[] = [];
       const errIds: string[] = [];
+      const releaseIds: string[] = [];
       const errReason = new Map<string, string>();
 
       // Process in parallel chunks
@@ -289,6 +296,7 @@ Deno.serve(async (req) => {
         // topics, replace only older machine rows, mark done + record the clean-text
         // version. A failed write leaves no "done" without persisted topics.
         await Promise.all(results.map(async ({ ep, text, ai }) => {
+          if (ai === PROVIDER_UNAVAILABLE) { releaseIds.push(ep.id); return; }
           if (!ai || ai.topics.length === 0) { errIds.push(ep.id); return; }
           const inTok = Number(ai.usage?.prompt_tokens || Math.ceil(text.length / 4));
           const outTok = Number(ai.usage?.completion_tokens || 200) + Number(ai.usage?.completion_tokens_details?.reasoning_tokens || 0);
@@ -308,8 +316,19 @@ Deno.serve(async (req) => {
           if (applied === "superseded") totalSuperseded++;
           doneIds.push(ep.id);
         }));
+        if (releaseIds.length) {
+          // Provider outage: hand back everything not yet attempted as pending, then stop.
+          releaseIds.push(...work.slice(i + concurrency).map((w) => w.ep.id));
+          break;
+        }
       }
 
+      if (releaseIds.length > 0) {
+        for (let k = 0; k < releaseIds.length; k += 150) {
+          await admin.from("episodes").update({ topic_extraction_status: "pending" }).in("id", releaseIds.slice(k, k + 150)).eq("topic_extraction_status", "in_progress");
+        }
+        providerOutage = true;
+      }
       if (skipIds.length > 0) {
         for (let i = 0; i < skipIds.length; i += 150) {
           await admin.from("episodes").update({ topic_extraction_status: "skipped_short" }).in("id", skipIds.slice(i, i + 150));
@@ -336,6 +355,7 @@ Deno.serve(async (req) => {
       totalWaitingCleanText += waitingCleanTextIds.length;
       totalErrors += errIds.length;
       batches++;
+      if (providerOutage) break;
     }
 
     // Log run cost

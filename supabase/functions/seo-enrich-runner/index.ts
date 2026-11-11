@@ -153,8 +153,14 @@ Deno.serve(async (req) => {
     // Time we reserve at the end of the budget for spend upsert + adaptive cron RPC
     const TAIL_RESERVE_MS = 5_000;
 
+    // Set when the AI provider refuses for balance/rate reasons (402 / 429 / open credit breaker).
+    // Such a failure says nothing about the episode, so it must not use up the job's attempts.
+    let providerOutage = false;
+    const releaseUncounted = (job: any) => admin.from("ai_enrichment_jobs")
+      .update({ status: "pending", locked_until: null, attempts: Math.max(0, (job.attempts || 1) - 1) }).eq("id", job.id);
+
     const runJob = async (job: any) => {
-      if (stop) return;
+      if (stop) { if (providerOutage) await releaseUncounted(job); return; }
       if (Date.now() - startedAt > TIME_BUDGET_MS) { stop = true; return; }
       if (spend >= dailyBudget) {
         await admin.from("ai_enrichment_jobs").update({ status: "pending", locked_until: null }).eq("id", job.id);
@@ -450,7 +456,13 @@ Deno.serve(async (req) => {
       } catch (err: any) {
         failed++;
         const msg = err?.message || "error";
-        if (msg === "rate_limited" || msg === "budget_exhausted_provider") { rate_limited++; stop = true; }
+        if (msg === "rate_limited" || msg === "budget_exhausted_provider") {
+          rate_limited++; stop = true; providerOutage = true;
+          // Provider outage: back to pending with the attempt refunded, never terminal/blocked.
+          const { error: relErr } = await releaseUncounted(job);
+          if (relErr) { failure_bookkeeping_errors++; console.error("seo job release failed", job.id, relErr.message); }
+          return;
+        }
         const giveUp = (job.attempts || 0) >= maxAttempts;
         // Keep the rejected candidate (internal job row only) so a guard rejection can be told
         // apart from a proper-name false positive; it is never written to the episode.
