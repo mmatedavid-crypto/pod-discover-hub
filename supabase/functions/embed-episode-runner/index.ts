@@ -22,6 +22,7 @@ const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: 
 const JOB = "embed-episode-runner";
 const CONTROLS_KEY = "embed_episode_controls";
 const TIME_BUDGET_MS = 100_000;
+const WRITE_CHUNK = 20;
 
 function sameToken(a: string, b: string) {
   if (a.length < 32 || a.length !== b.length) return false;
@@ -174,10 +175,13 @@ Deno.serve(async (req) => {
       const pending: any[] = [];
       await Promise.all(Array.from({ length: concurrency }, worker));
       // One write per pass instead of one per episode keeps CPU per run low.
-      if (pending.length) {
-        const { error: upErr } = await admin.from("episode_embeddings").upsert(pending, { onConflict: "episode_id" });
-        if (upErr) { errors += pending.length; for (const r of pending) markSkip(r.episode_id, "write_failed"); if (errorSamples.length < 3) errorSamples.push(`write:${upErr.message.slice(0, 80)}`); }
-        else embedded += pending.length;
+      // Written in small chunks: one 100-vector upsert (HNSW index maintenance) exceeded the
+      // statement timeout on a cold database and lost the whole pass.
+      for (let k = 0; k < pending.length; k += WRITE_CHUNK) {
+        const chunk = pending.slice(k, k + WRITE_CHUNK);
+        const { error: upErr } = await admin.from("episode_embeddings").upsert(chunk, { onConflict: "episode_id" });
+        if (upErr) { errors += chunk.length; for (const r of chunk) markSkip(r.episode_id, "write_failed"); if (errorSamples.length < 3) errorSamples.push(`write:${upErr.message.slice(0, 80)}`); }
+        else embedded += chunk.length;
       }
       await bookSpend();
       // Too many failures in a row means the provider is down: stop instead of burning the run.
