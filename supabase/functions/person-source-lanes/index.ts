@@ -47,7 +47,7 @@ async function readCapped(res: Response): Promise<string> {
 }
 
 async function roleLabelLane(admin: any, ctrl: any, body: any, started: number, dryRun: boolean) {
-  const perRun = Math.max(1, Math.min(5000, Number(body.pairs ?? ctrl.role_label_per_run ?? 2000)));
+  const perRun = Math.max(1, Math.min(20000, Number(body.pairs ?? ctrl.role_label_per_run ?? 2000)));
   const { data: cur } = await admin.from("app_settings").select("value").eq("key", CURSOR_KEY).maybeSingle();
   let after = { p: cur?.value?.last_person ?? null, e: cur?.value?.last_episode ?? null };
   let passes = Number(cur?.value?.passes_completed ?? 0);
@@ -101,7 +101,7 @@ async function roleLabelLane(admin: any, ctrl: any, body: any, started: number, 
   }
   return { scanned: scannedTotal, counts, applied: applied.slice(0, 40), applied_total: applied.length, passes_completed: passes };
 }
-const RECHECK_OUTCOMES = /^(source_changed|blocked_|identity_unanchored|mention_state_changed)/;
+const RECHECK_OUTCOMES = /^(source_changed|blocked_|identity_unanchored|mention_state_changed|busy_retry)/;
 const base = (r: any) => ({ person_id: r.person_id, episode_id: r.episode_id, source_hash: r.source_hash });
 
 async function pageFetchLane(admin: any, ctrl: any, body: any, started: number, dryRun: boolean) {

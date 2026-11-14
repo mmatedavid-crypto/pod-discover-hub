@@ -157,3 +157,12 @@
 - [x] D) Search: exact podcast/person/title regressions (Tölgyfa Podcast), zero-result visitor queries, latency smoke.
 - [x] E) Recommendations: homepage/evergreen show+topic diversity, episode-page relevance first.
 - [x] Final checklist + person pilot status (job/batch IDs, gate, cost).
+
+## Show-host rules live (owner request 2026-11-14 22:10)
+- [x] Version the show-host rule tables/functions/triggers in a migration; strict grants/RLS; revoke mutators from readonly_codex
+- [x] Rule metadata: source hash, verified date, owner_confirmed only where the owner stated it, stored_series vs dated scope
+- [x] Episode-level contradiction (host absent/replaced) blocks inheritance; undo existing contradicted pairs
+- [x] Partizán "Vétó" sub-show pattern word-bounded ("A Vétón túl" excluded); undo those pairs
+- [x] Reversible undo for show-host resolutions (audited)
+- [x] Status sorter and role-label lane never reopen resolved_show_host pairs
+- [x] Live backfill by episode count; daily reconcile; SQL tests (idempotent, Bochkor TV/radio, Ráskó pre-2024, homonym other show, collection channel, manual contradiction, new episode auto, no double count)

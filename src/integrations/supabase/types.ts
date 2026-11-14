@@ -7762,16 +7762,21 @@ export type Database = {
           canonical_person_id: string
           created_at: string
           id: string
+          notes: string | null
+          owner_confirmed: boolean
           person_id: string
           podcast_id: string
           provenance: string
           role_type: string
           rule_key: string
+          source_hash: string | null
           source_quote: string
           source_url: string
           title_pattern: string | null
           valid_from: string | null
+          valid_scope: string
           valid_until: string | null
+          verified_at: string | null
           version: string
         }
         Insert: {
@@ -7779,16 +7784,21 @@ export type Database = {
           canonical_person_id: string
           created_at?: string
           id?: string
+          notes?: string | null
+          owner_confirmed?: boolean
           person_id: string
           podcast_id: string
           provenance: string
           role_type?: string
           rule_key: string
+          source_hash?: string | null
           source_quote: string
           source_url: string
           title_pattern?: string | null
           valid_from?: string | null
+          valid_scope?: string
           valid_until?: string | null
+          verified_at?: string | null
           version?: string
         }
         Update: {
@@ -7796,16 +7806,21 @@ export type Database = {
           canonical_person_id?: string
           created_at?: string
           id?: string
+          notes?: string | null
+          owner_confirmed?: boolean
           person_id?: string
           podcast_id?: string
           provenance?: string
           role_type?: string
           rule_key?: string
+          source_hash?: string | null
           source_quote?: string
           source_url?: string
           title_pattern?: string | null
           valid_from?: string | null
+          valid_scope?: string
           valid_until?: string | null
+          verified_at?: string | null
           version?: string
         }
         Relationships: [
@@ -13021,6 +13036,135 @@ export type Database = {
           },
         ]
       }
+      person_show_host_roles_v1: {
+        Row: {
+          inherited_episodes: number | null
+          owner_confirmed: boolean | null
+          person_id: string | null
+          podcast_id: string | null
+          provenance: string | null
+          role: string | null
+          rule_ids: string[] | null
+          source_quote: string | null
+          source_url: string | null
+          valid_from: string | null
+          valid_until: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "person_host_rules_canonical_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_host_rules_canonical_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person_activation_status_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_host_rules_canonical_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person_ai_action_queue_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_host_rules_canonical_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person_ai_duplicate_candidates_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_host_rules_canonical_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person_missing_content_review_view"
+            referencedColumns: ["person_id"]
+          },
+          {
+            foreignKeyName: "person_host_rules_canonical_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_duplicate_clusters"
+            referencedColumns: ["person_a_id"]
+          },
+          {
+            foreignKeyName: "person_host_rules_canonical_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_duplicate_clusters"
+            referencedColumns: ["person_b_id"]
+          },
+          {
+            foreignKeyName: "person_host_rules_canonical_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_high_reject_ratio"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_host_rules_canonical_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_pending_backlog"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_host_rules_canonical_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_surname_only_candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_host_rules_canonical_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_weak_public_pages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_host_rules_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "person_host_rules_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "person_host_rules_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "podcasts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_host_rules_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "v_hu_archive_completeness"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "person_host_rules_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "v_youtube_native_transcript_candidates"
+            referencedColumns: ["podcast_id"]
+          },
+        ]
+      }
       reddit_name_index: {
         Row: {
           entity_id: string | null
@@ -14801,6 +14945,10 @@ export type Database = {
         Args: { p_except_episode_id?: string; p_person_id: string }
         Returns: boolean
       }
+      person_host_rule_episode_contradiction_v1: {
+        Args: { _episode: string }
+        Returns: string
+      }
       person_judge_run_lease: {
         Args: { _release?: boolean; _token: string }
         Returns: boolean
@@ -15714,6 +15862,10 @@ export type Database = {
       transcript_source_class_v1: { Args: { p_model: string }; Returns: string }
       unaccent: { Args: { "": string }; Returns: string }
       undo_organization_merge_v1: { Args: { _log_id: string }; Returns: Json }
+      undo_person_host_rule_pairs_v1: {
+        Args: { _episode_ids: string[]; _reason: string; _rule_id: string }
+        Returns: Json
+      }
       undo_person_role_label_v1: {
         Args: { _all?: boolean; _audit_ids: number[]; _by?: string }
         Returns: Json
