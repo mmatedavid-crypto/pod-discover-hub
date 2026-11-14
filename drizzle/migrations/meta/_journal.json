@@ -1023,6 +1023,13 @@
       "when": 1794665082518,
       "tag": "0145_pair_dispositions_accent_insensitive_names",
       "breakpoints": true
+    },
+    {
+      "idx": 146,
+      "version": "7",
+      "when": 1794665287664,
+      "tag": "0146_pair_dispositions_rss_author_credit",
+      "breakpoints": true
     }
   ]
 }

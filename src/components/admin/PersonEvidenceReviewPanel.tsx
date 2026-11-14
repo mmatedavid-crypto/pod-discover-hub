@@ -16,6 +16,17 @@ const PAIR_LABELS: Record<string, string> = {
   human_contradiction_review: "Valódi kézi eset: ellentmondás",
   other: "Egyéb",
 };
+const REASON_LABELS: Record<string, string> = {
+  name_not_in_available_sources: "a név nem szerepel az epizód szövegeiben",
+  rss_author_credit_only: "csak a hírcsatorna szerzőmezőjében szerepel (stáb/szerző, nem jelenlét)",
+  same_name_or_ambiguous_person: "azonos nevű vagy kétértelmű személy",
+  needs_targeted_evidence: "a név szerepel, célzott bizonyíték kell",
+  no_usable_source_text: "nincs használható szöveg",
+  waiting_clean_text: "tisztított szövegre vár",
+  last_request_failed: "az utolsó kérés technikai hibával zárult",
+  ai_opinions_conflict: "a két AI-vélemény ellentmond",
+  manual_review_conflict: "korábbi kézi döntéssel ütközik",
+};
 const ROLE_BUTTONS: [string, string][] = [
   ["guest", "Vendég"], ["host", "Műsorvezető"], ["co_host", "Társműsorvezető"], ["subject", "Róla szól"], ["mentioned", "Említés"],
   ["credit_only", "Csak stáblista/szerző"], ["not_present", "Nincs érdemi kapcsolat"], ["different_person", "Másik személy"], ["cannot_tell", "Nem dönthető el"],
@@ -77,6 +88,11 @@ export default function PersonEvidenceReviewPanel() {
           <ul className="text-sm mt-1 space-y-0.5">
             {Object.entries(s.pairs || {}).sort((a: any, b: any) => b[1] - a[1]).map(([k, v]) => (
               <li key={k} className="flex justify-between gap-2"><span>{PAIR_LABELS[k] || k}</span><span className="tabular-nums">{Number(v).toLocaleString("hu-HU")}</span></li>
+            ))}
+          </ul>
+          <ul className="text-xs text-muted-foreground mt-2 space-y-0.5">
+            {(s.pair_reasons || []).filter((r: any) => REASON_LABELS[r.reason]).map((r: any) => (
+              <li key={`${r.disposition}:${r.reason}`} className="flex justify-between gap-2"><span>{REASON_LABELS[r.reason]}</span><span className="tabular-nums">{Number(r.n).toLocaleString("hu-HU")}</span></li>
             ))}
           </ul>
           <div className="text-xs text-muted-foreground mt-2">Elfogadott párban maradt ismétlődő szerepsor (nem kézi munka): {Number(s.superseded_duplicate_rows || 0).toLocaleString("hu-HU")}</div>
