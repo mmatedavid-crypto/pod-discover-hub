@@ -4,7 +4,9 @@
 // jobs (only problem cases / advisory review, nothing else waits on them). Their own cost caps, leases
 // and acceptance policy still apply.
 export const EXTERNAL_API_JOBS = new Set(["person_relevance_openai_batch", "entity_description_openai_batch"]);
-export const OWNER_GATE_EXEMPT_JOBS = new Set(["entity_astra_audit", "clean_text_astra_review"]);
+// Owner 2026-11-14: the free, AI-free person source lanes (deterministic role labels, episode-page
+// evidence) must not be stopped by a global lock; their per-run and daily bounds still apply.
+export const OWNER_GATE_EXEMPT_JOBS = new Set(["entity_astra_audit", "clean_text_astra_review", "person_source_lanes"]);
 
 export function gateExempt(job: string): boolean {
   return EXTERNAL_API_JOBS.has(job) || OWNER_GATE_EXEMPT_JOBS.has(job);

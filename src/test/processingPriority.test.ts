@@ -15,6 +15,10 @@ describe("visitor-first background processing", () => {
     expect(priorityBlocker("entity_astra_audit", { episode_classifier_pending: 1, seo_jobs_pending: 2 })).toBeNull();
     expect(priorityBlocker("clean_text_astra_review", { clean_text_pending: 1, embed_chunks_missing: 2 })).toBeNull();
   });
+  it("does not hold back the free person source lanes (owner 2026-11-14), but still gates the old judge", () => {
+    expect(priorityBlocker("person_source_lanes", { clean_text_pending: 191, episode_classifier_pending: 448 })).toBeNull();
+    expect(priorityBlocker("person_relevance", { episode_classifier_pending: 448 })).toBe("episode_classifier_pending");
+  });
   it("cannot increase a configured batch or concurrency through a request", () => {
     expect(boundedWork(800, 40, 30)).toBe(40);
     expect(boundedWork(250, 2, 1)).toBe(2);
