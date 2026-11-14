@@ -15131,6 +15131,7 @@ export type Database = {
         }[]
       }
       get_ops_dashboard_status: { Args: never; Returns: Json }
+      get_person_identity_status_v1: { Args: never; Returns: Json }
       get_person_page_episodes_v1: {
         Args: { p_limit?: number; p_person_id: string }
         Returns: {
