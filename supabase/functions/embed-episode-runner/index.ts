@@ -86,6 +86,18 @@ Deno.serve(async (req) => {
     }
     return json({ ok: true, probe: out });
   }
+  // Read-only count of the changed lane: how many touched rows really have new input (no AI, no writes).
+  if (body?.lane === "changed" && body?.dry_run === true) {
+    const { data: rows, error } = await admin.rpc("select_changed_embed_episode_candidates_v1", { _limit: 200 });
+    if (error) return json({ ok: false, error: error.message }, 500);
+    const m = String((await readControls(admin)).model || EPISODE_EMBED_MODEL);
+    let same = 0, changed = 0, unembeddable = 0;
+    for (const e of (rows || []) as any[]) {
+      if (embeddingSkipReason(e)) { unembeddable++; continue; }
+      if (await sha256(buildEpisodeEmbeddingContent(e, m)) === e.stored_hash) same++; else changed++;
+    }
+    return json({ ok: true, dry_run: true, sampled: (rows || []).length, same, changed, unembeddable });
+  }
   const ctrl = await readControls(admin);
   if (ctrl.enabled !== true) return json({ ok: true, paused: true, reason: "disabled_by_controls" });
   const model = String(ctrl.model || EPISODE_EMBED_MODEL);
@@ -108,6 +120,10 @@ Deno.serve(async (req) => {
   const log = runLog(admin, JOB);
   await log.start({ model, version: EPISODE_EMBED_VERSION, daily_budget_usd: dailyBudget });
   let embedded = 0, skipped = 0, errors = 0, calls = 0, cost = 0, passes = 0, reembedPasses = 0;
+  // Changed lane: hash checks are free; only a different input costs an embedding.
+  let checkedSame = 0, changedPasses = 0;
+  const maxChecks = Math.max(0, Math.min(3000, Number(ctrl.max_changed_checks_per_run ?? 1500)));
+  let changedExhausted = reembedOnly || ctrl.changed_lane_enabled === false || maxChecks === 0;
   const errorSamples: string[] = [];
   const skipRows: any[] = [];
 
@@ -132,10 +148,31 @@ Deno.serve(async (req) => {
     // written at the end, so re-querying it would hand back the same skipped rows).
     let missingExhausted = reembedOnly;
     while (!stop && embedded + skipped + errors < maxPerRun && Date.now() - startedAt < TIME_BUDGET_MS - 15_000 && spentBefore + cost < dailyBudget) {
-      let lane: "missing" | "reembed" = "missing";
-      let { data: rows, error } = missingExhausted ? { data: [], error: null } as any : await admin.rpc("select_embed_episode_candidates_v2", { _limit: batch });
+      let lane: "missing" | "changed" | "reembed" = "missing";
+      let { data: rows, error } = missingExhausted ? { data: [], error: null } as any : await admin.rpc("select_embed_episode_candidates_v3", { _limit: batch });
       if (error) throw new Error("candidates: " + error.message);
       if ((rows || []).length < batch) missingExhausted = true;
+      // Then rows touched since their vector: keep the ones whose rebuilt input hash is unchanged
+      // (marked checked, no AI call) and re-embed only real changes.
+      if (!(rows || []).length && !changedExhausted) {
+        const { data: crow, error: cerr } = await admin.rpc("select_changed_embed_episode_candidates_v1", { _limit: 200 });
+        if (cerr) throw new Error("changed candidates: " + cerr.message);
+        const all = (crow || []) as any[];
+        if (all.length < 200) changedExhausted = true;
+        const sameIds: string[] = [];
+        const real: any[] = [];
+        for (const e of all) {
+          if (!embeddingSkipReason(e) && await sha256(buildEpisodeEmbeddingContent(e, model)) !== e.stored_hash) real.push(e);
+          else sameIds.push(e.id); // unchanged, or now too short: keep the existing vector
+        }
+        const nowIso = new Date().toISOString();
+        for (let k = 0; k < sameIds.length; k += 200) {
+          await admin.from("episode_embeddings").update({ content_checked_at: nowIso }).in("episode_id", sameIds.slice(k, k + 200));
+        }
+        checkedSame += sameIds.length;
+        if (checkedSame >= maxChecks) changedExhausted = true;
+        if (all.length) { changedPasses++; rows = real.slice(0, batch); lane = "changed"; if (!real.length) continue; }
+      }
       // Missing vectors first; then, only if the owner set reembed_before, refresh older vectors
       // into the current (gateway) vector space, newest episodes first.
       if (!(rows || []).length && reembedBefore) {
@@ -169,7 +206,7 @@ Deno.serve(async (req) => {
           if (!vec) { errors++; markSkip(e.id, "embed_failed"); if (errorSamples.length < 3) errorSamples.push(`${e.id}:embed_failed`); continue; }
           cost += embeddingTokenCostUsd(model, Math.ceil(content.length / 4));
           pending.push({ episode_id: e.id, podcast_id: e.podcast_id, model, embedding: `[${vec.join(",")}]`,
-            content_hash: await sha256(content), updated_at: new Date().toISOString() });
+            content_hash: await sha256(content), updated_at: new Date().toISOString(), content_checked_at: new Date().toISOString() });
         }
       };
       const pending: any[] = [];
@@ -187,7 +224,7 @@ Deno.serve(async (req) => {
       // Too many failures in a row means the provider is down: stop instead of burning the run.
       if (errors > 20 && errors > embedded) break;
       // A short missing page falls through to the owner-approved re-embed lane next pass.
-      if (cands.length < batch && (lane === "reembed" || !reembedBefore)) break;
+      if (lane !== "changed" && cands.length < batch && (lane === "reembed" || !reembedBefore) && changedExhausted) break;
     }
 
     for (let k = 0; k < skipRows.length; k += 500) {
@@ -195,7 +232,7 @@ Deno.serve(async (req) => {
     }
     await bookSpend();
 
-    const summary = { ok: true, embedded, skipped, errors, provider_outage: providerOutage, passes, reembed_passes: reembedPasses, cost_usd: Number(cost.toFixed(5)), spent_today: Number((spentBefore + cost).toFixed(4)),
+    const summary = { ok: true, embedded, skipped, errors, changed_checked_same: checkedSame, changed_passes: changedPasses, provider_outage: providerOutage, passes, reembed_passes: reembedPasses, cost_usd: Number(cost.toFixed(5)), spent_today: Number((spentBefore + cost).toFixed(4)),
       daily_budget_usd: dailyBudget, error_samples: errorSamples, runtime_ms: Date.now() - startedAt };
     // Re-read controls right before writing so a pause set during this run is kept.
     const latest = await readControls(admin);

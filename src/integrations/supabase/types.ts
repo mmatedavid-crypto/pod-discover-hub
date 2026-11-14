@@ -2895,6 +2895,7 @@ export type Database = {
       }
       episode_embeddings: {
         Row: {
+          content_checked_at: string | null
           content_hash: string
           embedding: string
           episode_id: string
@@ -2903,6 +2904,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          content_checked_at?: string | null
           content_hash: string
           embedding: string
           episode_id: string
@@ -2911,6 +2913,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          content_checked_at?: string | null
           content_hash?: string
           embedding?: string
           episode_id?: string
@@ -14393,6 +14396,27 @@ export type Database = {
           source_class: string
         }[]
       }
+      select_changed_embed_episode_candidates_v1: {
+        Args: { _limit: number }
+        Returns: {
+          ai_summary: string
+          clean_text: string
+          companies: string[]
+          display_title: string
+          id: string
+          ingredients: string[]
+          people: string[]
+          podcast_category: string
+          podcast_display_title: string
+          podcast_id: string
+          podcast_title: string
+          seo_description: string
+          stored_hash: string
+          tickers: string[]
+          title: string
+          topics: string[]
+        }[]
+      }
       select_classifier_candidates: {
         Args: { p_limit?: number; p_taxonomy_version?: string }
         Returns: {
@@ -14460,6 +14484,26 @@ export type Database = {
         }[]
       }
       select_embed_episode_candidates_v2: {
+        Args: { _limit: number }
+        Returns: {
+          ai_summary: string
+          clean_text: string
+          companies: string[]
+          display_title: string
+          id: string
+          ingredients: string[]
+          people: string[]
+          podcast_category: string
+          podcast_display_title: string
+          podcast_id: string
+          podcast_title: string
+          seo_description: string
+          tickers: string[]
+          title: string
+          topics: string[]
+        }[]
+      }
+      select_embed_episode_candidates_v3: {
         Args: { _limit: number }
         Returns: {
           ai_summary: string

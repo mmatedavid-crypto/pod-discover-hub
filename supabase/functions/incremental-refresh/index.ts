@@ -106,8 +106,10 @@ Deno.serve(async (req) => {
     const { data: retryRows } = retryLimit ? await admin
       .from("podcasts")
       .select("id, title, slug, rss_url, image_url, podiverzum_rank, last_fetched_at, full_backfill_completed_at, crawl_state, refresh_interval_minutes, last_etag, last_modified, consecutive_failure_count, next_fetch_at")
-      .in("crawl_state", ["full_backfilled", "incremental_refresh"])
-      .eq("rss_status", "failed")
+      // `not_checked` rows with a passed backoff and shows still waiting for a deep backfill were
+      // never picked by either lane (2026-11-14: 6 active shows frozen since October).
+      .in("crawl_state", ["full_backfilled", "incremental_refresh", "full_backfill_pending"])
+      .in("rss_status", ["failed", "not_checked"])
       .lte("next_fetch_at", new Date().toISOString())
       .order("next_fetch_at", { ascending: true })
       .limit(retryLimit) : { data: [] as any[] };
