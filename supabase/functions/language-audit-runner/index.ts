@@ -8,10 +8,11 @@
 // Returns counts + sample rejections (dry-run shows what WOULD be done).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { classifyHungarianPodcastCandidate, LanguageResult } from "../_shared/hu-language-classifier.ts";
+import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-internal-token",
 };
 
 const TIME_BUDGET_MS = 110_000;
@@ -20,6 +21,8 @@ const EP_FETCH = 8;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const denied = await denyUntrustedCaller(req, "language-audit-runner");
+  if (denied) return denied;
   const started = Date.now();
   try {
     const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};

@@ -1079,6 +1079,13 @@
       "when": 1794673692239,
       "tag": "0153_homepage_fresh_rail_one_per_show",
       "breakpoints": true
+    },
+    {
+      "idx": 154,
+      "version": "7",
+      "when": 1794677148240,
+      "tag": "0154_lock_ai_call_audit_compact",
+      "breakpoints": true
     }
   ]
 }
