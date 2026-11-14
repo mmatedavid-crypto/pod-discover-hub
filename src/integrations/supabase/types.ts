@@ -5014,6 +5014,54 @@ export type Database = {
         }
         Relationships: []
       }
+      gsc_site_daily: {
+        Row: {
+          clicks: number
+          ctr: number
+          data_state: string
+          date: string
+          detail_clicks: number | null
+          detail_complete: boolean
+          detail_fetched_at: string | null
+          detail_impressions: number | null
+          detail_rows: number | null
+          impressions: number
+          position: number
+          site_url: string
+          totals_fetched_at: string
+        }
+        Insert: {
+          clicks?: number
+          ctr?: number
+          data_state?: string
+          date: string
+          detail_clicks?: number | null
+          detail_complete?: boolean
+          detail_fetched_at?: string | null
+          detail_impressions?: number | null
+          detail_rows?: number | null
+          impressions?: number
+          position?: number
+          site_url: string
+          totals_fetched_at?: string
+        }
+        Update: {
+          clicks?: number
+          ctr?: number
+          data_state?: string
+          date?: string
+          detail_clicks?: number | null
+          detail_complete?: boolean
+          detail_fetched_at?: string | null
+          detail_impressions?: number | null
+          detail_rows?: number | null
+          impressions?: number
+          position?: number
+          site_url?: string
+          totals_fetched_at?: string
+        }
+        Relationships: []
+      }
       gsc_weekly_insights: {
         Row: {
           ai_model: string | null
@@ -13348,6 +13396,7 @@ export type Database = {
               title: string
             }[]
           }
+      get_traffic_quality_v1: { Args: { p_days?: number }; Returns: Json }
       get_trending_podcasts: {
         Args: { p_limit?: number }
         Returns: {

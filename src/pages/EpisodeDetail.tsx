@@ -25,7 +25,7 @@ import { KeyMoments } from "@/components/KeyMoments";
 import { InlineAudioPlayer } from "@/components/InlineAudioPlayer";
 import { EpisodeAudioPlayer } from "@/components/smart-player/EpisodeAudioPlayer";
 import { useSmartPlayer, type SmartPlayerEpisode } from "@/components/smart-player/SmartPlayerProvider";
-import { detectAudioSource } from "@/lib/playerAudio";
+import { playableAudioUrl } from "@/lib/playerAudio";
 import { getProgress } from "@/lib/playerProgress";
 import { logPlayerEvent } from "@/lib/playerEvents";
 import { RelatedEpisodes } from "@/components/smart-player/RelatedEpisodes";
@@ -78,8 +78,7 @@ export default function EpisodeDetail() {
     const key = `${data.e.id}:${t}`;
     if (deepLinkAppliedRef.current === key) return;
     deepLinkAppliedRef.current = key;
-    const audioSrc = detectAudioSource(data.e);
-    const playerAudioUrl = audioSrc?.url || data.e.audio_url || null;
+    const playerAudioUrl = playableAudioUrl(data.e);
     if (!playerAudioUrl) return;
     if (currentEpisode?.id === data.e.id) {
       seekTo(t);
@@ -420,8 +419,7 @@ export default function EpisodeDetail() {
         </section>
 
         {(() => {
-          const audioSrc = detectAudioSource(e);
-          const playerAudioUrl = audioSrc?.url || e.audio_url || null;
+          const playerAudioUrl = playableAudioUrl(e);
           const canInternalPlay = !!playerAudioUrl;
           const isCurrent = currentEpisode?.id === e.id;
           const isThisPlaying = isCurrent && isPlaying;
@@ -520,18 +518,23 @@ export default function EpisodeDetail() {
                 </div>
               )}
 
-              {/* Secondary platform row */}
-              {(p.apple_url || p.spotify_url || p.youtube_url) && (
+              {/* Secondary platform row: the episode's own platform link first, the show's otherwise */}
+              {(() => {
+                const appleHref: string | null = e.apple_url || p.apple_url || null;
+                const spotifyHref: string | null = e.spotify_url || p.spotify_url || null;
+                const youtubeHref: string | null = e.youtube_url || p.youtube_url || null;
+                if (!(appleHref || spotifyHref || youtubeHref)) return null;
+                return (
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <span className="text-[11px] uppercase tracking-wider text-muted-foreground mr-1 hidden sm:inline">
                     Más platformon
                   </span>
-                  {p.apple_url && (
+                  {appleHref && (
                     <a
-                      href={p.apple_url}
+                      href={appleHref}
                       target="_blank"
                       rel="noreferrer"
-                      onClick={() => trackExternal("apple", p.apple_url)}
+                      onClick={() => trackExternal("apple", appleHref)}
                       aria-label="Megnyitás Apple Podcasts-ban"
                       className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-border bg-card/60 text-xs text-foreground/80 hover:bg-secondary hover:text-foreground transition-colors"
                     >
@@ -539,12 +542,12 @@ export default function EpisodeDetail() {
                       <span className="hidden sm:inline">Apple</span>
                     </a>
                   )}
-                  {p.spotify_url && (
+                  {spotifyHref && (
                     <a
-                      href={p.spotify_url}
+                      href={spotifyHref}
                       target="_blank"
                       rel="noreferrer"
-                      onClick={() => trackExternal("spotify", p.spotify_url)}
+                      onClick={() => trackExternal("spotify", spotifyHref)}
                       aria-label="Megnyitás Spotify-on"
                       className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-border bg-card/60 text-xs text-foreground/80 hover:bg-secondary hover:text-foreground transition-colors"
                     >
@@ -552,12 +555,12 @@ export default function EpisodeDetail() {
                       <span className="hidden sm:inline">Spotify</span>
                     </a>
                   )}
-                  {p.youtube_url && (
+                  {youtubeHref && (
                     <a
-                      href={p.youtube_url}
+                      href={youtubeHref}
                       target="_blank"
                       rel="noreferrer"
-                      onClick={() => trackExternal("youtube", p.youtube_url)}
+                      onClick={() => trackExternal("youtube", youtubeHref)}
                       aria-label="Megnyitás YouTube-on"
                       className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-border bg-card/60 text-xs text-foreground/80 hover:bg-secondary hover:text-foreground transition-colors"
                     >
@@ -579,10 +582,8 @@ export default function EpisodeDetail() {
                     </a>
                   )}
                 </div>
-              )}
-              {!(p.apple_url || p.spotify_url || p.youtube_url) && (
-                null
-              )}
+                );
+              })()}
 
               {/* Smart Player card (or legacy inline fallback) */}
               {smartPlayerVisible ? (

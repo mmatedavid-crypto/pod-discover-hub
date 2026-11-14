@@ -63,3 +63,24 @@ export function detectAudioSource(
   const r = evaluateAudioEligibility(ep);
   return r.ok ? r.source : null;
 }
+
+/**
+ * URL the in-site player may try. Eligible direct audio first; an unknown http(s) host without a
+ * file extension is still tried (many hosts serve audio from extension-less URLs), but platform
+ * pages (Spotify/Apple/YouTube…) never are — those get the "listen elsewhere" links instead.
+ */
+export function playableAudioUrl(
+  ep: { audio_url?: string | null; episode_url?: string | null } | null | undefined,
+): string | null {
+  const r = evaluateAudioEligibility(ep);
+  if (r.ok) return r.source.url;
+  if (r.ok === false && r.reason !== "non_direct_audio_url") return null;
+  const raw = decodeHtmlEntities((ep?.audio_url || "").trim());
+  try {
+    const u = new URL(raw);
+    if (hostMatches(u.hostname, BAD_HOST_SUFFIXES)) return null;
+    return raw;
+  } catch {
+    return null;
+  }
+}

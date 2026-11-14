@@ -1,12 +1,12 @@
 import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
-// Weekly Google Search Console insights runner.
-// - Pulls last 7 days (vs previous 7 days) from GSC via Lovable connector gateway.
-// - Computes totals, deltas, top queries/pages, rising/falling movers, striking-distance opportunities.
-// - Calls Lovable AI Gateway for Hungarian summary + concrete optimization actions.
-// - Stores one row per ISO week in `gsc_weekly_insights` + per-day rows in `gsc_query_daily`.
-//
-// Schedule: weekly Monday 06:10 UTC via pg_cron.
-// Manual:   POST { dry_run?: bool, weeks_back?: number }
+// Google Search Console importer + weekly insights.
+// - action "sync" (daily cron, no AI, no email): whole-site totals per GSC day (dimension "date",
+//   dataState "all", Google's own site total incl. anonymised queries) into `gsc_site_daily`
+//   (final vs partial from metadata.firstIncompleteDate), then idempotent per-day query+page
+//   detail backfill into `gsc_query_daily` with startRow paging, newest missing day first.
+// - action "weekly" (Monday cron): sync, then the weekly insight row for the latest 7 FINAL days;
+//   totals/deltas come from `gsc_site_daily`, never from a sum of top-N query rows.
+// GSC days are Google's calendar days (Pacific time); the admin labels them so.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { callLovableAI } from "../_shared/lovable-ai.ts";
@@ -22,19 +22,14 @@ const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") || "";
 const GSC_KEY = Deno.env.get("GOOGLE_SEARCH_CONSOLE_API_KEY") || "";
 
 type Row = { keys: string[]; clicks: number; impressions: number; ctr: number; position: number };
+const PAGE_SIZE = 25000;
+const MAX_PAGES_PER_DAY = 4;
 
 function isoDate(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
-function startOfWeekUTC(base: Date, weeksBack = 0): Date {
-  // ISO week starts Monday. Build "last completed week" ending yesterday.
-  const d = new Date(base);
-  d.setUTCDate(d.getUTCDate() - weeksBack * 7);
-  return d;
-}
-
-async function gscQuery(body: unknown): Promise<{ rows: Row[] }> {
+async function gscQuery(body: unknown): Promise<{ rows: Row[]; firstIncompleteDate?: string }> {
   const r = await fetch(
     `${GATEWAY}/webmasters/v3/sites/${encodeURIComponent(SITE_URL)}/searchAnalytics/query`,
     {
@@ -49,7 +44,126 @@ async function gscQuery(body: unknown): Promise<{ rows: Row[] }> {
   );
   if (!r.ok) throw new Error(`GSC ${r.status}: ${await r.text().catch(() => "")}`);
   const j = await r.json();
-  return { rows: (j.rows || []) as Row[] };
+  return { rows: (j.rows || []) as Row[], firstIncompleteDate: j?.metadata?.firstIncompleteDate };
+}
+
+function addDays(day: string, n: number): string {
+  const d = new Date(`${day}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return isoDate(d);
+}
+
+// deno-lint-ignore no-explicit-any
+type Admin = any;
+
+/** Whole-site totals per day. Google keeps 16 months; we read the last 480 days in one call. */
+export async function syncSiteTotals(admin: Admin) {
+  const end = isoDate(new Date());
+  const start = addDays(end, -480);
+  const resp = await gscQuery({ startDate: start, endDate: end, dimensions: ["date"], dataState: "all", rowLimit: 1000 });
+  const firstIncomplete = resp.firstIncompleteDate || null;
+  const now = new Date().toISOString();
+  const rows = resp.rows.map((r) => ({
+    site_url: SITE_URL,
+    date: r.keys[0],
+    clicks: r.clicks,
+    impressions: r.impressions,
+    ctr: r.ctr,
+    position: r.position,
+    data_state: firstIncomplete && r.keys[0] >= firstIncomplete ? "partial" : "final",
+    totals_fetched_at: now,
+  }));
+  for (let i = 0; i < rows.length; i += 500) {
+    const { error } = await admin.from("gsc_site_daily").upsert(rows.slice(i, i + 500), { onConflict: "site_url,date" });
+    if (error) throw new Error(`site_totals_upsert_failed: ${error.message}`);
+  }
+  const finals = rows.filter((r) => r.data_state === "final").map((r) => r.date).sort();
+  return { days: rows.length, first_incomplete_date: firstIncomplete, latest_final: finals[finals.length - 1] || null };
+}
+
+/** Query+page detail for one GSC day, every page of results, idempotent upsert. */
+async function syncDayDetail(admin: Admin, day: string) {
+  let startRow = 0, pages = 0, total = 0, clicks = 0, impressions = 0, complete = false;
+  while (pages < MAX_PAGES_PER_DAY) {
+    const resp = await gscQuery({ startDate: day, endDate: day, dimensions: ["query", "page"], rowLimit: PAGE_SIZE, startRow });
+    pages++;
+    const recs = resp.rows.map((r) => ({
+      site_url: SITE_URL, date: day, query: r.keys[0] || "", page: r.keys[1] || "",
+      clicks: r.clicks, impressions: r.impressions, ctr: r.ctr, position: r.position, fetched_at: new Date().toISOString(),
+    }));
+    for (let i = 0; i < recs.length; i += 1000) {
+      const { error } = await admin.from("gsc_query_daily").upsert(recs.slice(i, i + 1000), { onConflict: "site_url,date,query,page" });
+      if (error) throw new Error(`detail_upsert_failed ${day}: ${error.message}`);
+    }
+    total += recs.length;
+    for (const r of recs) { clicks += r.clicks; impressions += r.impressions; }
+    if (resp.rows.length < PAGE_SIZE) { complete = true; break; }
+    startRow += PAGE_SIZE;
+  }
+  const { error } = await admin.from("gsc_site_daily").update({
+    detail_rows: total, detail_clicks: clicks, detail_impressions: impressions,
+    detail_complete: complete, detail_fetched_at: new Date().toISOString(),
+  }).eq("site_url", SITE_URL).eq("date", day);
+  if (error) throw new Error(`detail_mark_failed ${day}: ${error.message}`);
+  return { day, rows: total, pages, complete };
+}
+
+/** Final days whose detail is missing, newest first (bounded per call). */
+export async function backfillDetail(admin: Admin, maxDays: number, sinceDay: string, untilDay = "9999-12-31") {
+  const { data, error } = await admin.from("gsc_site_daily")
+    .select("date").eq("site_url", SITE_URL).eq("data_state", "final")
+    .eq("detail_complete", false).gte("date", sinceDay).lte("date", untilDay)
+    .order("date", { ascending: false }).limit(maxDays);
+  if (error) throw new Error(`detail_pick_failed: ${error.message}`);
+  const done = [];
+  for (const r of data || []) done.push(await syncDayDetail(admin, r.date));
+  return done;
+}
+
+async function siteTotalsFor(admin: Admin, start: string, end: string) {
+  const { data, error } = await admin.from("gsc_site_daily")
+    .select("date,clicks,impressions,position,data_state")
+    .eq("site_url", SITE_URL).gte("date", start).lte("date", end);
+  if (error) throw new Error(`site_totals_read_failed: ${error.message}`);
+  const rows = (data || []) as Array<{ date: string; clicks: number; impressions: number; position: number; data_state: string }>;
+  let clicks = 0, impressions = 0, posSum = 0;
+  for (const r of rows) { clicks += r.clicks; impressions += r.impressions; posSum += r.position * r.impressions; }
+  return {
+    clicks, impressions,
+    ctr: impressions ? clicks / impressions : 0,
+    position: impressions ? posSum / impressions : 0,
+    days_present: rows.length,
+    days_final: rows.filter((r) => r.data_state === "final").length,
+    source: "gsc_site_daily",
+  };
+}
+
+/** Re-state stored weekly totals from Google's site totals (old top-1000-query sums kept in raw_meta). */
+async function restateWeeklyTotals(admin: Admin) {
+  const { data } = await admin.from("gsc_weekly_insights").select("id,week_start,week_end,totals,deltas,raw_meta").eq("site_url", SITE_URL);
+  let restated = 0;
+  for (const w of data || []) {
+    if (w.raw_meta?.totals_source === "gsc_site_daily") continue;
+    const cur = await siteTotalsFor(admin, w.week_start, w.week_end);
+    if (cur.days_final < 7) continue;
+    const prevEnd = addDays(w.week_start, -1), prevStart = addDays(w.week_start, -7);
+    const prev = await siteTotalsFor(admin, prevStart, prevEnd);
+    const deltas = {
+      ...(w.deltas || {}),
+      clicks_pct: pct(cur.clicks, prev.clicks),
+      impressions_pct: pct(cur.impressions, prev.impressions),
+      ctr_delta: cur.ctr - prev.ctr,
+      position_delta: cur.position - prev.position,
+      prev_totals: prev,
+      prev_window: { start: prevStart, end: prevEnd },
+    };
+    const { error } = await admin.from("gsc_weekly_insights").update({
+      totals: cur, deltas,
+      raw_meta: { ...(w.raw_meta || {}), totals_source: "gsc_site_daily", legacy_totals_top_queries_sum: w.totals, totals_restated_at: new Date().toISOString() },
+    }).eq("id", w.id);
+    if (!error) restated++;
+  }
+  return restated;
 }
 
 function totals(rows: Row[]) {
@@ -89,40 +203,39 @@ Deno.serve(async (req) => {
     );
 
     const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
-    const weeksBack = Number(body.weeks_back ?? 1);
+    const action = String(body.action || "weekly");
     const dryRun = body.dry_run === true;
 
-    // GSC data has ~3-day lag. End the current window 3 days before today.
-    const today = new Date();
-    const endRef = new Date(today);
-    endRef.setUTCDate(endRef.getUTCDate() - 3);
+    // 1. Whole-site daily totals (always; cheap: one request).
+    const site = await syncSiteTotals(admin);
+    const restated = await restateWeeklyTotals(admin);
 
-    const curEnd = isoDate(endRef);
-    const curStartD = new Date(endRef); curStartD.setUTCDate(curStartD.getUTCDate() - 6);
-    const curStart = isoDate(curStartD);
-    const prevEndD = new Date(curStartD); prevEndD.setUTCDate(prevEndD.getUTCDate() - 1);
-    const prevEnd = isoDate(prevEndD);
-    const prevStartD = new Date(prevEndD); prevStartD.setUTCDate(prevStartD.getUTCDate() - 6);
-    const prevStart = isoDate(prevStartD);
+    // 2. Query+page detail, newest missing final day first, bounded per call.
+    const maxDays = Math.min(Math.max(Number(body.max_detail_days ?? (action === "sync" ? 8 : 3)), 0), 20);
+    const detailSince = String(body.detail_since || "2026-05-30");
+    const detailUntil = String(body.detail_until || "9999-12-31");
+    const detail = await backfillDetail(admin, maxDays, detailSince, detailUntil);
 
-    // 1. Per-day rows (query + page) for trend storage.
-    const dailyResp = await gscQuery({
-      startDate: curStart,
-      endDate: curEnd,
-      dimensions: ["date", "query", "page"],
-      rowLimit: 5000,
-    });
+    if (action === "sync") {
+      return json({ ok: true, action, site, weekly_restated: restated, detail });
+    }
+    if (!site.latest_final) return json({ ok: false, error: "no_final_gsc_days" }, 500);
 
-    // 2. Current week aggregates.
-    const [curQ, curP, prevQ, prevP] = await Promise.all([
+    // 3. Weekly window = latest 7 FINAL GSC days; previous = the 7 before.
+    const curEnd = site.latest_final;
+    const curStart = addDays(curEnd, -6);
+    const prevEnd = addDays(curStart, -1);
+    const prevStart = addDays(prevEnd, -6);
+
+    // Top-N lists only (rankings); totals come from the site totals table.
+    const [curQ, curP, prevQ] = await Promise.all([
       gscQuery({ startDate: curStart, endDate: curEnd, dimensions: ["query"], rowLimit: 1000 }),
       gscQuery({ startDate: curStart, endDate: curEnd, dimensions: ["page"], rowLimit: 500 }),
       gscQuery({ startDate: prevStart, endDate: prevEnd, dimensions: ["query"], rowLimit: 1000 }),
-      gscQuery({ startDate: prevStart, endDate: prevEnd, dimensions: ["page"], rowLimit: 500 }),
     ]);
 
-    const curTotals = totals(curQ.rows);
-    const prevTotals = totals(prevQ.rows);
+    const curTotals = await siteTotalsFor(admin, curStart, curEnd);
+    const prevTotals = await siteTotalsFor(admin, prevStart, prevEnd);
     const deltas = {
       clicks_pct: pct(curTotals.clicks, prevTotals.clicks),
       impressions_pct: pct(curTotals.impressions, prevTotals.impressions),
@@ -287,7 +400,13 @@ Deno.serve(async (req) => {
       ai_summary: aiSummary,
       ai_recommendations: aiRecs,
       ai_model: aiModel,
-      raw_meta: { weeks_back: weeksBack, queries_rows: curQ.rows.length, pages_rows: curP.rows.length, daily_rows: dailyResp.rows.length },
+      raw_meta: {
+        totals_source: "gsc_site_daily",
+        top_lists_note: "top_queries/top_pages are top-N rankings (rowLimit 1000/500), not site totals",
+        queries_rows: curQ.rows.length, pages_rows: curP.rows.length,
+        query_rows_capped: curQ.rows.length >= 1000, page_rows_capped: curP.rows.length >= 500,
+        gsc_first_incomplete_date: site.first_incomplete_date,
+      },
     };
 
     if (dryRun) {
@@ -298,26 +417,6 @@ Deno.serve(async (req) => {
       .from("gsc_weekly_insights")
       .upsert(insightRow, { onConflict: "site_url,week_start" });
     if (upErr) throw new Error(`insert_failed: ${upErr.message}`);
-
-    // Bulk upsert daily rows in chunks of 500.
-    const dailyRecords = dailyResp.rows.map((r) => ({
-      site_url: SITE_URL,
-      date: r.keys[0],
-      query: r.keys[1] || "",
-      page: r.keys[2] || "",
-      clicks: r.clicks,
-      impressions: r.impressions,
-      ctr: r.ctr,
-      position: r.position,
-    }));
-    let dailyInserted = 0;
-    for (let i = 0; i < dailyRecords.length; i += 500) {
-      const chunk = dailyRecords.slice(i, i + 500);
-      const { error } = await admin
-        .from("gsc_query_daily")
-        .upsert(chunk, { onConflict: "site_url,date,query,page" });
-      if (!error) dailyInserted += chunk.length;
-    }
 
     // 4. Send weekly email digest.
     let emailStatus: string = "skipped";
@@ -353,7 +452,9 @@ Deno.serve(async (req) => {
       totals: curTotals,
       deltas,
       ai_actions: aiRecs.length,
-      daily_rows: dailyInserted,
+      site,
+      weekly_restated: restated,
+      detail,
       email: emailStatus,
     });
   } catch (e) {

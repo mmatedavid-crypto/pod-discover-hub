@@ -1034,7 +1034,9 @@ describe("page consistency static guards", () => {
     expect(similarEpisodes).not.toContain('rpc("get_related_episodes_by_embedding" as any');
     expect(personQuality).toContain('await supabase.rpc("refresh_person_activation_status")');
     expect(personQuality).not.toContain('(supabase as any).rpc("refresh_person_activation_status"');
-    expect(pageViewTracker).toContain('supabase.rpc("update_page_event_dwell"');
+    // Dwell is sent with a keepalive request (a lazy, never-awaited rpc builder never executed).
+    expect(pageViewTracker).toContain("/rest/v1/rpc/update_page_event_dwell");
+    expect(pageViewTracker).toContain("keepalive: true");
     expect(pageViewTracker).not.toContain('(supabase as any).rpc("update_page_event_dwell"');
   });
 

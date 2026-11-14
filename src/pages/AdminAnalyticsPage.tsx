@@ -4,6 +4,7 @@ import Layout from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
 import { useNoindex } from "@/lib/useNoindex";
 import { AiReferralPanel } from "@/components/admin/AiReferralPanel";
+import { TrafficQualityPanel } from "@/components/admin/TrafficQualityPanel";
 
 type Row = {
   id: string;
@@ -236,8 +237,14 @@ export default function AdminAnalyticsPage() {
           </div>
         </div>
 
+        <TrafficQualityPanel />
+
+        <p className="text-xs text-muted-foreground">
+          Az alábbi régi nézet nyers eseménysorokat számol (legfeljebb 10 000 legutóbbi sor, duplikátumokkal, gördülő időablakkal).
+          Összehasonlításra a fenti, egységes definíciójú táblát használd.
+        </p>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <Stat label="Page views" value={stats.total.toLocaleString()} />
+          <Stat label="Page views (nyers sor)" value={stats.total.toLocaleString()} />
           <Stat label="Approx. unique visitors" value={stats.unique.toLocaleString()} />
           <Stat label="Mobile views" value={`${stats.mobile} (${pct(stats.mobile, stats.total)}%)`} />
           <Stat label="Days with data" value={stats.days.length.toString()} />

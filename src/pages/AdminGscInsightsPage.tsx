@@ -20,6 +20,7 @@ type Insight = {
   ai_summary: string | null;
   ai_recommendations: any[];
   ai_model: string | null;
+  raw_meta?: any;
   created_at: string;
 };
 
@@ -59,9 +60,10 @@ export default function AdminGscInsightsPage() {
     setRunning(true);
     setMsg(null);
     try {
-      const { data, error } = await supabase.functions.invoke("gsc-weekly-insights", { body: {} });
+      // Data refresh only (site totals + missing query detail); no AI summary, no email.
+      const { data, error } = await supabase.functions.invoke("gsc-weekly-insights", { body: { action: "sync" } });
       if (error) throw error;
-      setMsg(`Frissítve: ${data?.week?.start} → ${data?.week?.end} · ${data?.ai_actions ?? 0} AI akció`);
+      setMsg(`Frissítve: utolsó végleges nap ${data?.site?.latest_final ?? "—"} · ${data?.detail?.length ?? 0} nap részletei pótolva`);
       await load();
     } catch (e: any) {
       setMsg(`Hiba: ${e?.message || e}`);
@@ -90,7 +92,7 @@ export default function AdminGscInsightsPage() {
             className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-primary text-primary-foreground text-sm disabled:opacity-50"
           >
             <RefreshCw className={`h-4 w-4 ${running ? "animate-spin" : ""}`} />
-            {running ? "Futás…" : "Heti futtatás most"}
+            {running ? "Futás…" : "Adatfrissítés most"}
           </button>
         </div>
 
@@ -108,6 +110,14 @@ export default function AdminGscInsightsPage() {
               <div className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
                 Hét: {latest.week_start} → {latest.week_end}
               </div>
+              <p className="text-xs text-muted-foreground mb-2">
+                {latest.raw_meta?.totals_source === "gsc_site_daily"
+                  ? "A számok a Google teljes webhely-összesítői (névtelenített keresésekkel együtt), Google-napok szerint (csendes-óceáni idő)."
+                  : "Régi számítás: csak a top 1000 keresés összege, nem webhely-összesítő."}
+                {latest.raw_meta?.legacy_totals_top_queries_sum
+                  ? ` 2026. nov. 14-én javítva; a korábbi hibás érték ${fmt(latest.raw_meta.legacy_totals_top_queries_sum.clicks)} kattintás volt, az AI-összefoglaló még azokból készült.`
+                  : ""}
+              </p>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <Metric label="Kattintás" v={fmt(latest.totals?.clicks)} delta={pct(latest.deltas?.clicks_pct ?? 0)} good={(latest.deltas?.clicks_pct ?? 0) >= 0} />
                 <Metric label="Impresszió" v={fmt(latest.totals?.impressions)} delta={pct(latest.deltas?.impressions_pct ?? 0)} good={(latest.deltas?.impressions_pct ?? 0) >= 0} />

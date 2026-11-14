@@ -5,7 +5,7 @@ import { getAnalyticsSessionId } from "@/lib/analyticsSession";
 export type PlayerEventType =
   | "play_start" | "play_pause" | "play_resume" | "play_seek"
   | "play_25" | "play_50" | "play_75" | "play_complete"
-  | "playback_error" | "external_open" | "speed_change";
+  | "playback_error" | "playback_blocked" | "external_open" | "speed_change";
 
 export function logPlayerEvent(opts: {
   eventType: PlayerEventType;
