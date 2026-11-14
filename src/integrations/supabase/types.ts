@@ -13125,6 +13125,15 @@ export type Database = {
         Args: { p_owner: string; p_results: Json }
         Returns: Json
       }
+      complete_unknown_tokens_v1: {
+        Args: { p_tokens: string[] }
+        Returns: {
+          kind: string
+          similarity: number
+          suggestion: string
+          token: string
+        }[]
+      }
       count_pipeline_pending: { Args: { kind: string }; Returns: number }
       cron_revert_title_cleanup: { Args: never; Returns: undefined }
       dedup_episodes_audio_url_batch: {

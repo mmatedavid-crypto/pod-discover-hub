@@ -596,7 +596,7 @@ async function resolvePodcastPin(supa: ReturnType<typeof createClient>, q: strin
 
 async function resolvePersonPin(supa: ReturnType<typeof createClient>, qNorm: string, anchors: CatalogAnchor[], timeoutMs = 900) {
   if (qNorm.length < 2 || qNorm.length > 80) return null;
-  const anchor = anchors.find((a) => a.kind === "person" && a.id);
+  const anchor = anchors.find((a) => a.kind === "person" && a.id && !a.embedded);
   let personId = anchor?.id || null;
 
   if (!personId) {
@@ -798,7 +798,22 @@ type CatalogAnchor = {
   name: string;
   slug: string | null;
   score: number;
+  // A full catalog name found inside a longer query ("önismeret Kádár Annamária"): adds that
+  // person's reviewed episodes as candidates, but never pins or narrows the search to them.
+  embedded?: boolean;
 };
+
+// Contiguous 2–3 word windows of a 3–8 word query, for exact (indexed) catalog-name lookups.
+function nameWindows(qNorm: string): string[] {
+  const toks = qNorm.split(/\s+/).filter(Boolean);
+  if (toks.length < 3 || toks.length > 8) return [];
+  const out = new Set<string>();
+  for (const n of [2, 3]) for (let i = 0; i + n <= toks.length; i++) {
+    const w = toks.slice(i, i + n);
+    if (w.join(" ") !== qNorm && w.every((t) => t.length >= 2)) out.add(w.join(" "));
+  }
+  return [...out].slice(0, 16);
+}
 
 async function resolveCatalogAnchors(supa: ReturnType<typeof createClient>, qNorm: string, earlyPodcastPin: any): Promise<CatalogAnchor[]> {
   if (qNorm.length < 2 || qNorm.length > 80) return [];
@@ -843,6 +858,18 @@ async function resolveCatalogAnchors(supa: ReturnType<typeof createClient>, qNor
       .order("weight", { ascending: false, nullsFirst: false })
       .limit(4),
   ];
+  const windows = nameWindows(qNorm);
+  tasks.push(windows.length
+    ? supa.from("people")
+      .select("id,name,slug,gated_episode_count,episode_count,normalized_name,is_public,is_indexable,activation_status,ai_recommended_action,ai_review_status,identity_status,identity_ambiguous,manual_approved,wikipedia_match_status,wikipedia_match_confidence,is_deceased,is_historical,has_archival_evidence,persona,is_topic_only,date_of_death,is_living,participant_count,host_count,guest_count")
+      .eq("is_public", true)
+      .eq("is_indexable", true)
+      .in("activation_status", ["indexable", "manual_approved", "active"])
+      .in("normalized_name", windows)
+      .gte("gated_episode_count", 1)
+      .order("gated_episode_count", { ascending: false, nullsFirst: false })
+      .limit(3) as any
+    : Promise.resolve({ data: [] }) as any);
 
   // PostgREST builders are thenables, not Promises — they have no .catch().
   // Wrap with Promise.resolve() so a failing sub-query degrades to empty data
@@ -894,6 +921,12 @@ async function resolveCatalogAnchors(supa: ReturnType<typeof createClient>, qNor
     });
   }
 
+  // Ambiguous same-name rows are skipped by isSafePublicPerson; one embedded person at most.
+  const embeddedPerson = (((settled[6] as any)?.data || []) as any[]).filter(isSafePublicPerson)[0];
+  if (embeddedPerson && !out.some((a) => a.kind === "person")) {
+    out.push({ kind: "person", id: embeddedPerson.id || null, name: embeddedPerson.name, slug: embeddedPerson.slug || null, score: 640 + Number(embeddedPerson.gated_episode_count || 0), embedded: true });
+  }
+
   const byKey = new Map<string, CatalogAnchor>();
   for (const a of out) {
     const key = `${a.kind}:${foldText(a.name)}`;
@@ -939,7 +972,7 @@ async function resolveAnchorEpisodeRows(
           .from("person_episode_mentions")
           .select("episode_id,confidence,final_relevance_score,relevance_status,mention_type")
           .eq("person_id", anchor.id)
-          .or("relevance_status.is.null,relevance_status.neq.rejected")
+          .or("relevance_status.is.null,relevance_status.not.in.(rejected,needs_review)")
           .order("final_relevance_score", { ascending: false, nullsFirst: false })
           .order("confidence", { ascending: false, nullsFirst: false })
           .limit(Math.max(25, Math.min(90, limit)));
@@ -1340,7 +1373,11 @@ Deno.serve(async (req) => {
           if (!candidates.some((c) => c.id === a.id)) candidates.push({ id: a.id!, name: a.name, slug: a.slug, verified: true });
         }
         // A public catalog spelling marks a name query but grants no identity.
-        isPersonNameQuery = isNameShapedQuery(q) || candidates.length > 0 || exactRows.length > 0;
+        // A catalog name inside a longer query ("önismeret Kádár Annamária") makes the rest of
+        // the query a topic, not part of a name: the whole string must not become a strict
+        // full-name filter (it matched nothing and emptied the list).
+        const embeddedPersonAnchor = catalogAnchors.some((a) => a.kind === "person" && a.embedded);
+        isPersonNameQuery = (isNameShapedQuery(q) && !embeddedPersonAnchor) || candidates.length > 0 || exactRows.length > 0;
         personSearchNames = uniqueClean([...personSearchNames, ...exactRows.map((p) => p.name), ...safeAliasPeople.map((p: any) => p.name)], 8);
 
         if (isPersonNameQuery) {
@@ -1678,6 +1715,8 @@ Deno.serve(async (req) => {
 
     // Spell-correction
     const spellCorrections: Array<{ from: string; to: string }> = [];
+    // Words completed from the catalog (see complete_unknown_tokens_v1).
+    const completedTerms: string[] = [];
     const rawEntitiesPre = (understanding?.entities || [])
       .map((s) => String(s || "").trim())
       .filter((s) => s.length >= 3 && s.length <= 60);
@@ -1702,10 +1741,30 @@ Deno.serve(async (req) => {
           }
         } catch (e) { console.warn("spell rpc err", e); }
       }
+      // Hungarian stems / small typos the cached-token speller cannot know (it only sees tokens
+      // searched before, df ≥ 50): complete an unknown word to a word that occurs in the catalog
+      // (hipervigil → hipervigilancia, bhikkuh → bhikkhu). Capitalised words too, since the word
+      // is unknown to the index anyway; a known name never reaches this branch.
+      const stillUnknown = unknownTokens.filter((t) => t.length >= 5 && /^[a-z]+$/.test(t) && !spellCorrections.some((c) => c.from === t));
+      if (stillUnknown.length && hasBudget(5500)) {
+        const done = await withTimeout(
+          supa.rpc("complete_unknown_tokens_v1", { p_tokens: stillUnknown.slice(0, 4) }).then((r: any) => r.data),
+          900, "complete_unknown_tokens",
+        );
+        for (const s of (Array.isArray(done) ? done : []) as Array<{ token: string; suggestion: string }>) {
+          if (s?.token && s?.suggestion && s.token !== s.suggestion) { spellCorrections.push({ from: s.token, to: s.suggestion }); completedTerms.push(s.suggestion); }
+        }
+      }
       if (spellCorrections.length) {
         let rewritten = q;
         for (const c of spellCorrections) {
           rewritten = rewritten.replace(new RegExp(`\\b${c.from.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "gi"), c.to);
+        }
+        // Accented input ("pulzusmérés") never matches the unaccented token: rewrite the
+        // normalised query instead so the correction is not silently lost.
+        if (rewritten === q) {
+          const map = new Map(spellCorrections.map((c) => [c.from, c.to]));
+          rewritten = qNorm.split(/\s+/).map((w) => map.get(w) || w).join(" ");
         }
         q = rewritten;
         qNorm = normalizeQ(rewritten);
@@ -1777,7 +1836,10 @@ Deno.serve(async (req) => {
     const resolvedNames = uniqueClean(resolvedEntities.map((r) => r.display_name), 4);
 
     const gatedRareTokens = (FF.hallucinationGuard && highPrecisionIntent) ? rareTokens : [];
-    const requiredTerms = uniqueClean([...requiredTermsBase, ...gatedRareTokens, ...phrasePool], 8);
+    // A one-word search completed from the catalog keeps that word as a must, so real matches
+    // lead and loosely similar words (pulzusmérés ≠ Mérő, Puzsér) only follow them.
+    const completedMust = phraseTokens.length === 1 ? completedTerms.filter((t) => phraseTokens.includes(t)) : [];
+    const requiredTerms = uniqueClean([...requiredTermsBase, ...gatedRareTokens, ...phrasePool, ...completedMust], 8);
     const entityTerms = uniqueClean([...rawEntities, ...resolvedNames], 10);
     const contiguousPhrase = (!isTickerQ && phraseTokens.length >= 2 && phraseTokens.length <= 4)
       ? [phraseTokens.join(" ")] : [];
@@ -2069,7 +2131,8 @@ Deno.serve(async (req) => {
     }
 
     // Pass 4 — drop gate
-    if (FF.threePassMust && strictRows.length < 5 && mustGateApplied && q_embedding && !isTickerQ && phrasePool.length === 0 && hasBudget(2500)) {
+    // A completed one-word search with real hits is not padded with gate-free lookalikes.
+    if (FF.threePassMust && strictRows.length < 5 && mustGateApplied && q_embedding && !isTickerQ && phrasePool.length === 0 && !(completedMust.length && strictRows.length > 0) && hasBudget(2500)) {
       const retry2 = await supa.rpc("search_episodes_hybrid", {
         q: lexQ,
         q_embedding: `[${q_embedding.join(",")}]`,
