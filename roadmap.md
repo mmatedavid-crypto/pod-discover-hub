@@ -153,7 +153,7 @@
 ## Audit fixes A–E (owner 2026-11-14 15:43 UTC; item 2 "search-quality system self-fixes" explicitly skipped)
 - [x] A) Measurement: GSC importer totals/paging/backfill + coverage; bot vs all traffic in admin; page/player event quality (dup route, dwell 0, referrer, seek noise); comparison labels.
 - [x] B) Person pages: one eligibility rule for list/count/prerender/canonical; batched query; empty-state; regression test.
-- [ ] C) Playback: playback_error causes; player race/fallback fixes; missing media only from real RSS; embedding refresh by content hash.
+- [x] C) Playback: playback_error causes; player race/fallback fixes; missing media only from real RSS; embedding refresh by content hash.
 - [x] D) Search: exact podcast/person/title regressions (Tölgyfa Podcast), zero-result visitor queries, latency smoke.
 - [x] E) Recommendations: homepage/evergreen show+topic diversity, episode-page relevance first.
-- [ ] Final checklist + person pilot status (job/batch IDs, gate, cost).
+- [x] Final checklist + person pilot status (job/batch IDs, gate, cost).
