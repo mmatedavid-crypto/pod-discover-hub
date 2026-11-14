@@ -12077,6 +12077,135 @@ export type Database = {
         }
         Relationships: []
       }
+      person_public_episode_links_v1: {
+        Row: {
+          confidence: number | null
+          episode_id: string | null
+          final_relevance_score: number | null
+          mention_type: string | null
+          page_role: string | null
+          person_id: string | null
+          podcast_id: string | null
+          published_at: string | null
+          relevance_status: string | null
+          validation_source: string | null
+          verified: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "person_episode_mentions_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "episodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_episode_mentions_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "person_episode_mentions_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "person_episode_mentions_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "v_episode_data_quality_issues"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "person_episode_mentions_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "v_episode_quality_indicator_audit"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "person_episode_mentions_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_episode_mentions_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person_activation_status_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_episode_mentions_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person_ai_action_queue_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_episode_mentions_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person_ai_duplicate_candidates_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_episode_mentions_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person_missing_content_review_view"
+            referencedColumns: ["person_id"]
+          },
+          {
+            foreignKeyName: "person_episode_mentions_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_duplicate_clusters"
+            referencedColumns: ["person_a_id"]
+          },
+          {
+            foreignKeyName: "person_episode_mentions_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_duplicate_clusters"
+            referencedColumns: ["person_b_id"]
+          },
+          {
+            foreignKeyName: "person_episode_mentions_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_high_reject_ratio"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_episode_mentions_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_pending_backlog"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_episode_mentions_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_surname_only_candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_episode_mentions_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_weak_public_pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reddit_name_index: {
         Row: {
           entity_id: string | null
@@ -13241,6 +13370,43 @@ export type Database = {
         }[]
       }
       get_ops_dashboard_status: { Args: never; Returns: Json }
+      get_person_page_episodes_v1: {
+        Args: { p_limit?: number; p_person_id: string }
+        Returns: {
+          ai_summary: string
+          audio_url: string
+          companies: string[]
+          confidence: number
+          display_title: string
+          final_relevance_score: number
+          id: string
+          image_url: string
+          latest_episode_at: string
+          mention_type: string
+          mentioned: string[]
+          people: string[]
+          podcast_category: string
+          podcast_display_title: string
+          podcast_featured: boolean
+          podcast_id: string
+          podcast_image_url: string
+          podcast_rank: number
+          podcast_rank_label: string
+          podcast_rss_status: string
+          podcast_slug: string
+          podcast_title: string
+          published_at: string
+          relevance_status: string
+          role_type: string
+          slug: string
+          tickers: string[]
+          title: string
+          topics: string[]
+          total_episodes: number
+          total_podcasts: number
+          verified: boolean
+        }[]
+      }
       get_person_review_status_v1: { Args: never; Returns: Json }
       get_personalized_mood_cards: {
         Args: { p_dow?: number; p_hour?: number; p_viewport?: string }
@@ -13833,6 +13999,10 @@ export type Database = {
           published_at: string
         }[]
       }
+      person_page_has_search_traffic_v1: {
+        Args: { p_slug: string }
+        Returns: boolean
+      }
       person_pair_dispositions_tick_v1: {
         Args: { _limit?: number }
         Returns: Json
@@ -14025,6 +14195,7 @@ export type Database = {
         Returns: Json
       }
       refresh_person_activation_status: { Args: never; Returns: Json }
+      refresh_person_episode_counts_v1: { Args: never; Returns: number }
       refresh_person_openai_batch_candidate_pool_v1: {
         Args: never
         Returns: Json

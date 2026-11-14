@@ -1044,6 +1044,13 @@
       "when": 1794671318028,
       "tag": "0148_gsc_site_daily_traffic_quality",
       "breakpoints": true
+    },
+    {
+      "idx": 149,
+      "version": "7",
+      "when": 1794672012109,
+      "tag": "0149_person_page_single_eligibility_rule",
+      "breakpoints": true
     }
   ]
 }
