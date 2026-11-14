@@ -91,9 +91,11 @@ function cut(text: string, hits: { start: number; end: number }[], radius: numbe
     const last = spans[spans.length - 1];
     if (last && s <= last[1]) last[1] = Math.max(last[1], e); else spans.push([s, e]);
   }
-  return spans.slice(0, maxWindows).map(([s, e]) => text.slice(s, e).replace(/\s+/g, " ").trim()).filter(Boolean);
+  return spans.slice(0, maxWindows).map(([s, e]) => dropLoneSurrogates(text.slice(s, e)).replace(/\s+/g, " ").trim()).filter(Boolean);
 }
 
+// A window edge can split an emoji into a lone UTF-16 surrogate, which the database rejects in JSON.
+export const dropLoneSurrogates = (s: string) => s.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, "");
 const stripHtml = (s: string | null | undefined) => String(s || "").replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").normalize("NFC");
 const nfc = (s: string | null | undefined) => String(s || "").normalize("NFC");
 

@@ -128,3 +128,13 @@ describe("quality gate", () => {
     expect(goldenToReference({ person_id: "p", episode_id: "e", label_status: "needs_review" })).toBeNull();
   });
 });
+
+describe("pack text safety", () => {
+  it("never leaves half an emoji at a window edge", () => {
+    const text = "📅".repeat(200) + " Minta Anna beszél " + "🤔".repeat(200);
+    const { pack } = buildPack(src({ clean_text: { text }, episode: { id: E, podcast_id: POD, title: "x", description: "" } }));
+    const w = pack.windows.find((x) => x.source === "clean_text")!;
+    expect(() => JSON.parse(JSON.stringify(w.text))).not.toThrow();
+    expect(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/.test(w.text)).toBe(false);
+  });
+});

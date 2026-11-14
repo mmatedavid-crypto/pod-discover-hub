@@ -82,18 +82,19 @@ async function prepareAction(db: any, c: Controls, limit: number) {
   const { data: packs } = await db.from("person_evidence_packs").select("person_id,episode_id").eq("policy_version", c.policy_version).limit(5000);
   const have = new Set((packs || []).map((p: any) => `${p.person_id}|${p.episode_id}`));
   const todo = (sample || []).filter((s: any) => !have.has(`${s.person_id}|${s.episode_id}`)).slice(0, Math.max(1, Math.min(80, limit)));
-  let built = 0, sendable = 0;
+  let built = 0, sendable = 0, failed = 0;
   for (const s of todo) {
     const r = await db.rpc("person_evidence_source_v1", { _person: s.person_id, _episode: s.episode_id });
-    if (r.error || !r.data) continue;
+    if (r.error || !r.data) { failed++; continue; }
     const src = r.data as EvidenceSource;
     const { pack, precheck } = buildPack(src);
     const fingerprint = await packFingerprint(pack);
     const ins = await db.from("person_evidence_packs").upsert({ person_id: s.person_id, episode_id: s.episode_id, policy_version: c.policy_version,
       fingerprint, stratum: s.stratum, identity_risk: !!src.person.identity_risk, precheck, pack }, { onConflict: "person_id,episode_id,policy_version,fingerprint", ignoreDuplicates: true });
     if (!ins.error) { built++; if (!precheck) sendable++; }
+    else { failed++; console.error("person-evidence-review pack_insert", ins.error.message.slice(0, 200)); }
   }
-  return { sample: sel.data, prepared_now: built, sendable_now: sendable, remaining: Math.max(0, (sample || []).length - have.size - built) };
+  return { sample: sel.data, prepared_now: built, sendable_now: sendable, failed_now: failed, remaining: Math.max(0, (sample || []).length - have.size - built) };
 }
 
 // One Batch job per model over prepared, sendable packs that have no item for that model yet.
@@ -261,10 +262,12 @@ async function tickAction(db: any) {
   if (!(await backgroundEnabled(db))) return { ...result, reason: "background_jobs_paused" };
   const prep = await prepareAction(db, c, c.prepare_per_tick);
   result.prepare = prep;
-  if (prep.remaining === 0) result.submit = await submitAction(db, c, "evidence_pilot");
+  // Pairs whose pack cannot be built must not block the pilot: submit once no further progress is made.
+  const prepDone = prep.remaining === 0 || prep.prepared_now === 0;
+  if (prepDone) result.submit = await submitAction(db, c, "evidence_pilot");
   const { data: open } = await db.from("person_evidence_jobs").select("id").in("status", OPEN).eq("policy_version", c.policy_version);
   const { data: ingestedJobs } = await db.from("person_evidence_jobs").select("id").eq("policy_version", c.policy_version).eq("status", "ingested").limit(1);
-  if (prep.remaining === 0 && !(open || []).length && (ingestedJobs || []).length) {
+  if (prepDone && !(open || []).length && (ingestedJobs || []).length) {
     result.gate = await evaluateAction(db, c);
     // Pilot finished: stop the scheduled work; only labels (admin) re-evaluate the gate from now on.
     if (result.gate.status !== "passed") await patchControls(db, { enabled: false, paused_reason: "pilot_complete_waiting_for_references", paused_at: new Date().toISOString() });
