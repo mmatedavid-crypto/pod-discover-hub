@@ -4,6 +4,7 @@
 // default off until timestamped chunk quality gates are trusted in production.
 // POST { q: string, limit?: number, lang?: 'en'|'hu'|null, rerank?: boolean, engine?: string }
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { nameWindows } from "../_shared/search-name-windows.ts";
 import { understandQuery, buildExpandedQuery, detectAdjNounTopic, type Understanding } from "../_shared/search-understand.ts";
 import { loadCuratedSynonyms } from "../_shared/search-synonyms.ts";
 import { getHydeExpansion, blendEmbeddings } from "../_shared/search-hyde.ts";
@@ -803,17 +804,6 @@ type CatalogAnchor = {
   embedded?: boolean;
 };
 
-// Contiguous 2–3 word windows of a 3–8 word query, for exact (indexed) catalog-name lookups.
-function nameWindows(qNorm: string): string[] {
-  const toks = qNorm.split(/\s+/).filter(Boolean);
-  if (toks.length < 3 || toks.length > 8) return [];
-  const out = new Set<string>();
-  for (const n of [2, 3]) for (let i = 0; i + n <= toks.length; i++) {
-    const w = toks.slice(i, i + n);
-    if (w.join(" ") !== qNorm && w.every((t) => t.length >= 2)) out.add(w.join(" "));
-  }
-  return [...out].slice(0, 16);
-}
 
 async function resolveCatalogAnchors(supa: ReturnType<typeof createClient>, qNorm: string, earlyPodcastPin: any): Promise<CatalogAnchor[]> {
   if (qNorm.length < 2 || qNorm.length > 80) return [];
@@ -2111,7 +2101,7 @@ Deno.serve(async (req) => {
     }
 
     // Pass 3 — relaxed gate
-    if (FF.threePassMust && strictRows.length < 5 && mustGateApplied && hasBudget(3000)) {
+    if (FF.threePassMust && strictRows.length < 5 && mustGateApplied && !(completedMust.length && strictRows.length > 0) && hasBudget(3000)) {
       const strictTerms = requiredTerms.filter((t) => t.includes(" ") && !phrasePool.includes(t));
       const relaxedTerms = strictTerms.length ? strictTerms : null;
       if ((relaxedTerms?.join("|") || "") !== requiredTerms.join("|")) {
