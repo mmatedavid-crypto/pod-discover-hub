@@ -155,5 +155,5 @@
 - [x] B) Person pages: one eligibility rule for list/count/prerender/canonical; batched query; empty-state; regression test.
 - [ ] C) Playback: playback_error causes; player race/fallback fixes; missing media only from real RSS; embedding refresh by content hash.
 - [x] D) Search: exact podcast/person/title regressions (Tölgyfa Podcast), zero-result visitor queries, latency smoke.
-- [ ] E) Recommendations: homepage/evergreen show+topic diversity, episode-page relevance first.
+- [x] E) Recommendations: homepage/evergreen show+topic diversity, episode-page relevance first.
 - [ ] Final checklist + person pilot status (job/batch IDs, gate, cost).
