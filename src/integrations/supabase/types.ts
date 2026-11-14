@@ -6642,6 +6642,36 @@ export type Database = {
         }
         Relationships: []
       }
+      person_credit_policy_repairs: {
+        Row: {
+          before_functions: Json
+          before_rules: Json
+          completed_at: string | null
+          created_at: string
+          id: string
+          reason: string
+          summary: Json
+        }
+        Insert: {
+          before_functions: Json
+          before_rules: Json
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          reason: string
+          summary?: Json
+        }
+        Update: {
+          before_functions?: Json
+          before_rules?: Json
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          reason?: string
+          summary?: Json
+        }
+        Relationships: []
+      }
       person_enrichment_jobs: {
         Row: {
           created_at: string
@@ -8591,6 +8621,176 @@ export type Database = {
           },
           {
             foreignKeyName: "person_identity_separation_rules_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "person_identity_repair_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      person_name_matching_revisions: {
+        Row: {
+          created_at: string
+          previous_definitions: Json
+          run_id: string
+          summary: Json
+        }
+        Insert: {
+          created_at?: string
+          previous_definitions: Json
+          run_id: string
+          summary?: Json
+        }
+        Update: {
+          created_at?: string
+          previous_definitions?: Json
+          run_id?: string
+          summary?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "person_name_matching_revisions_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: true
+            referencedRelation: "person_identity_repair_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      person_name_variant_forms: {
+        Row: {
+          normalized_form: string
+          rule_id: string
+        }
+        Insert: {
+          normalized_form: string
+          rule_id: string
+        }
+        Update: {
+          normalized_form?: string
+          rule_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "person_name_variant_forms_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "person_name_variant_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      person_name_variant_rules: {
+        Row: {
+          active: boolean
+          base_name: string
+          created_at: string
+          evidence: string
+          id: string
+          person_id: string
+          run_id: string
+          scope: string
+        }
+        Insert: {
+          active?: boolean
+          base_name: string
+          created_at?: string
+          evidence: string
+          id?: string
+          person_id: string
+          run_id: string
+          scope: string
+        }
+        Update: {
+          active?: boolean
+          base_name?: string
+          created_at?: string
+          evidence?: string
+          id?: string
+          person_id?: string
+          run_id?: string
+          scope?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "person_name_variant_rules_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_name_variant_rules_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person_activation_status_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_name_variant_rules_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person_ai_action_queue_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_name_variant_rules_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person_ai_duplicate_candidates_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_name_variant_rules_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person_missing_content_review_view"
+            referencedColumns: ["person_id"]
+          },
+          {
+            foreignKeyName: "person_name_variant_rules_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_duplicate_clusters"
+            referencedColumns: ["person_a_id"]
+          },
+          {
+            foreignKeyName: "person_name_variant_rules_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_duplicate_clusters"
+            referencedColumns: ["person_b_id"]
+          },
+          {
+            foreignKeyName: "person_name_variant_rules_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_high_reject_ratio"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_name_variant_rules_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_pending_backlog"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_name_variant_rules_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_surname_only_candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_name_variant_rules_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_weak_public_pages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_name_variant_rules_run_id_fkey"
             columns: ["run_id"]
             isOneToOne: false
             referencedRelation: "person_identity_repair_runs"
@@ -15491,6 +15691,10 @@ export type Database = {
         Args: { p_id: string }
         Returns: string
       }
+      person_context_alias_in_text_v1: {
+        Args: { _episode: string; _person: string; _text: string }
+        Returns: boolean
+      }
       person_credit_name_in_text_v1:
         | { Args: { _folded: string; _name: string }; Returns: boolean }
         | {
@@ -15579,6 +15783,20 @@ export type Database = {
       person_judge_telemetry: { Args: { _patch: Json }; Returns: undefined }
       person_link_trusted_v1: {
         Args: { p_person_id: string; p_validation_source: string }
+        Returns: boolean
+      }
+      person_name_forms_hu_v1: {
+        Args: { _name: string }
+        Returns: {
+          form: string
+        }[]
+      }
+      person_name_in_text_hu_v1: {
+        Args: { _allow_single?: boolean; _name: string; _text: string }
+        Returns: boolean
+      }
+      person_name_variant_context_ok_v1: {
+        Args: { _episode: string; _person: string }
         Returns: boolean
       }
       person_openai_batch_candidates: {
@@ -15915,6 +16133,15 @@ export type Database = {
         }[]
       }
       resolve_org_redirect_v1: { Args: { _slug: string }; Returns: string }
+      resolve_person_name_variant_v1: {
+        Args: { _episode?: string; _name: string }
+        Returns: {
+          canonical_name: string
+          canonical_slug: string
+          match_scope: string
+          person_id: string
+        }[]
+      }
       resolve_query_entities: {
         Args: { p_max?: number; p_q: string; p_threshold?: number }
         Returns: {
