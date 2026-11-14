@@ -284,9 +284,14 @@ Deno.serve(async (req) => {
     // record is not re-sent to the paid model every run.
     let persistFailures = 0, superseded = 0;
     const persistEntities = async (ep: any, fields: Record<string, unknown>, result: "done" | "not_applicable", reason?: string) => {
-      const { data, error } = await admin.rpc("apply_episode_entities_v1", {
-        p_episode_id: ep.id, p_used_hash: ep.__clean_hash || null, p_fields: fields, p_result: result, p_reason: reason ?? null,
-      });
+      const args = { p_episode_id: ep.id, p_used_hash: ep.__clean_hash || null, p_fields: fields, p_result: result, p_reason: reason ?? null };
+      let { data, error } = await admin.rpc("apply_episode_entities_v1", args);
+      // A statement timeout here is row-lock contention with another writer on the same episode
+      // (the write is one transaction, so nothing was persisted): retry once before isolating it.
+      if (error && /statement timeout/i.test(String(error.message || ""))) {
+        await new Promise((r) => setTimeout(r, 2000));
+        ({ data, error } = await admin.rpc("apply_episode_entities_v1", args));
+      }
       if (error) {
         persistFailures++;
         await admin.from("pipeline_item_blocks").insert({ runner: "entity-backfill-runner", item_kind: "episode", item_id: ep.id, reason: `persist_failed:${error.message}`.slice(0, 300), stage: "apply", run_id: log.id });

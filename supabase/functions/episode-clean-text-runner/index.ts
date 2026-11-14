@@ -32,6 +32,10 @@ const cors = {
 };
 const json = (b: any, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
 const ID_CHUNK_SIZE = 150;
+// Database client errors are plain objects; String(obj) logged "[object Object]" and hid the cause.
+const errText = (e: unknown) => e instanceof Error ? e.message
+  : e && typeof e === "object" ? [((e as any).code), ((e as any).message), ((e as any).details), ((e as any).hint)].filter(Boolean).join(" | ") || JSON.stringify(e)
+  : String(e);
 
 function sha256Hex(s: string): Promise<string> {
   const enc = new TextEncoder().encode(s);
@@ -61,7 +65,7 @@ async function updateStatus(admin: any, ids: string[], status: string) {
   for (let i = 0; i < ids.length; i += ID_CHUNK_SIZE) {
     const slice = ids.slice(i, i + ID_CHUNK_SIZE);
     const { error } = await admin.from("episodes").update({ clean_text_status: status }).in("id", slice);
-    if (error) throw error;
+    if (error) throw new Error(`episodes_status_update(${status}): ${errText(error)}`);
   }
 }
 
@@ -146,7 +150,7 @@ Deno.serve(async (req) => {
             .from("episode_best_text_source")
             .select("episode_id,source_type,raw_text,evidence")
             .in("episode_id", slice);
-          if (bestErr && !String(bestErr.message || "").includes("episode_best_text_source")) throw bestErr;
+          if (bestErr && !String(bestErr.message || "").includes("episode_best_text_source")) throw new Error(`best_source_lookup: ${errText(bestErr)}`);
           for (const row of bestRows || []) {
             const rawText = String((row as any).raw_text || "").trim();
             if (rawText) bestByEp.set(String((row as any).episode_id), {
@@ -160,13 +164,13 @@ Deno.serve(async (req) => {
           .from("episode_clean_text")
           .select("episode_id,cleaned_text,source_hash")
           .in("episode_id", slice);
-        if (priorErr) throw priorErr;
+        if (priorErr) throw new Error(`prior_clean_text_lookup: ${errText(priorErr)}`);
         for (const row of priorRows || []) priorByEp.set(String((row as any).episode_id), { cleaned_text: String((row as any).cleaned_text || ""), source_hash: String((row as any).source_hash || "") });
         const { data: qRows, error: qErr } = await admin
           .from("episode_clean_text_quarantine")
           .select("episode_id,attempts,source_hash,first_seen_at")
           .in("episode_id", slice);
-        if (qErr) throw qErr;
+        if (qErr) throw new Error(`quarantine_lookup: ${errText(qErr)}`);
         for (const row of qRows || []) quarantineByEp.set(String((row as any).episode_id), { attempts: Number((row as any).attempts || 0), source_hash: (row as any).source_hash ?? null, first_seen_at: String((row as any).first_seen_at) });
       }
 
@@ -408,7 +412,7 @@ Deno.serve(async (req) => {
     return json({ ok: true, ...summary });
   } catch (e) {
     console.error("episode-clean-text-runner err", e);
-    await log?.finish("error", { runtime_ms: Date.now() - startedAt }, e instanceof Error ? e.message : String(e));
-    return json({ ok: false, error: e instanceof Error ? e.message : "Unknown" }, 500);
+    await log?.finish("error", { runtime_ms: Date.now() - startedAt }, errText(e));
+    return json({ ok: false, error: errText(e).slice(0, 300) }, 500);
   }
 });

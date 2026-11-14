@@ -17,6 +17,7 @@ import {
 const OPENAI = "https://api.openai.com/v1";
 const CONTROLS_KEY = "person_relevance_openai_batch_controls";
 const INGEST_PER_CALL = 400;
+const CLAIM_MAX_ROWS = 1000;
 const OPEN_STATUSES = ["claimed", "uploading", "submitted", "validating", "in_progress", "finalizing", "cancelling", "ingesting"];
 const UUID = /^[0-9a-f-]{36}$/i;
 const json = (body: unknown, status = 200) => Response.json(body, { status, headers: corsHeaders });
@@ -228,7 +229,9 @@ async function submitAction(db: any, controls: Controls, userId: string, body: a
   try {
     let prepared: Prepared[] = [];
     if (tier === "primary") {
-      prepared = (await rpc(db, "claim_person_openai_batch_pairs", { _job: jobId, _limit: requested, _role: role, _person_ids: null }) || []) as Prepared[];
+      // The API returns at most 1000 rows per call: claiming more leased pairs that were never
+      // returned (held 26h for nothing), so a claim never asks for more than one page.
+      prepared = (await rpc(db, "claim_person_openai_batch_pairs", { _job: jobId, _limit: Math.min(requested, CLAIM_MAX_ROWS), _role: role, _person_ids: null }) || []) as Prepared[];
     } else if (tier === "golden_eval") {
       const { data: g } = await db.from("person_relevance_goldens").select("person_id,episode_id").order("created_at").limit(requested);
       for (const row of g || []) {
