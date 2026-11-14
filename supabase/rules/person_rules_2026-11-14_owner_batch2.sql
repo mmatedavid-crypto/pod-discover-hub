@@ -66,3 +66,8 @@ FROM (VALUES
 JOIN public.podcasts p ON p.slug = v.slug
 ON CONFLICT (rule_key) DO UPDATE SET credit_pattern = EXCLUDED.credit_pattern, source_hash = EXCLUDED.source_hash
   WHERE person_episode_credit_rules.credit_pattern IS DISTINCT FROM EXCLUDED.credit_pattern;
+
+-- Owner correction 2026-11-14 23:05 UTC (applied live, logged in person_credit_policy_repairs): omission from the episode
+-- description or another named guest/speaker does not establish absence. All 6370 absence-based feed-credit closures were
+-- reopened (before-state restored); the 181 positive credits stay. No rule may close a pair as "not in this episode".
+UPDATE public.person_episode_credit_rules SET correct_feed_credits = false WHERE correct_feed_credits;

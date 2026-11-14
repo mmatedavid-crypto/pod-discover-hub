@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 // Admin-only view of the free rule lanes: sourced show-host rules (series-level roster role, never counted as an
-// appearance) and explicit episode-credit rules (named narrator/preacher/speaker; corrected RSS author credits).
+// appearance) and explicit episode-credit rules (named narrator/preacher/speaker). Owner rule: no lane ever closes a
+// pair as "absent" — omission or another named speaker is not proof.
 // Closed lane states are reported as closed, never as pending work.
 const fmt = (v: unknown) => Number(v || 0).toLocaleString("hu-HU");
 const ROLE_LABELS: Record<string, string> = {
@@ -19,6 +20,7 @@ export default function PersonRuleLanesPanel() {
   useEffect(() => { load(); }, []);
   if (!s) return <div className="text-sm text-muted-foreground">{msg || "Szabálysávok betöltése…"}</div>;
   const t = s.totals || {};
+  const credited = (s.credit_rules || []).reduce((a: number, r: any) => a + Number(r.credited || 0), 0);
 
   return (
     <section className="space-y-4">
@@ -28,12 +30,12 @@ export default function PersonRuleLanesPanel() {
       </div>
       <p className="text-sm text-muted-foreground">
         A műsorvezetői szabály a sorozat állandó műsorvezetőjét jelöli (örökölt szerep, nem igazolt megszólalás, nem számít a személyoldal szereplései közé).
-        Az epizódkredit-szabály csak a kiadói leírásban név szerint megnevezett szereplőt fogadja el; a pusztán RSS-szerzőmezőből keletkezett, mást megnevező epizódnál a jelöltet lezárja (javítás, nem bizonyított nemszereplés).
+        Az epizódkredit-szabály csak a kiadói leírásban név szerint megnevezett szereplőt fogadja el. Azt, hogy valaki nem szerepel, egyik szabály sem állítja: ha a leírás mást nevez meg, vagy nem említi, a pár nyitva marad (tulajdonosi döntés, 2026-11-14).
       </p>
       <div className="grid md:grid-cols-4 gap-3">
         {[
           ["Lezárt pár", t.closed], ["Nyitott pár", t.open],
-          ["Műsorvezetőként lezárva", t.resolved_show_host], ["RSS-szerzőkredit javítva", t.resolved_feed_credit_not_episode],
+          ["Műsorvezetőként lezárva", t.resolved_show_host], ["Epizódkredittel elfogadva", credited],
         ].map(([k, v]) => (
           <div key={String(k)} className="p-4 rounded-lg border border-border bg-card">
             <div className="text-[11px] uppercase tracking-wider text-muted-foreground">{k}</div>
@@ -66,7 +68,7 @@ export default function PersonRuleLanesPanel() {
       <div className="overflow-x-auto rounded-lg border border-border">
         <table className="min-w-full text-xs">
           <thead className="bg-secondary text-muted-foreground">
-            <tr>{["epizódkredit-szabály", "szerep", "forrásminta", "tulajdonos igazolta", "elfogadott szereplés", "javított RSS-kredit", "visszavonva"].map((h) => <th key={h} className="text-left p-2">{h}</th>)}</tr>
+            <tr>{["epizódkredit-szabály", "szerep", "forrásminta", "tulajdonos igazolta", "elfogadott szereplés", "visszavont lezárás"].map((h) => <th key={h} className="text-left p-2">{h}</th>)}</tr>
           </thead>
           <tbody>
             {(s.credit_rules || []).map((r: any) => (
@@ -76,7 +78,6 @@ export default function PersonRuleLanesPanel() {
                 <td className="p-2 max-w-md">{r.source_quote}</td>
                 <td className="p-2">{r.owner_confirmed ? "igen" : "kiadói leírás"}</td>
                 <td className="p-2 tabular-nums">{fmt(r.credited)}</td>
-                <td className="p-2 tabular-nums">{r.correct_feed_credits ? fmt(r.corrected) : "–"}</td>
                 <td className="p-2 tabular-nums">{fmt(r.undone)}</td>
               </tr>
             ))}

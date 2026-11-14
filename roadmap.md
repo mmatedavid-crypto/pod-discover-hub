@@ -172,3 +172,8 @@
 - [x] Owner-checked sources stored on 7térítő / Haza és haladás / Káoszkapitány / Meseposta / Vétó / TT Extra rules
 - [x] Verify the live show-host engine (rules, resolutions, match/apply, protect triggers, 3 claim guards) is intact and versioned in migrations
 - [x] Admin view: show resolved_show_host and resolved_feed_credit_not_episode as closed (not pending), with rule/source
+
+## Other session's live identity work (owner 2026-11-14 23:28: save and integrate)
+- [x] Version the live identity merge system, name-variant rules, credit-policy correction and changed lane functions (verbatim, idempotent)
+- [x] Follow the owner correction everywhere: no absence closures (rules file, tests, admin copy, notes)
+- [x] Admin overview of merges, kept-apart namesakes, name-form rules, repair runs; SQL checks for merge guards

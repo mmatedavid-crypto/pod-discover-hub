@@ -5,6 +5,7 @@ import { useNoindex } from "@/lib/useNoindex";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import PersonEvidenceReviewPanel from "@/components/admin/PersonEvidenceReviewPanel";
 import PersonRuleLanesPanel from "@/components/admin/PersonRuleLanesPanel";
+import PersonIdentityMergePanel from "@/components/admin/PersonIdentityMergePanel";
 
 type Sample = {
   person_id: string; episode_id: string; person_name: string; disambiguation_label: string | null;
@@ -91,6 +92,7 @@ export default function AdminPersonRelevanceBatchPage() {
 
         <PersonEvidenceReviewPanel />
         <PersonRuleLanesPanel />
+        <PersonIdentityMergePanel />
 
         {status && (
           <div className="grid md:grid-cols-3 gap-3">
