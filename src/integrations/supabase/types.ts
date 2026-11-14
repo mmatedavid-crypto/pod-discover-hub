@@ -6681,6 +6681,128 @@ export type Database = {
         }
         Relationships: []
       }
+      person_episode_credit_resolutions: {
+        Row: {
+          before_disposition: Json | null
+          before_mentions: Json
+          created_at: string
+          credit_quote: string | null
+          episode_id: string
+          id: number
+          outcome: string
+          person_id: string
+          rule_id: string
+          rule_version: string
+          undo_reason: string | null
+          undone_at: string | null
+        }
+        Insert: {
+          before_disposition?: Json | null
+          before_mentions?: Json
+          created_at?: string
+          credit_quote?: string | null
+          episode_id: string
+          id?: number
+          outcome: string
+          person_id: string
+          rule_id: string
+          rule_version: string
+          undo_reason?: string | null
+          undone_at?: string | null
+        }
+        Update: {
+          before_disposition?: Json | null
+          before_mentions?: Json
+          created_at?: string
+          credit_quote?: string | null
+          episode_id?: string
+          id?: number
+          outcome?: string
+          person_id?: string
+          rule_id?: string
+          rule_version?: string
+          undo_reason?: string | null
+          undone_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "person_episode_credit_resolutions_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "person_episode_credit_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      person_episode_credit_rules: {
+        Row: {
+          active: boolean
+          anchor_person_ids: string[]
+          correct_feed_credits: boolean
+          created_at: string
+          credit_pattern: string
+          credit_role: string
+          feed_credit_person_ids: string[]
+          id: string
+          match_action: string
+          notes: string | null
+          owner_confirmed: boolean
+          podcast_id: string
+          provenance: string
+          rule_key: string
+          source_hash: string
+          source_quote: string
+          source_url: string
+          title_pattern: string | null
+          verified_at: string
+          version: string
+        }
+        Insert: {
+          active?: boolean
+          anchor_person_ids?: string[]
+          correct_feed_credits?: boolean
+          created_at?: string
+          credit_pattern: string
+          credit_role: string
+          feed_credit_person_ids?: string[]
+          id?: string
+          match_action?: string
+          notes?: string | null
+          owner_confirmed?: boolean
+          podcast_id: string
+          provenance: string
+          rule_key: string
+          source_hash: string
+          source_quote: string
+          source_url: string
+          title_pattern?: string | null
+          verified_at?: string
+          version?: string
+        }
+        Update: {
+          active?: boolean
+          anchor_person_ids?: string[]
+          correct_feed_credits?: boolean
+          created_at?: string
+          credit_pattern?: string
+          credit_role?: string
+          feed_credit_person_ids?: string[]
+          id?: string
+          match_action?: string
+          notes?: string | null
+          owner_confirmed?: boolean
+          podcast_id?: string
+          provenance?: string
+          rule_key?: string
+          source_hash?: string
+          source_quote?: string
+          source_url?: string
+          title_pattern?: string | null
+          verified_at?: string
+          version?: string
+        }
+        Relationships: []
+      }
       person_episode_mentions: {
         Row: {
           ai_evidence_phrases: string[]
@@ -8012,6 +8134,467 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_youtube_native_transcript_candidates"
             referencedColumns: ["podcast_id"]
+          },
+        ]
+      }
+      person_identity_merge_rules: {
+        Row: {
+          active: boolean
+          canonical_person_id: string
+          created_at: string
+          evidence: string
+          run_id: string
+          source_person_id: string
+          version: string
+        }
+        Insert: {
+          active?: boolean
+          canonical_person_id: string
+          created_at?: string
+          evidence: string
+          run_id: string
+          source_person_id: string
+          version?: string
+        }
+        Update: {
+          active?: boolean
+          canonical_person_id?: string
+          created_at?: string
+          evidence?: string
+          run_id?: string
+          source_person_id?: string
+          version?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "person_identity_merge_rules_canonical_person_id_fkey"
+            columns: ["canonical_person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_identity_merge_rules_canonical_person_id_fkey"
+            columns: ["canonical_person_id"]
+            isOneToOne: false
+            referencedRelation: "person_activation_status_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_identity_merge_rules_canonical_person_id_fkey"
+            columns: ["canonical_person_id"]
+            isOneToOne: false
+            referencedRelation: "person_ai_action_queue_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_identity_merge_rules_canonical_person_id_fkey"
+            columns: ["canonical_person_id"]
+            isOneToOne: false
+            referencedRelation: "person_ai_duplicate_candidates_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_identity_merge_rules_canonical_person_id_fkey"
+            columns: ["canonical_person_id"]
+            isOneToOne: false
+            referencedRelation: "person_missing_content_review_view"
+            referencedColumns: ["person_id"]
+          },
+          {
+            foreignKeyName: "person_identity_merge_rules_canonical_person_id_fkey"
+            columns: ["canonical_person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_duplicate_clusters"
+            referencedColumns: ["person_a_id"]
+          },
+          {
+            foreignKeyName: "person_identity_merge_rules_canonical_person_id_fkey"
+            columns: ["canonical_person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_duplicate_clusters"
+            referencedColumns: ["person_b_id"]
+          },
+          {
+            foreignKeyName: "person_identity_merge_rules_canonical_person_id_fkey"
+            columns: ["canonical_person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_high_reject_ratio"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_identity_merge_rules_canonical_person_id_fkey"
+            columns: ["canonical_person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_pending_backlog"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_identity_merge_rules_canonical_person_id_fkey"
+            columns: ["canonical_person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_surname_only_candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_identity_merge_rules_canonical_person_id_fkey"
+            columns: ["canonical_person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_weak_public_pages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_identity_merge_rules_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "person_identity_repair_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_identity_merge_rules_source_person_id_fkey"
+            columns: ["source_person_id"]
+            isOneToOne: true
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_identity_merge_rules_source_person_id_fkey"
+            columns: ["source_person_id"]
+            isOneToOne: true
+            referencedRelation: "person_activation_status_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_identity_merge_rules_source_person_id_fkey"
+            columns: ["source_person_id"]
+            isOneToOne: true
+            referencedRelation: "person_ai_action_queue_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_identity_merge_rules_source_person_id_fkey"
+            columns: ["source_person_id"]
+            isOneToOne: true
+            referencedRelation: "person_ai_duplicate_candidates_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_identity_merge_rules_source_person_id_fkey"
+            columns: ["source_person_id"]
+            isOneToOne: true
+            referencedRelation: "person_missing_content_review_view"
+            referencedColumns: ["person_id"]
+          },
+          {
+            foreignKeyName: "person_identity_merge_rules_source_person_id_fkey"
+            columns: ["source_person_id"]
+            isOneToOne: true
+            referencedRelation: "v_person_diag_duplicate_clusters"
+            referencedColumns: ["person_a_id"]
+          },
+          {
+            foreignKeyName: "person_identity_merge_rules_source_person_id_fkey"
+            columns: ["source_person_id"]
+            isOneToOne: true
+            referencedRelation: "v_person_diag_duplicate_clusters"
+            referencedColumns: ["person_b_id"]
+          },
+          {
+            foreignKeyName: "person_identity_merge_rules_source_person_id_fkey"
+            columns: ["source_person_id"]
+            isOneToOne: true
+            referencedRelation: "v_person_diag_high_reject_ratio"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_identity_merge_rules_source_person_id_fkey"
+            columns: ["source_person_id"]
+            isOneToOne: true
+            referencedRelation: "v_person_diag_pending_backlog"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_identity_merge_rules_source_person_id_fkey"
+            columns: ["source_person_id"]
+            isOneToOne: true
+            referencedRelation: "v_person_diag_surname_only_candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_identity_merge_rules_source_person_id_fkey"
+            columns: ["source_person_id"]
+            isOneToOne: true
+            referencedRelation: "v_person_diag_weak_public_pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      person_identity_repair_backup: {
+        Row: {
+          id: number
+          row_data: Json
+          run_id: string
+          table_name: string
+        }
+        Insert: {
+          id?: never
+          row_data: Json
+          run_id: string
+          table_name: string
+        }
+        Update: {
+          id?: never
+          row_data?: Json
+          run_id?: string
+          table_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "person_identity_repair_backup_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "person_identity_repair_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      person_identity_repair_events: {
+        Row: {
+          canonical_person_id: string | null
+          created_at: string
+          id: number
+          incoming: Json | null
+          kind: string
+          retained: Json | null
+          source_person_id: string | null
+          table_name: string | null
+        }
+        Insert: {
+          canonical_person_id?: string | null
+          created_at?: string
+          id?: never
+          incoming?: Json | null
+          kind: string
+          retained?: Json | null
+          source_person_id?: string | null
+          table_name?: string | null
+        }
+        Update: {
+          canonical_person_id?: string | null
+          created_at?: string
+          id?: never
+          incoming?: Json | null
+          kind?: string
+          retained?: Json | null
+          source_person_id?: string | null
+          table_name?: string | null
+        }
+        Relationships: []
+      }
+      person_identity_repair_runs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          id: string
+          summary: Json
+          version: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          summary?: Json
+          version: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          summary?: Json
+          version?: string
+        }
+        Relationships: []
+      }
+      person_identity_separation_rules: {
+        Row: {
+          other_person_id: string
+          person_id: string
+          reason: string
+          run_id: string
+        }
+        Insert: {
+          other_person_id: string
+          person_id: string
+          reason: string
+          run_id: string
+        }
+        Update: {
+          other_person_id?: string
+          person_id?: string
+          reason?: string
+          run_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "person_identity_separation_rules_other_person_id_fkey"
+            columns: ["other_person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_identity_separation_rules_other_person_id_fkey"
+            columns: ["other_person_id"]
+            isOneToOne: false
+            referencedRelation: "person_activation_status_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_identity_separation_rules_other_person_id_fkey"
+            columns: ["other_person_id"]
+            isOneToOne: false
+            referencedRelation: "person_ai_action_queue_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_identity_separation_rules_other_person_id_fkey"
+            columns: ["other_person_id"]
+            isOneToOne: false
+            referencedRelation: "person_ai_duplicate_candidates_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_identity_separation_rules_other_person_id_fkey"
+            columns: ["other_person_id"]
+            isOneToOne: false
+            referencedRelation: "person_missing_content_review_view"
+            referencedColumns: ["person_id"]
+          },
+          {
+            foreignKeyName: "person_identity_separation_rules_other_person_id_fkey"
+            columns: ["other_person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_duplicate_clusters"
+            referencedColumns: ["person_a_id"]
+          },
+          {
+            foreignKeyName: "person_identity_separation_rules_other_person_id_fkey"
+            columns: ["other_person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_duplicate_clusters"
+            referencedColumns: ["person_b_id"]
+          },
+          {
+            foreignKeyName: "person_identity_separation_rules_other_person_id_fkey"
+            columns: ["other_person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_high_reject_ratio"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_identity_separation_rules_other_person_id_fkey"
+            columns: ["other_person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_pending_backlog"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_identity_separation_rules_other_person_id_fkey"
+            columns: ["other_person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_surname_only_candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_identity_separation_rules_other_person_id_fkey"
+            columns: ["other_person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_weak_public_pages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_identity_separation_rules_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_identity_separation_rules_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person_activation_status_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_identity_separation_rules_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person_ai_action_queue_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_identity_separation_rules_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person_ai_duplicate_candidates_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_identity_separation_rules_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person_missing_content_review_view"
+            referencedColumns: ["person_id"]
+          },
+          {
+            foreignKeyName: "person_identity_separation_rules_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_duplicate_clusters"
+            referencedColumns: ["person_a_id"]
+          },
+          {
+            foreignKeyName: "person_identity_separation_rules_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_duplicate_clusters"
+            referencedColumns: ["person_b_id"]
+          },
+          {
+            foreignKeyName: "person_identity_separation_rules_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_high_reject_ratio"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_identity_separation_rules_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_pending_backlog"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_identity_separation_rules_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_surname_only_candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_identity_separation_rules_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_weak_public_pages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_identity_separation_rules_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "person_identity_repair_runs"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -13749,6 +14332,10 @@ export type Database = {
         Args: { _dry_run?: boolean; _limit?: number; _run_id?: string }
         Returns: Json
       }
+      apply_person_episode_credit_rules_v1: {
+        Args: { _limit?: number }
+        Returns: Json
+      }
       apply_person_host_rules_v1: { Args: { _limit?: number }; Returns: Json }
       apply_person_judge_pair: {
         Args: { _episode: string; _person: string; _token: string }
@@ -14382,6 +14969,7 @@ export type Database = {
         }[]
       }
       get_person_review_status_v1: { Args: never; Returns: Json }
+      get_person_rule_lanes_status_v1: { Args: never; Returns: Json }
       get_personalized_mood_cards: {
         Args: { p_dow?: number; p_hour?: number; p_viewport?: string }
         Returns: {
@@ -14898,6 +15486,33 @@ export type Database = {
           count: number
           letter: string
         }[]
+      }
+      person_canonical_identity_id_v1: {
+        Args: { p_id: string }
+        Returns: string
+      }
+      person_credit_name_in_text_v1:
+        | { Args: { _folded: string; _name: string }; Returns: boolean }
+        | {
+            Args: { _any_suffix: boolean; _folded: string; _name: string }
+            Returns: boolean
+          }
+      person_episode_credit_capture_v1: {
+        Args: {
+          _description: string
+          _pattern: string
+          _title: string
+          _title_pattern: string
+        }
+        Returns: string
+      }
+      person_episode_credit_decide_v1: {
+        Args: { _episode: string; _person: string }
+        Returns: Json
+      }
+      person_episode_credit_pair_ok_v1: {
+        Args: { _episode: string; _outcome: string; _person: string }
+        Returns: boolean
       }
       person_episodes: {
         Args: { _limit?: number; _person_id: string }
@@ -15862,6 +16477,10 @@ export type Database = {
       transcript_source_class_v1: { Args: { p_model: string }; Returns: string }
       unaccent: { Args: { "": string }; Returns: string }
       undo_organization_merge_v1: { Args: { _log_id: string }; Returns: Json }
+      undo_person_episode_credit_pairs_v1: {
+        Args: { _episode_ids: string[]; _reason: string; _rule_id: string }
+        Returns: Json
+      }
       undo_person_host_rule_pairs_v1: {
         Args: { _episode_ids: string[]; _reason: string; _rule_id: string }
         Returns: Json

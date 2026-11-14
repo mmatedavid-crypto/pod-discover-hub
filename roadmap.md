@@ -166,3 +166,9 @@
 - [x] Reversible undo for show-host resolutions (audited)
 - [x] Status sorter and role-label lane never reopen resolved_show_host pairs
 - [x] Live backfill by episode count; daily reconcile; SQL tests (idempotent, Bochkor TV/radio, Ráskó pre-2024, homonym other show, collection channel, manual contradiction, new episode auto, no double count)
+
+## Owner batch 2 + status update (2026-11-14 22:24 / 22:44)
+- [x] Episode-credit rules live (Esti mese narrator, Petra mese performer, Meseóra guest/host lines, Igeidő preacher, TT Extra 🗣️ list) + feed-credit correction, audit, undo, tests
+- [x] Owner-checked sources stored on 7térítő / Haza és haladás / Káoszkapitány / Meseposta / Vétó / TT Extra rules
+- [ ] Verify the live show-host engine (rules, resolutions, match/apply, protect triggers, 3 claim guards) is intact and versioned in migrations
+- [ ] Admin view: show resolved_show_host and resolved_feed_credit_not_episode as closed (not pending), with rule/source

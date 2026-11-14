@@ -76,3 +76,76 @@ BEGIN
 
   RAISE EXCEPTION 'ALL_PASS show-host rule checks (rolled back)';
 END $t$;
+
+-- Episode-credit lane checks (owner batch 2). Expected result: ERROR "ALL_PASS episode-credit ..." (rolled back).
+DO $t$
+DECLARE
+  csukas uuid := 'd83a4945-e0a0-49a9-9e80-92a48e7a8cfd'; ref uuid := 'e6b8755f-2a2e-433a-9d19-eb6f2b49d51c'; tt uuid := '943c24c9-993a-4bf1-b6d2-bd2ac7233a81';
+  banner uuid := '579c2893-18b4-4eb1-92d0-30275ed754b0'; morvai uuid := '9cf35360-0c62-4bca-92a7-2710dfabd834';
+  gevai uuid := (SELECT id FROM people WHERE name = 'Gévai Csilla' ORDER BY id LIMIT 1);
+  bakos uuid := '04559bd4-4770-4faf-b030-95ce24de63b4'; edes uuid := '0a81c75a-76a7-4c27-b60b-ff9b2c0379af';
+  haraszti uuid := '277b8fed-8886-4dbf-8c26-1c92fda9f5e4'; baumstark uuid := 'b103fec6-c560-4378-943d-dbc90f1e0dd9';
+  e uuid; st text; st2 text; ds text; n int; res jsonb; rid uuid;
+BEGIN
+  -- 1) Idempotent.
+  PERFORM public.apply_person_episode_credit_rules_v1(10000);
+  res := public.apply_person_episode_credit_rules_v1(10000);
+  ASSERT (res->>'resolved_pairs')::int = 0, 'C1 not idempotent: ' || res::text;
+
+  -- 2) Esti mese: the Mesélő is credited, another host-field RSS credit is corrected.
+  INSERT INTO episodes (podcast_id, title, description, slug, published_at) VALUES (csukas, 'Esti mese: Teszt (Csukás István)',
+    'Mesélő: Banner Géza. A történetmesélés semmihez sem hasonlítható élményét hozza el', 'test-ec-' || gen_random_uuid(), now()) RETURNING id INTO e;
+  INSERT INTO person_episode_mentions (person_id, episode_id, podcast_id, mention_type, relevance_status, source) VALUES (banner, e, csukas, 'host', 'pending', 'rss_author') RETURNING relevance_status INTO st;
+  INSERT INTO person_episode_mentions (person_id, episode_id, podcast_id, mention_type, relevance_status, source) VALUES (morvai, e, csukas, 'host', 'pending', 'rss_author') RETURNING relevance_status INTO st2;
+  ASSERT st = 'accepted' AND st2 = 'resolved_feed_credit_not_episode', 'C2 Esti mese: ' || st || '/' || st2;
+  SELECT disposition INTO ds FROM person_pair_dispositions WHERE person_id = morvai AND episode_id = e;
+  ASSERT ds = 'resolved_feed_credit_not_episode', 'C2 disposition ' || COALESCE(ds, '∅');
+  -- 6) AI ingest cannot reopen; 7) a manual decision can.
+  UPDATE person_episode_mentions SET relevance_status = 'needs_review', validation_source = 'person_openai_batch_v1' WHERE person_id = morvai AND episode_id = e RETURNING relevance_status INTO st;
+  ASSERT st = 'resolved_feed_credit_not_episode', 'C6 AI ingest reopened a corrected feed credit';
+  UPDATE person_episode_mentions SET relevance_status = 'accepted', validation_source = 'manual' WHERE person_id = morvai AND episode_id = e RETURNING relevance_status INTO st;
+  ASSERT st = 'accepted', 'C7 manual decision blocked';
+  -- 5) A link that did not come only from the RSS author field is never corrected.
+  INSERT INTO episodes (podcast_id, title, description, slug, published_at) VALUES (csukas, 'Esti mese: Teszt 2',
+    'Mesélő: Banner Géza. A történetmesélés semmihez sem', 'test-ec-' || gen_random_uuid(), now()) RETURNING id INTO e;
+  INSERT INTO person_episode_mentions (person_id, episode_id, podcast_id, mention_type, relevance_status, source) VALUES (morvai, e, csukas, 'mentioned', 'pending', 'episode_people_array') RETURNING relevance_status INTO st;
+  ASSERT st = 'pending', 'C5 non-RSS link corrected';
+
+  -- 3) The tale author (Szerző) is never credited as performer.
+  IF gevai IS NOT NULL THEN
+    INSERT INTO episodes (podcast_id, title, description, slug, published_at) VALUES (csukas, 'Petra mese: Teszt',
+      'Előadó: Gubik Petra. Szerző: Gévai Csilla.', 'test-ec-' || gen_random_uuid(), now()) RETURNING id INTO e;
+    INSERT INTO person_episode_mentions (person_id, episode_id, podcast_id, mention_type, relevance_status, source) VALUES (gevai, e, csukas, 'mentioned', 'pending', 'ai_summary') RETURNING relevance_status INTO st;
+    ASSERT st = 'pending', 'C3 author credited as performer';
+  END IF;
+
+  -- 4) Igeidő: the named preacher is credited (accusative form); other host-field names are corrected unless the text names them.
+  INSERT INTO episodes (podcast_id, title, description, slug, published_at) VALUES (ref, 'Igeidő 2099.01.01.',
+    'Ez az Igeidő. A mai bibliai igeszakaszról Bakos Istvánt a Teszt Református Egyházközség lelkipásztorát hallják.', 'test-ec-' || gen_random_uuid(), now()) RETURNING id INTO e;
+  INSERT INTO person_episode_mentions (person_id, episode_id, podcast_id, mention_type, relevance_status, source) VALUES (bakos, e, ref, 'host', 'pending', 'rss_author') RETURNING relevance_status INTO st;
+  INSERT INTO person_episode_mentions (person_id, episode_id, podcast_id, mention_type, relevance_status, source) VALUES (edes, e, ref, 'host', 'pending', 'rss_author') RETURNING relevance_status INTO st2;
+  ASSERT st = 'accepted' AND st2 = 'resolved_feed_credit_not_episode', 'C4 Igeidő: ' || st || '/' || st2;
+  INSERT INTO episodes (podcast_id, title, description, slug, published_at) VALUES (ref, 'Igeidő 2099.01.02.',
+    'A mai bibliai igeszakaszról Bakos Istvánt a Teszt Egyházközség lelkipásztorát hallják. Köszönet Édes Árpádnak.', 'test-ec-' || gen_random_uuid(), now()) RETURNING id INTO e;
+  INSERT INTO person_episode_mentions (person_id, episode_id, podcast_id, mention_type, relevance_status, source) VALUES (edes, e, ref, 'host', 'pending', 'rss_author') RETURNING relevance_status INTO st;
+  ASSERT st = 'pending', 'C4 named person corrected away';
+
+  -- 9) TT Extra: 🗣️ list gives the episode appearance; an unlisted roster host stays roster-only.
+  INSERT INTO episodes (podcast_id, title, description, slug, published_at) VALUES (tt, 'Teszt különkiadás',
+    'Téma. 🗣️ Haraszti Ádám 🗣️ Brodarics Tamás: https://scorets.hu/stab/ 📘 https://www.facebook.com/x', 'test-ec-' || gen_random_uuid(), now()) RETURNING id INTO e;
+  INSERT INTO person_episode_mentions (person_id, episode_id, podcast_id, mention_type, relevance_status, source) VALUES (haraszti, e, tt, 'host', 'pending', 'rss_author') RETURNING relevance_status INTO st;
+  INSERT INTO person_episode_mentions (person_id, episode_id, podcast_id, mention_type, relevance_status, source) VALUES (baumstark, e, tt, 'host', 'pending', 'rss_author') RETURNING relevance_status INTO st2;
+  ASSERT st = 'accepted' AND st2 = 'resolved_show_host', 'C9 TT Extra: ' || st || '/' || st2;
+
+  -- 8) Corrected feed credits never reach public person pages.
+  SELECT count(*) INTO n FROM person_public_episode_links_v1 WHERE relevance_status = 'resolved_feed_credit_not_episode';
+  ASSERT n = 0, 'C8 corrected feed credit is public';
+
+  -- 10) Undo restores the before-state.
+  SELECT rule_id INTO rid FROM person_episode_credit_resolutions WHERE person_id = bakos AND episode_id = (SELECT id FROM episodes WHERE title = 'Igeidő 2099.01.01.' AND podcast_id = ref);
+  res := public.undo_person_episode_credit_pairs_v1(rid, ARRAY(SELECT id FROM episodes WHERE title = 'Igeidő 2099.01.01.' AND podcast_id = ref), 'test');
+  SELECT relevance_status INTO st FROM person_episode_mentions WHERE person_id = edes AND episode_id = (SELECT id FROM episodes WHERE title = 'Igeidő 2099.01.01.' AND podcast_id = ref);
+  ASSERT (res->>'undone')::int = 2 AND st = 'pending', 'C10 undo: ' || res::text || ' ' || st;
+
+  RAISE EXCEPTION 'ALL_PASS episode-credit checks (rolled back)';
+END $t$;
