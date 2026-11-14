@@ -1086,6 +1086,41 @@
       "when": 1794677148240,
       "tag": "0154_lock_ai_call_audit_compact",
       "breakpoints": true
+    },
+    {
+      "idx": 155,
+      "version": "7",
+      "when": 1794692774323,
+      "tag": "0155_person_pipeline_v5_role_label_lane",
+      "breakpoints": true
+    },
+    {
+      "idx": 156,
+      "version": "7",
+      "when": 1794692976501,
+      "tag": "0156_person_pipeline_v5_tables_and_helpers",
+      "breakpoints": true
+    },
+    {
+      "idx": 157,
+      "version": "7",
+      "when": 1794693084690,
+      "tag": "0157_person_pipeline_v5_role_label_lane",
+      "breakpoints": true
+    },
+    {
+      "idx": 158,
+      "version": "7",
+      "when": 1794693556080,
+      "tag": "0158_person_role_label_anchor_v2",
+      "breakpoints": true
+    },
+    {
+      "idx": 159,
+      "version": "7",
+      "when": 1794693603466,
+      "tag": "0159_person_role_label_apply_descriptor",
+      "breakpoints": true
     }
   ]
 }

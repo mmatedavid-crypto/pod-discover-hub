@@ -3042,6 +3042,87 @@ export type Database = {
           },
         ]
       }
+      episode_public_page_evidence: {
+        Row: {
+          attempts: number
+          content_hash: string | null
+          created_at: string
+          episode_id: string
+          error: string | null
+          fetched_at: string
+          http_status: number | null
+          page_description: string | null
+          page_title: string | null
+          status: string
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          attempts?: number
+          content_hash?: string | null
+          created_at?: string
+          episode_id: string
+          error?: string | null
+          fetched_at?: string
+          http_status?: number | null
+          page_description?: string | null
+          page_title?: string | null
+          status: string
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          attempts?: number
+          content_hash?: string | null
+          created_at?: string
+          episode_id?: string
+          error?: string | null
+          fetched_at?: string
+          http_status?: number | null
+          page_description?: string | null
+          page_title?: string | null
+          status?: string
+          updated_at?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "episode_public_page_evidence_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: true
+            referencedRelation: "episodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "episode_public_page_evidence_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: true
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "episode_public_page_evidence_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: true
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "episode_public_page_evidence_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: true
+            referencedRelation: "v_episode_data_quality_issues"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "episode_public_page_evidence_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: true
+            referencedRelation: "v_episode_quality_indicator_audit"
+            referencedColumns: ["episode_id"]
+          },
+        ]
+      }
       episode_source_change_queue: {
         Row: {
           attempts: number
@@ -7538,6 +7619,54 @@ export type Database = {
         }
         Relationships: []
       }
+      person_pair_lane_audit: {
+        Row: {
+          action: string
+          after_state: Json | null
+          before_state: Json | null
+          created_at: string
+          episode_id: string
+          evidence: Json
+          id: number
+          lane: string
+          mention_id: string | null
+          person_id: string
+          rule_version: string
+          undone_at: string | null
+          undone_by: string | null
+        }
+        Insert: {
+          action: string
+          after_state?: Json | null
+          before_state?: Json | null
+          created_at?: string
+          episode_id: string
+          evidence?: Json
+          id?: number
+          lane: string
+          mention_id?: string | null
+          person_id: string
+          rule_version: string
+          undone_at?: string | null
+          undone_by?: string | null
+        }
+        Update: {
+          action?: string
+          after_state?: Json | null
+          before_state?: Json | null
+          created_at?: string
+          episode_id?: string
+          evidence?: Json
+          id?: number
+          lane?: string
+          mention_id?: string | null
+          person_id?: string
+          rule_version?: string
+          undone_at?: string | null
+          undone_by?: string | null
+        }
+        Relationships: []
+      }
       person_podcast_map: {
         Row: {
           confidence: number
@@ -8107,6 +8236,215 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      person_role_label_results: {
+        Row: {
+          checked_at: string
+          detail: Json
+          episode_id: string
+          outcome: string
+          person_id: string
+          rule_version: string
+          source_hash: string
+        }
+        Insert: {
+          checked_at?: string
+          detail?: Json
+          episode_id: string
+          outcome: string
+          person_id: string
+          rule_version: string
+          source_hash: string
+        }
+        Update: {
+          checked_at?: string
+          detail?: Json
+          episode_id?: string
+          outcome?: string
+          person_id?: string
+          rule_version?: string
+          source_hash?: string
+        }
+        Relationships: []
+      }
+      person_show_credits: {
+        Row: {
+          created_at: string
+          credit_kind: string
+          episode_pairs: number
+          episode_text_pairs: number
+          person_id: string
+          podcast_id: string
+          rule_version: string
+          show_confirmed: boolean
+          show_quote: string | null
+          source_field: string
+          source_hash: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          credit_kind: string
+          episode_pairs?: number
+          episode_text_pairs?: number
+          person_id: string
+          podcast_id: string
+          rule_version: string
+          show_confirmed?: boolean
+          show_quote?: string | null
+          source_field: string
+          source_hash: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          credit_kind?: string
+          episode_pairs?: number
+          episode_text_pairs?: number
+          person_id?: string
+          podcast_id?: string
+          rule_version?: string
+          show_confirmed?: boolean
+          show_quote?: string | null
+          source_field?: string
+          source_hash?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "person_show_credits_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_show_credits_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person_activation_status_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_show_credits_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person_ai_action_queue_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_show_credits_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person_ai_duplicate_candidates_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_show_credits_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person_missing_content_review_view"
+            referencedColumns: ["person_id"]
+          },
+          {
+            foreignKeyName: "person_show_credits_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_duplicate_clusters"
+            referencedColumns: ["person_a_id"]
+          },
+          {
+            foreignKeyName: "person_show_credits_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_duplicate_clusters"
+            referencedColumns: ["person_b_id"]
+          },
+          {
+            foreignKeyName: "person_show_credits_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_high_reject_ratio"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_show_credits_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_pending_backlog"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_show_credits_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_surname_only_candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_show_credits_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_diag_weak_public_pages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_show_credits_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "person_show_credits_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "person_show_credits_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "podcasts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_show_credits_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "v_hu_archive_completeness"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "person_show_credits_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "v_youtube_native_transcript_candidates"
+            referencedColumns: ["podcast_id"]
+          },
+        ]
+      }
+      person_source_lane_leases: {
+        Row: {
+          lane: string
+          lease_until: string | null
+          token: string | null
+          updated_at: string
+        }
+        Insert: {
+          lane: string
+          lease_until?: string | null
+          token?: string | null
+          updated_at?: string
+        }
+        Update: {
+          lane?: string
+          lease_until?: string | null
+          token?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       pi_dump_imports: {
         Row: {
@@ -12703,6 +13041,10 @@ export type Database = {
         Args: { p_error?: string; p_items: Json; p_lease_token: string }
         Returns: Json
       }
+      acquire_person_source_lane_v1: {
+        Args: { _lane: string; _seconds: number }
+        Returns: string
+      }
       add_ai_spend: {
         Args: {
           p_amount: number
@@ -12798,6 +13140,7 @@ export type Database = {
         Args: { _item: string }
         Returns: Json
       }
+      apply_person_role_label_v1: { Args: { _items: Json }; Returns: Json }
       apply_topic_cluster_staging: { Args: never; Returns: Json }
       apply_wiki_safe_match_v1: {
         Args: {
@@ -14011,6 +14354,17 @@ export type Database = {
           published_at: string
         }[]
       }
+      person_page_fetch_targets_v1: {
+        Args: { _limit: number; _skip_domains: string[] }
+        Returns: {
+          episode_id: string
+          pairs: number
+          podcast_description: string
+          rss_description: string
+          title: string
+          url: string
+        }[]
+      }
       person_page_has_search_traffic_v1: {
         Args: { p_slug: string }
         Returns: boolean
@@ -14024,6 +14378,29 @@ export type Database = {
         Returns: boolean
       }
       person_review_tick_active: { Args: never; Returns: boolean }
+      person_role_label_anchor_v1: {
+        Args: { _person: string; _podcast: string; _quote: string }
+        Returns: Json
+      }
+      person_role_label_block_v1: {
+        Args: { _episode: string; _person: string }
+        Returns: string
+      }
+      person_role_label_candidates_v1: {
+        Args: { _after_episode: string; _after_person: string; _limit: number }
+        Returns: Json
+      }
+      person_role_label_source_hash_v1: {
+        Args: {
+          _aliases: string[]
+          _description: string
+          _name: string
+          _page: string
+          _title: string
+        }
+        Returns: string
+      }
+      person_text_fold_v1: { Args: { _t: string }; Returns: string }
       pipeline_catchup_caller_allowed_v1: { Args: never; Returns: boolean }
       pipeline_catchup_plan_v1: { Args: never; Returns: Json }
       pipeline_catchup_restore_group_v1: {
@@ -14192,6 +14569,14 @@ export type Database = {
         Args: { p_episode_id: string; p_kind: string; p_source?: string }
         Returns: undefined
       }
+      record_episode_page_evidence_v1: {
+        Args: { _rows: Json }
+        Returns: number
+      }
+      record_person_role_label_results_v1: {
+        Args: { _rows: Json }
+        Returns: number
+      }
       refresh_episode_topic_label_stats: {
         Args: { p_min_count?: number }
         Returns: number
@@ -14212,6 +14597,7 @@ export type Database = {
         Args: never
         Returns: Json
       }
+      refresh_person_show_credits_v1: { Args: never; Returns: Json }
       refresh_podcast_publishers_v1: { Args: never; Returns: Json }
       refresh_reddit_name_index: { Args: never; Returns: undefined }
       refresh_search_golden_queries_from_catalog: {
@@ -14238,6 +14624,14 @@ export type Database = {
       release_person_openai_batch_job: {
         Args: { _job: string }
         Returns: number
+      }
+      release_person_source_lane_v1: {
+        Args: { _lane: string; _token: string }
+        Returns: undefined
+      }
+      release_stale_person_mention_claims_v1: {
+        Args: { _dry_run?: boolean }
+        Returns: Json
       }
       requeue_legacy_clean_text_v4_backfill: {
         Args: { _limit?: number; _tiers?: string[] }
@@ -14841,6 +15235,10 @@ export type Database = {
       transcript_source_class_v1: { Args: { p_model: string }; Returns: string }
       unaccent: { Args: { "": string }; Returns: string }
       undo_organization_merge_v1: { Args: { _log_id: string }; Returns: Json }
+      undo_person_role_label_v1: {
+        Args: { _all?: boolean; _audit_ids: number[]; _by?: string }
+        Returns: Json
+      }
       update_page_event_dwell: {
         Args: { _dwell_ms: number; _id: string }
         Returns: undefined
