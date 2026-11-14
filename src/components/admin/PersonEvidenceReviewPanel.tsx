@@ -14,6 +14,8 @@ const PAIR_LABELS: Record<string, string> = {
   technical_retry: "Technikai újrapróba",
   human_identity_review: "Valódi kézi eset: névrokon / kétértelmű személy",
   human_contradiction_review: "Valódi kézi eset: ellentmondás",
+  resolved_show_host: "Lezárva: a műsor igazolt műsorvezetője (örökölt szerep, nem megszólalás)",
+  resolved_feed_credit_not_episode: "Lezárva: RSS-szerzőkredit, az epizód mást nevez meg",
   other: "Egyéb",
 };
 const REASON_LABELS: Record<string, string> = {
@@ -26,6 +28,9 @@ const REASON_LABELS: Record<string, string> = {
   last_request_failed: "az utolsó kérés technikai hibával zárult",
   ai_opinions_conflict: "a két AI-vélemény ellentmond",
   manual_review_conflict: "korábbi kézi döntéssel ütközik",
+  verified_show_host_rule: "forrásolt műsorvezetői szabály",
+  explicit_other_credit: "a kiadói epizódleírás más szereplőt nevez meg",
+  explicit_episode_credit: "a kiadói epizódleírás név szerint megnevezi",
 };
 const ROLE_BUTTONS: [string, string][] = [
   ["guest", "Vendég"], ["host", "Műsorvezető"], ["co_host", "Társműsorvezető"], ["subject", "Róla szól"], ["mentioned", "Említés"],

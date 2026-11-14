@@ -170,5 +170,5 @@
 ## Owner batch 2 + status update (2026-11-14 22:24 / 22:44)
 - [x] Episode-credit rules live (Esti mese narrator, Petra mese performer, Meseóra guest/host lines, Igeidő preacher, TT Extra 🗣️ list) + feed-credit correction, audit, undo, tests
 - [x] Owner-checked sources stored on 7térítő / Haza és haladás / Káoszkapitány / Meseposta / Vétó / TT Extra rules
-- [ ] Verify the live show-host engine (rules, resolutions, match/apply, protect triggers, 3 claim guards) is intact and versioned in migrations
-- [ ] Admin view: show resolved_show_host and resolved_feed_credit_not_episode as closed (not pending), with rule/source
+- [x] Verify the live show-host engine (rules, resolutions, match/apply, protect triggers, 3 claim guards) is intact and versioned in migrations
+- [x] Admin view: show resolved_show_host and resolved_feed_credit_not_episode as closed (not pending), with rule/source
