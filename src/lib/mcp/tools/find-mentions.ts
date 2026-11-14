@@ -40,7 +40,7 @@ async function resolvePerson(sb: Sb, norm: string) {
   if (!rows.length) return null;
   rows.sort(
     (a: any, b: any) =>
-      Number(b.gated_episode_count || b.episode_count || 0) - Number(a.gated_episode_count || a.episode_count || 0),
+      Number(b.gated_episode_count ?? 0) - Number(a.gated_episode_count ?? 0),
   );
   return rows[0] as Record<string, any>;
 }
@@ -101,7 +101,7 @@ export default defineTool({
 
       let kind: "person" | "organization" | null = null;
       if (person && org) {
-        const pc = Number(person.gated_episode_count || person.episode_count || 0);
+        const pc = Number(person.gated_episode_count ?? 0);
         const oc = Number(org.gated_episode_count || org.episode_count || 0);
         kind = pc >= oc ? "person" : "organization";
       } else if (person) kind = "person";

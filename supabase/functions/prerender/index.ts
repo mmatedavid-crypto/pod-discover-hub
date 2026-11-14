@@ -15,7 +15,6 @@
 //   anything else                  → 404 (Worker will fall back to origin)
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { bodyParagraphs } from "../_shared/body-paragraphs.ts";
-import { personPageMentionRows } from "../_shared/person-link-trust.ts";
 import { categoryHeading, categoryIntro, categoryMetaDescription, categoryTitle } from "../_shared/category-copy.ts";
 import { CATEGORY_HUB_INTRO, DISCOVERY_LINKS, HOME_DESCRIPTION, HOME_INTRO, discoveryCategories } from "../_shared/discovery-navigation.ts";
 import { hetiLookupWindow, hetiSlug, isLiveHetiPost, isoWeek, parseHetiSlug, resolveHetiSlug } from "../_shared/heti-editorial.ts";
@@ -1583,22 +1582,23 @@ async function buildPerson(
     || ["needs_human_review", "duplicate_candidate"].includes(person.ai_review_status || "")
     || blockedActivation.includes(String(person.activation_status || ""));
 
-  const { data: rows } = await (supabase as any)
-    .from("person_episode_mentions")
-    .select(`episode_id, role_type, relevance_status, validation_source, episodes!inner(id, title, display_title, slug, published_at, ai_summary, podcast:podcasts!inner(title, display_title, slug, image_url, language_decision))`)
-    .eq("person_id", person.id)
-    .order("created_at", { ascending: false })
-    .limit(120);
-
-  // Rejected / needs_review links never appear; for a person verified anywhere, unreviewed
-  // same-name episodes are not listed at all; otherwise only as mentions (shared policy in
-  // _shared/person-link-trust.ts).
-  const { data: hasVerified } = await (supabase as any).rpc("person_has_verified_link_v1", { p_person_id: person.id });
-  const eps = personPageMentionRows((rows ?? []) as Array<any>, { personHasVerifiedLink: hasVerified === true })
-    .map(({ row, role }) => ({ ...row.episodes, mention_role: role }))
-    .filter((e) => e && e.slug && isAcceptedHungarianPrerenderPodcast(e.podcast))
-    .sort((a, b) => String(b.published_at || "").localeCompare(String(a.published_at || "")))
-    .slice(0, 40);
+  // Same rule and totals as the visitor page (person_public_episode_links_v1 via
+  // get_person_page_episodes_v1): rejected / needs_review never, unreviewed same-name rows
+  // only while the person has no verified link, and then only as mentions.
+  const [{ data: rows }, { data: hasTraffic }] = await Promise.all([
+    (supabase as any).rpc("get_person_page_episodes_v1", { p_person_id: person.id, p_limit: 40 }),
+    (supabase as any).rpc("person_page_has_search_traffic_v1", { p_slug: person.slug }),
+  ]);
+  const pageRows = (rows ?? []) as Array<any>;
+  const totalEpisodes = Number(pageRows[0]?.total_episodes ?? 0);
+  const eps = pageRows
+    .map((r) => ({
+      id: r.id, title: r.title, display_title: r.display_title, slug: r.slug,
+      published_at: r.published_at, ai_summary: r.ai_summary, mention_role: r.role_type,
+      podcast: { title: r.podcast_title, display_title: r.podcast_display_title, slug: r.podcast_slug, image_url: r.podcast_image_url },
+    }))
+    .filter((e) => e.slug && e.podcast.slug)
+    .sort((a, b) => String(b.published_at || "").localeCompare(String(a.published_at || "")));
 
   // Topics of this person's episodes → person page links into the topic graph.
   const epIds = eps.map((e) => e.id).filter(Boolean).slice(0, 40);
@@ -1636,18 +1636,24 @@ async function buildPerson(
   const seoLead = safePersonSeoLeadForPrerender(person) || firstSeoSentence(bio);
   const trustedIdentity = hasTrustedPersonIdentity(person);
   const safeImage = safePersonImageForPrerender(person);
-  const epCount = eps.length;
-  const relation = !historicalWithoutEvidence && (Number(person.participant_count || 0) > 0 || Number(person.host_count || 0) > 0 || Number(person.guest_count || 0) > 0)
+  const epCount = totalEpisodes;
+  const relation = !historicalWithoutEvidence && eps.some((e) => e.mention_role === "participant")
     ? "hallható"
     : "kapcsolódik";
   const desc = seoLead
     ? truncate(`${seoLead}${epCount > 0 ? ` Megnézhető ${epCount} podcast epizód, amelyben ${person.name} ${relation}.` : ""}`, 160)
     : epCount > 0
       ? truncate(`Megnézhető ${epCount} podcast epizód, amelyben ${person.name} ${relation}. Kapcsolódó műsorok és említések a Podiverzumon.`, 160)
-      : truncate(`${person.name} kapcsolódó magyar podcast epizódjai hamarosan megjelennek a Podiverzum katalógusában.`, 160);
+      : truncate(`${person.name} nevéhez a Podiverzum katalógusában még nincs ellenőrzött magyar podcast epizód. Keresés a névre és kapcsolódó személyek.`, 160);
+  // Short enough for seoTitle's 60-char cut (it used to drop the verb).
   const title = epCount > 0
-    ? `${person.name} – ${epCount} podcast epizódban ${relation} | Podiverzum`
-    : `${person.name} podcast epizódok és említések | Podiverzum`;
+    ? (relation === "hallható"
+      ? (`${person.name} – ${epCount} podcast epizódban hallható | Podiverzum`.length <= 60
+        ? `${person.name} – ${epCount} podcast epizódban hallható | Podiverzum`
+        : `${person.name} – ${epCount} epizódban hallható | Podiverzum`)
+      : `${person.name} – ${epCount} podcast epizód | Podiverzum`)
+    : `${person.name} a podcastokban | Podiverzum`;
+  const emptyThin = totalEpisodes === 0 && !bio && hasTraffic !== true;
 
   const huDate = (v: unknown) => {
     const d = v ? new Date(String(v)) : null;
@@ -1734,7 +1740,7 @@ async function buildPerson(
         .join("")}</section>`
     : "";
 
-  return new Response(new TextEncoder().encode(shell({
+  const personHtml = shell({
       title,
       description: desc,
       canonical,
@@ -1745,15 +1751,22 @@ async function buildPerson(
         ...(personFaqLd ? [personFaqLd] : []),
         breadcrumb,
       ],
-      noindex,
+      // Empty page: still reachable, indexed only with a profile or existing Google visits.
+      noindex: noindex || emptyThin,
       bodyHtml: `<header><h1>${esc(person.name)}</h1>${bio ? `<p>${esc(truncate(bio, 600))}</p>` : ""}</header>
-<main><h2>Epizódok, amelyekben ${esc(person.name)} ${esc(relation)}</h2><ul>${html}</ul>
+<main>${eps.length
+  ? `<h2>Epizódok, amelyekben ${esc(person.name)} ${esc(relation)}</h2><p>${totalEpisodes} ellenőrzött vagy megbízható epizód${totalEpisodes > eps.length ? `, ebből a ${eps.length} legrelevánsabb` : ""}.</p><ul>${html}</ul>`
+  : `<h2>Még nincs ellenőrzött epizód</h2><p>${esc(person.name)} nevét a katalógus ismeri, de egyetlen epizódnál sem igazolt még, hogy róla van szó — azonos nevű emberek miatt csak ellenőrzött kapcsolatot mutatunk.</p><p><a href="${SITE}/kereses?q=${encodeURIComponent(`"${person.name}"`)}" rel="nofollow">Keresés pontos névre</a></p>`}
 ${showsHtml}
 ${topicsHtml}
 ${personFaqHtml}
 <nav><a href="${SITE}/szemelyek">Összes személy</a> · <a href="${SITE}/szemelyek/abc">Személyek A–Z</a> · <a href="${SITE}/temak">Témák</a> · <a href="${SITE}/podcastok">Magyar podcastok</a></nav></main>`,
-    })),
-
+    });
+  // An empty page is not indexed, but its links (people hub, search) stay followable.
+  const finalPersonHtml = !noindex && emptyThin
+    ? personHtml.replace('content="noindex,nofollow"', 'content="noindex,follow"')
+    : personHtml;
+  return new Response(new TextEncoder().encode(finalPersonHtml),
     { headers: new Headers(baseHeaders) },
   );
 }

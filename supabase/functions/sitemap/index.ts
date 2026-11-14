@@ -41,7 +41,7 @@ function isSafePersonSitemapRow(p: any): boolean {
   );
   if (temporalTopicOnly) return false;
   if (p.identity_ambiguous && !p.manual_approved && !trustedWiki) return false;
-  return Number(p.gated_episode_count || p.episode_count || 0) >= 1;
+  return Number(p.gated_episode_count ?? 0) >= 1;
 }
 import { slugify as sharedSlugify } from "../_shared/slug.ts";
 function entSlug(kind: string, v: string) {

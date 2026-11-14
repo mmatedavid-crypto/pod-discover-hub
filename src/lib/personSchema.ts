@@ -30,7 +30,7 @@ export function isSafeIndexablePerson(p: P | null | undefined): boolean {
     p.manual_approved !== true &&
     (p.is_deceased === true || p.is_historical === true || p.persona === "historical" || Boolean(p.date_of_death) || p.is_living === false);
   if (temporalOnly) return false;
-  return Number(p.gated_episode_count || p.episode_count || 0) >= 1;
+  return Number(p.gated_episode_count ?? 0) >= 1;
 }
 
 function safeBio(p: P): string | undefined {

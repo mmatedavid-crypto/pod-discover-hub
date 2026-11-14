@@ -303,7 +303,7 @@ function isSafeIndexablePerson(p) {
   if (p.identity_ambiguous && !hasTrustedIdentity(p)) return false;
   const temporalOnly = p.has_archival_evidence !== true && p.manual_approved !== true && (p.is_deceased === true || p.is_historical === true || p.persona === "historical" || Boolean(p.date_of_death) || p.is_living === false);
   if (temporalOnly) return false;
-  return Number(p.gated_episode_count || p.episode_count || 0) >= 1;
+  return Number(p.gated_episode_count ?? 0) >= 1;
 }
 
 // supabase/functions/_shared/person-link-trust.ts
@@ -348,7 +348,7 @@ async function resolvePerson(sb, norm) {
   }
   if (!rows.length) return null;
   rows.sort(
-    (a, b) => Number(b.gated_episode_count || b.episode_count || 0) - Number(a.gated_episode_count || a.episode_count || 0)
+    (a, b) => Number(b.gated_episode_count ?? 0) - Number(a.gated_episode_count ?? 0)
   );
   return rows[0];
 }
@@ -393,7 +393,7 @@ var find_mentions_default = defineTool5({
       const org = wanted === "person" ? null : await resolveOrganization(sb, norm);
       let kind = null;
       if (person && org) {
-        const pc = Number(person.gated_episode_count || person.episode_count || 0);
+        const pc = Number(person.gated_episode_count ?? 0);
         const oc = Number(org.gated_episode_count || org.episode_count || 0);
         kind = pc >= oc ? "person" : "organization";
       } else if (person) kind = "person";

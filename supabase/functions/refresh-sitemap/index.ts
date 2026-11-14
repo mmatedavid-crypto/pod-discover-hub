@@ -65,7 +65,9 @@ function isSafePersonSitemapRow(p: any): boolean {
   );
   if (temporalTopicOnly) return false;
   if (p.identity_ambiguous && !p.manual_approved && !trustedWiki) return false;
-  return Number(p.gated_episode_count || p.episode_count || 0) >= 1;
+  // gated_episode_count comes from person_public_episode_links_v1 (the page's own list);
+  // the legacy episode_count is not a fallback, an empty page is not advertised.
+  return Number(p.gated_episode_count || 0) >= 1;
 }
 
 async function sha256Hex(text: string): Promise<string> {

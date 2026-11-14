@@ -1,4 +1,3 @@
-import { isExcludedPersonMention, personPageMentionRows } from "../../supabase/functions/_shared/person-link-trust";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -79,7 +78,7 @@ function personCollectionIntro(name: string, count: number): string {
   if (count > 0) {
     return `${name} kapcsolódó magyar podcast epizódjai egy helyen: róla szóló adások, kontextusok és említések a Podiverzum katalógusából.`;
   }
-  return `${name} kapcsolódó magyar podcast epizódjai hamarosan megjelennek a Podiverzum katalógusában.`;
+  return `${name} nevéhez a Podiverzum katalógusában még nincs ellenőrzött magyar podcast epizód.`;
 }
 
 function firstSeoSentence(value?: string | null): string {
@@ -128,6 +127,7 @@ export default function PersonDetailPage() {
   const [faqs, setFaqs] = useState<PersonFaq[]>([]);
   // A failed load (DB timeout) must not look like "this person has no episodes".
   const [epsError, setEpsError] = useState(false);
+  const [totals, setTotals] = useState<{ episodes: number; podcasts: number; latest: string | null }>({ episodes: 0, podcasts: 0, latest: null });
   const [reloadKey, setReloadKey] = useState(0);
 
 
@@ -266,71 +266,26 @@ export default function PersonDetailPage() {
 
 
 
-      // Primary path: `person_episodes` reads the slim episode_cards projection in a
-      // single round trip. The joined query below stays as a fallback for episodes
-      // that are not projected yet.
-      let mentions: any[] | null = null;
-      let mentionsFailed = false;
-      const { data: fastRows, error: fastError } = await supabase
-        .rpc("person_episodes", { _person_id: (p as any).id, _limit: 250 } as any);
-      if (fastError) mentionsFailed = true;
-      if (Array.isArray(fastRows) && fastRows.length > 0) {
-        mentions = (fastRows as any[]).map((row) => ({
-          episode_id: row.id,
-          podcast_id: row.podcast_id,
-          mention_type: row.mention_type,
-          role_type: row.role_type,
-          confidence: row.confidence,
-          relevance_status: row.relevance_status,
-          final_relevance_score: row.final_relevance_score,
-          validation_source: row.validation_source,
-          episodes: mapEpisodeCardRow(row),
-        }));
-      }
-
-      if (!mentions) {
-        // Trimmed payload (no raw `description`) + smaller page: the 500-row variant
-        // with full descriptions regularly tripped the 3s statement timeout.
-        const { data: mentionRows, error: mentionsError } = await supabase
-          .from("person_episode_mentions")
-          .select("episode_id, podcast_id, mention_type, role_type, confidence, relevance_status, final_relevance_score, validation_source, episodes!inner(id, title, display_title, slug, image_url, published_at, ai_summary, summary, audio_url, topics, people, mentioned, companies, tickers, podcast_id, podcasts!inner(slug, title, display_title, image_url, category, podiverzum_rank, rank_label, rss_status, featured, language_decision))")
-          .eq("person_id", (p as any).id)
-          .eq("episodes.podcasts.language_decision", "accept_hungarian")
-          .order("final_relevance_score", { ascending: false, nullsFirst: false })
-          .limit(250);
-        mentions = (mentionRows || []) as any[];
-        mentionsFailed = mentionsFailed || Boolean(mentionsError);
-      }
-      setEpsError(mentionsFailed && (mentions?.length ?? 0) === 0);
-
-
-
-      // Is this person verified on any episode? Then same-name unreviewed episodes are not
-      // attached to this identity (same rule as episode person links).
-      const { data: hasVerified } = await (supabase as any).rpc("person_has_verified_link_v1", { p_person_id: (p as any).id });
-      const allowedRows = new Map(
-        personPageMentionRows((mentions || []) as any[], { personHasVerifiedLink: hasVerified === true }).map((x) => [x.row, x.role] as const),
-      );
-
-      const epList: any[] = [];
-      const podMap = new Map<string, any>();
-      (mentions || []).forEach((m: any) => {
-        if (!m.episodes) return;
-        if (!allowedRows.has(m)) return;
-        const accepted = m.relevance_status === "accepted";
-        const strongAi = Number(m.final_relevance_score || 0) >= 0.75;
-        const manual = m.validation_source === "manual";
-        const legacyOk = (!m.relevance_status || m.relevance_status === "pending")
-          && ["host","guest","subject","archival_source","interviewee","speaker"].includes(m.mention_type)
-          && Number(m.confidence || 0) >= 0.80;
-        if (isExcludedPersonMention(m)) return;
-        if (!(accepted || strongAi || manual || legacyOk)) return;
-        // A name match is not a verified identity: only reviewed accepted links keep their
-        // participant/subject role; unreviewed rows are shown as mentions only.
-        const roleType = allowedRows.get(m) ?? "mention";
-        epList.push({ ...m.episodes, mention_type: m.mention_type, role_type: roleType });
-        if (m.episodes.podcasts) podMap.set(m.episodes.podcast_id, m.episodes.podcasts);
-      });
+      // One request, one rule: `get_person_page_episodes_v1` reads person_public_episode_links_v1,
+      // the same rows the counts, chips, prerender and sitemap use, and returns the true totals.
+      const [{ data: pageRows, error: pageError }, { data: hasTraffic }] = await Promise.all([
+        supabase.rpc("get_person_page_episodes_v1", { p_person_id: (p as any).id, p_limit: 250 }),
+        supabase.rpc("person_page_has_search_traffic_v1", { p_slug: (p as any).slug }),
+      ]);
+      const rows = (pageRows || []) as any[];
+      setEpsError(Boolean(pageError) && rows.length === 0);
+      const pageTotals = {
+        episodes: Number(rows[0]?.total_episodes ?? 0),
+        podcasts: Number(rows[0]?.total_podcasts ?? 0),
+        latest: (rows[0]?.latest_episode_at as string | null) ?? null,
+      };
+      setTotals(pageTotals);
+      const epList: any[] = rows.map((row) => ({
+        ...mapEpisodeCardRow(row),
+        mention_type: row.mention_type,
+        // A name match is not a verified identity: only reviewed links keep participant/subject.
+        role_type: row.role_type,
+      }));
       setEps(epList.sort(compareByScore) as any);
 
       const tally = new Map<string, number>();
@@ -415,12 +370,18 @@ export default function PersonDetailPage() {
       }
 
       const personName = (p as any).name;
-      const epCount = epList.length;
+      const epCount = pageTotals.episodes;
+      // An empty page stays reachable (old links keep working) but is only indexed when it has a
+      // verified profile or still brings Google visitors; never noindex pages that have episodes.
+      const hasVerifiedProfile = verifiedWiki || Boolean((p as any).overview_text);
+      const emptyThin = !pageError && epCount === 0 && !hasVerifiedProfile && hasTraffic !== true;
       const hasParticipantSeoEvidence = epList.some((e) => e.role_type === "participant");
       const personSeoRelation = hasParticipantSeoEvidence && !isTemporalTopicOnlyPerson(p) ? "hallható" : "kapcsolódik";
       const titleTail = epCount > 0
-        ? ` – ${epCount} podcast epizódban ${personSeoRelation}`
-        : " podcast epizódok és említések";
+        ? (personSeoRelation === "hallható"
+          ? (`${personName} – ${epCount} podcast epizódban hallható | Podiverzum`.length <= 60 ? ` – ${epCount} podcast epizódban hallható` : ` – ${epCount} epizódban hallható`)
+          : ` – ${epCount} podcast epizód`)
+        : " a podcastokban";
       const descBase = safePersonSeoLead(p) || safeDesc;
       const descSuffix = epCount > 0
         ? ` Megnézhető ${epCount} podcast epizód, amelyben ${personName} ${personSeoRelation}.`
@@ -430,8 +391,8 @@ export default function PersonDetailPage() {
         title: `${personName}${titleTail} | Podiverzum`,
         description: fullDesc.length > 160 ? fullDesc.slice(0, 157).trimEnd() + "…" : fullDesc,
         canonical: pageUrl,
-        noindex: !(p as any).is_indexable || thinPage,
-        jsonLd: (!(p as any).is_indexable || thinPage) ? undefined : jsonLd,
+        noindex: !(p as any).is_indexable || thinPage || emptyThin,
+        jsonLd: (!(p as any).is_indexable || thinPage || emptyThin) ? undefined : jsonLd,
       });
     })();
   }, [slug, decodedSlug, reloadKey]);
@@ -515,10 +476,10 @@ export default function PersonDetailPage() {
                 </div>
               )}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-5 max-w-xl">
-                <StatCard label="Indexelt epizódok" value={eps.length} />
+                <StatCard label="Indexelt epizódok" value={totals.episodes} />
                 <StatCard label="Elmúlt 30 nap" value={last30} />
-                <StatCard label="Podcastok" value={new Set(eps.map((e: any) => e.podcast_id)).size} />
-                <StatCard label="Legutóbbi említés" value={(() => { const ts = [person.latest_episode_at, ...eps.map((x: any) => x.published_at)].filter(Boolean).map((d: any) => new Date(d).getTime()).filter((n) => !Number.isNaN(n)); return ts.length ? new Date(Math.max(...ts)).toLocaleDateString("hu-HU") : "—"; })()} />
+                <StatCard label="Podcastok" value={totals.podcasts} />
+                <StatCard label="Legutóbbi epizód" value={totals.latest ? new Date(totals.latest).toLocaleDateString("hu-HU") : "—"} />
               </div>
             </div>
           </div>
@@ -572,7 +533,26 @@ export default function PersonDetailPage() {
 
         {eps.length === 0 && (epsError
           ? <ListLoadError onRetry={() => setReloadKey((k) => k + 1)} />
-          : <div className="text-muted-foreground">Még nincs releváns epizód.</div>)}
+          : (
+            <section className="rounded-2xl border border-border bg-card p-6">
+              <h2 className="text-lg font-semibold">Még nincs ellenőrzött epizód</h2>
+              <p className="text-sm text-foreground/80 mt-2 max-w-2xl">
+                {person.name} nevét a katalógus ismeri, de egyetlen epizódnál sem igazolt még, hogy róla van szó
+                — azonos nevű emberek miatt csak ellenőrzött kapcsolatot mutatunk. Amint egy epizód átmegy az ellenőrzésen, itt jelenik meg.
+              </p>
+              <div className="flex flex-wrap gap-2 mt-4">
+                <Link
+                  to={`/kereses?q=${encodeURIComponent(`"${person.name}"`)}`}
+                  className="inline-flex items-center px-3 py-1.5 rounded-full border border-border bg-background text-sm hover:border-primary/50"
+                >
+                  Keresés pontos névre: „{person.name}”
+                </Link>
+                <Link to="/szemelyek" className="inline-flex items-center px-3 py-1.5 rounded-full border border-border bg-background text-sm hover:border-primary/50">
+                  Személyek a podcastokban
+                </Link>
+              </div>
+            </section>
+          ))}
 
         {isHistorical && (
           <div className="text-xs text-muted-foreground -mt-6">
