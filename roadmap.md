@@ -139,3 +139,13 @@
 
 ## Paid public search cost cap (2026-10-30)
 - [x] Daily server-side call cap for the AI parts of search, AI answer and suggestions (over the cap: free lexical search / plain fallback); trusted agent search exempt.
+
+## Evidence-pack person review + central OpenAI budget (2026-11-14)
+- [x] Central external AI budget (100 USD grant, 5 USD pilot, legacy cap = old authorization remainder, daily 10, expires 2026-11-30), job triggers, fail-closed; guard self-tests passed.
+- [x] Pair work states for all 305,905 HU person–episode pairs (hourly re-check, cron 238); public links untouched.
+- [x] Escalation (old 2nd round) new submissions paused; in-flight results ingested.
+- [x] Evidence-pack shadow pilot: 673 sampled pairs, 600 sent (luna 600, sol 313), 0.61 USD actual; gate = insufficient_references; pilot stopped itself.
+- [ ] Owner labels ≥100 pilot pairs in the admin page (blocked: human references; AI labels are not accepted as truth).
+- [ ] If the gate passes: build the reviewed apply path from passed classes to public links and open the bulk lane (not built; needs gate pass).
+- [ ] Old 1st-round lane still lists all aliases regardless of status (kept to avoid re-billing in-flight items; fix with next policy version).
+- [ ] Same-name review (9,813 pairs / 1,584 people) could be resolved per person instead of per pair (planned).
