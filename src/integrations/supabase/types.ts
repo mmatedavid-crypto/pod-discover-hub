@@ -3875,6 +3875,104 @@ export type Database = {
           },
         ]
       }
+      external_ai_budget_grants: {
+        Row: {
+          account_ceiling_usd: number
+          baseline: Json
+          created_at: string
+          daily_cap_usd: number
+          expires_at: string
+          granted_by: string
+          id: string
+          legacy_cap_usd: number
+          paused_reason: string | null
+          pilot_cap_usd: number
+          provider: string
+          starts_at: string
+          status: string
+          total_cap_usd: number
+          updated_at: string
+        }
+        Insert: {
+          account_ceiling_usd: number
+          baseline?: Json
+          created_at?: string
+          daily_cap_usd: number
+          expires_at: string
+          granted_by: string
+          id: string
+          legacy_cap_usd: number
+          paused_reason?: string | null
+          pilot_cap_usd: number
+          provider: string
+          starts_at?: string
+          status?: string
+          total_cap_usd: number
+          updated_at?: string
+        }
+        Update: {
+          account_ceiling_usd?: number
+          baseline?: Json
+          created_at?: string
+          daily_cap_usd?: number
+          expires_at?: string
+          granted_by?: string
+          id?: string
+          legacy_cap_usd?: number
+          paused_reason?: string | null
+          pilot_cap_usd?: number
+          provider?: string
+          starts_at?: string
+          status?: string
+          total_cap_usd?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      external_ai_budget_ledger: {
+        Row: {
+          actual_usd: number | null
+          carryover: boolean
+          created_at: string
+          grant_id: string
+          lane: string
+          ref: string
+          reserved_usd: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          actual_usd?: number | null
+          carryover?: boolean
+          created_at?: string
+          grant_id: string
+          lane: string
+          ref: string
+          reserved_usd?: number
+          status: string
+          updated_at?: string
+        }
+        Update: {
+          actual_usd?: number | null
+          carryover?: boolean
+          created_at?: string
+          grant_id?: string
+          lane?: string
+          ref?: string
+          reserved_usd?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_ai_budget_ledger_grant_id_fkey"
+            columns: ["grant_id"]
+            isOneToOne: false
+            referencedRelation: "external_ai_budget_grants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       external_transcript_audit: {
         Row: {
           audio_bytes: number | null
@@ -6671,6 +6769,276 @@ export type Database = {
           },
         ]
       }
+      person_evidence_gate_runs: {
+        Row: {
+          created_at: string
+          id: number
+          metrics: Json
+          passed_models: string[]
+          policy_version: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          metrics?: Json
+          passed_models?: string[]
+          policy_version: string
+          status: string
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          metrics?: Json
+          passed_models?: string[]
+          policy_version?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      person_evidence_items: {
+        Row: {
+          attempt: number
+          cached_tokens: number | null
+          cost_usd: number
+          created_at: string
+          custom_id: string
+          decision: Json | null
+          error: string | null
+          id: string
+          input_tokens: number | null
+          job_id: string | null
+          model: string
+          output_tokens: number | null
+          pack_id: string
+          status: string
+          updated_at: string
+          verdict: string | null
+        }
+        Insert: {
+          attempt?: number
+          cached_tokens?: number | null
+          cost_usd?: number
+          created_at?: string
+          custom_id: string
+          decision?: Json | null
+          error?: string | null
+          id?: string
+          input_tokens?: number | null
+          job_id?: string | null
+          model: string
+          output_tokens?: number | null
+          pack_id: string
+          status?: string
+          updated_at?: string
+          verdict?: string | null
+        }
+        Update: {
+          attempt?: number
+          cached_tokens?: number | null
+          cost_usd?: number
+          created_at?: string
+          custom_id?: string
+          decision?: Json | null
+          error?: string | null
+          id?: string
+          input_tokens?: number | null
+          job_id?: string | null
+          model?: string
+          output_tokens?: number | null
+          pack_id?: string
+          status?: string
+          updated_at?: string
+          verdict?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "person_evidence_items_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "person_evidence_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_evidence_items_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "person_evidence_packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      person_evidence_jobs: {
+        Row: {
+          actual_cost_usd: number
+          completed_at: string | null
+          created_at: string
+          id: string
+          ingested_at: string | null
+          lane: string
+          last_error: string | null
+          lease_token: string | null
+          lease_until: string | null
+          meta: Json
+          model: string
+          openai_batch_id: string | null
+          openai_error_file_id: string | null
+          openai_input_file_id: string | null
+          openai_output_file_id: string | null
+          policy_version: string
+          request_count: number
+          request_counts: Json | null
+          reserved_cost_usd: number
+          status: string
+          submitted_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          actual_cost_usd?: number
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          ingested_at?: string | null
+          lane: string
+          last_error?: string | null
+          lease_token?: string | null
+          lease_until?: string | null
+          meta?: Json
+          model: string
+          openai_batch_id?: string | null
+          openai_error_file_id?: string | null
+          openai_input_file_id?: string | null
+          openai_output_file_id?: string | null
+          policy_version: string
+          request_count?: number
+          request_counts?: Json | null
+          reserved_cost_usd?: number
+          status?: string
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          actual_cost_usd?: number
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          ingested_at?: string | null
+          lane?: string
+          last_error?: string | null
+          lease_token?: string | null
+          lease_until?: string | null
+          meta?: Json
+          model?: string
+          openai_batch_id?: string | null
+          openai_error_file_id?: string | null
+          openai_input_file_id?: string | null
+          openai_output_file_id?: string | null
+          policy_version?: string
+          request_count?: number
+          request_counts?: Json | null
+          reserved_cost_usd?: number
+          status?: string
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      person_evidence_packs: {
+        Row: {
+          created_at: string
+          episode_id: string
+          fingerprint: string
+          id: string
+          identity_risk: boolean
+          pack: Json
+          person_id: string
+          policy_version: string
+          precheck: string | null
+          stratum: string | null
+        }
+        Insert: {
+          created_at?: string
+          episode_id: string
+          fingerprint: string
+          id?: string
+          identity_risk?: boolean
+          pack: Json
+          person_id: string
+          policy_version: string
+          precheck?: string | null
+          stratum?: string | null
+        }
+        Update: {
+          created_at?: string
+          episode_id?: string
+          fingerprint?: string
+          id?: string
+          identity_risk?: boolean
+          pack?: Json
+          person_id?: string
+          policy_version?: string
+          precheck?: string | null
+          stratum?: string | null
+        }
+        Relationships: []
+      }
+      person_evidence_references: {
+        Row: {
+          created_at: string
+          episode_id: string
+          label_role: string
+          labeled_by: string
+          notes: string | null
+          person_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          episode_id: string
+          label_role: string
+          labeled_by: string
+          notes?: string | null
+          person_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          episode_id?: string
+          label_role?: string
+          labeled_by?: string
+          notes?: string | null
+          person_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      person_evidence_sample: {
+        Row: {
+          created_at: string
+          episode_id: string
+          person_id: string
+          policy_version: string
+          rank: number
+          stratum: string
+        }
+        Insert: {
+          created_at?: string
+          episode_id: string
+          person_id: string
+          policy_version: string
+          rank: number
+          stratum: string
+        }
+        Update: {
+          created_at?: string
+          episode_id?: string
+          person_id?: string
+          policy_version?: string
+          rank?: number
+          stratum?: string
+        }
+        Relationships: []
+      }
       person_external_sources: {
         Row: {
           ai_cost: number
@@ -7047,6 +7415,75 @@ export type Database = {
           person_id?: string
           published_at?: string | null
           refreshed_at?: string
+        }
+        Relationships: []
+      }
+      person_pair_disposition_log: {
+        Row: {
+          changed_at: string
+          episode_id: string
+          id: number
+          new: Json
+          old: Json
+          person_id: string
+        }
+        Insert: {
+          changed_at?: string
+          episode_id: string
+          id?: number
+          new: Json
+          old: Json
+          person_id: string
+        }
+        Update: {
+          changed_at?: string
+          episode_id?: string
+          id?: number
+          new?: Json
+          old?: Json
+          person_id?: string
+        }
+        Relationships: []
+      }
+      person_pair_dispositions: {
+        Row: {
+          created_at: string
+          decided_by: string
+          detail: Json
+          disposition: string
+          episode_id: string
+          person_id: string
+          policy_version: string
+          reason_code: string
+          reopen_on_source_change: boolean
+          source_fingerprint: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          decided_by: string
+          detail?: Json
+          disposition: string
+          episode_id: string
+          person_id: string
+          policy_version: string
+          reason_code: string
+          reopen_on_source_change?: boolean
+          source_fingerprint?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          decided_by?: string
+          detail?: Json
+          disposition?: string
+          episode_id?: string
+          person_id?: string
+          policy_version?: string
+          reason_code?: string
+          reopen_on_source_change?: boolean
+          source_fingerprint?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
@@ -12433,6 +12870,10 @@ export type Database = {
         Args: { p_referrer: string; p_utm_source: string }
         Returns: string
       }
+      classify_person_pair_dispositions_v1: {
+        Args: { _after_episode: string; _after_person: string; _limit: number }
+        Returns: Json
+      }
       clean_slug: { Args: { fallback: string; input: string }; Returns: string }
       clean_text_content_hash: { Args: { p_text: string }; Returns: string }
       clean_text_quality_audit_v1: { Args: never; Returns: Json }
@@ -12601,6 +13042,10 @@ export type Database = {
         }
         Returns: Json
       }
+      external_ai_budget_charge_v1: {
+        Args: { _amount: number; _lane: string; _ref: string }
+        Returns: Json
+      }
       fail_seo_job_terminal_v1: {
         Args: {
           p_job_id: string
@@ -12748,6 +13193,7 @@ export type Database = {
         }[]
       }
       get_ops_dashboard_status: { Args: never; Returns: Json }
+      get_person_review_status_v1: { Args: never; Returns: Json }
       get_personalized_mood_cards: {
         Args: { p_dow?: number; p_hour?: number; p_viewport?: string }
         Returns: {
@@ -13294,6 +13740,14 @@ export type Database = {
           validation_source: string
         }[]
       }
+      person_evidence_pilot_select_v1: {
+        Args: { _policy: string; _seed: string }
+        Returns: Json
+      }
+      person_evidence_source_v1: {
+        Args: { _episode: string; _person: string }
+        Returns: Json
+      }
       person_has_verified_link_v1: {
         Args: { p_except_episode_id?: string; p_person_id: string }
         Returns: boolean
@@ -13329,6 +13783,10 @@ export type Database = {
           person_id: string
           published_at: string
         }[]
+      }
+      person_pair_dispositions_tick_v1: {
+        Args: { _limit?: number }
+        Returns: Json
       }
       person_review_recorded_v1: {
         Args: { p_validation_source: string }

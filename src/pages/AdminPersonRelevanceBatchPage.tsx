@@ -3,6 +3,7 @@ import Layout from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
 import { useNoindex } from "@/lib/useNoindex";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
+import PersonEvidenceReviewPanel from "@/components/admin/PersonEvidenceReviewPanel";
 
 type Sample = {
   person_id: string; episode_id: string; person_name: string; disambiguation_label: string | null;
@@ -86,6 +87,8 @@ export default function AdminPersonRelevanceBatchPage() {
             Próbafuttatás és arany minta címkézése. Fizetős batch csak jóváhagyott pilot-kerettel indulhat; ez az oldal nem indít fizetős munkát.
           </p>
         </div>
+
+        <PersonEvidenceReviewPanel />
 
         {status && (
           <div className="grid md:grid-cols-3 gap-3">
