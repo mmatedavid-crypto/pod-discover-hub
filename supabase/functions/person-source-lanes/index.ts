@@ -11,7 +11,7 @@ import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 import { runLog } from "../_shared/runner-run-log.ts";
 import { safePublicFetch } from "../_shared/safe-public-fetch.ts";
-import { findRoleLabelHits, ROLE_LABEL_RULE_VERSION } from "../_shared/person-role-label.ts";
+import { findRoleLabelHits, ROLE_LABEL_RULE_VERSION, usableRoleNames } from "../_shared/person-role-label.ts";
 import { findProductionCreditHits } from "../_shared/person-production-credit.ts";
 import { parseEpisodePageMeta } from "../_shared/episode-page-meta.ts";
 import { checkProcessingPriority } from "../_shared/processing-priority.ts";
@@ -71,6 +71,11 @@ async function roleLabelLane(admin: any, ctrl: any, body: any, started: number, 
       if (!r.has_label) { results.push({ ...base(r), outcome: "no_label" }); bump("no_label"); continue; }
       const fields = { episode_title: r.title, episode_description: r.description, episode_page: r.page_description,
         spotify_episode_description: r.spotify_description, youtube_episode_description: r.youtube_description };
+      // Cheap accent-folded precheck: without the name in any field neither rule can hit (saves edge CPU).
+      const hay = fold([r.title, r.description, r.page_description, r.spotify_description, r.youtube_description].filter(Boolean).join("\n"));
+      if (!usableRoleNames(r.name, r.aliases || []).some((n) => hay.includes(fold(n)))) {
+        results.push({ ...base(r), outcome: "label_without_name" }); bump("label_without_name"); continue;
+      }
       const res = findRoleLabelHits(fields, r.name, r.aliases || []);
       if (res.outcome !== "hit") {
         // Crew-only credit ("Vágó: X") is its own category, never a guest/mention (owner decision 2026-11-15).
@@ -128,6 +133,7 @@ async function roleLabelLane(admin: any, ctrl: any, body: any, started: number, 
 }
 const RECHECK_OUTCOMES = /^(source_changed|blocked_|identity_unanchored|mention_state_changed|busy_retry)/;
 // pc1: the result was produced with the production-credit check (older "no label" results are re-checked once).
+const fold = (t: string) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 const base = (r: any) => ({ person_id: r.person_id, episode_id: r.episode_id, source_hash: r.source_hash, detail: { pc1: true } });
 
 async function pageFetchLane(admin: any, ctrl: any, body: any, started: number, dryRun: boolean) {
