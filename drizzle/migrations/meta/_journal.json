@@ -1212,6 +1212,13 @@
       "when": 1794699310304,
       "tag": "0172_version_live_person_identity_merge_system",
       "breakpoints": true
+    },
+    {
+      "idx": 173,
+      "version": "7",
+      "when": 1794741299040,
+      "tag": "0173_role_label_platform_descriptions",
+      "breakpoints": true
     }
   ]
 }

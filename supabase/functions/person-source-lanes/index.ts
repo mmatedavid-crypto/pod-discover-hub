@@ -67,7 +67,8 @@ async function roleLabelLane(admin: any, ctrl: any, body: any, started: number, 
       // Blocked pairs are not recorded: a cleared flag or resolved homonym must be re-checked next pass.
       if (r.block) { bump(`blocked_${r.block}`); continue; }
       if (!r.has_label) { results.push({ ...base(r), outcome: "no_label" }); bump("no_label"); continue; }
-      const res = findRoleLabelHits({ episode_title: r.title, episode_description: r.description, episode_page: r.page_description }, r.name, r.aliases || []);
+      const res = findRoleLabelHits({ episode_title: r.title, episode_description: r.description, episode_page: r.page_description,
+        spotify_episode_description: r.spotify_description, youtube_episode_description: r.youtube_description }, r.name, r.aliases || []);
       if (res.outcome !== "hit") { results.push({ ...base(r), outcome: res.outcome }); bump(res.outcome); continue; }
       const h = res.hits[0];
       items.push({ person_id: r.person_id, episode_id: r.episode_id, role: h.role, field: h.field, quote: h.quote, snippet: h.snippet,

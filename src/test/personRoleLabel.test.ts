@@ -94,3 +94,14 @@ describe("page boilerplate", () => {
     expect(stripBoilerplate("Stream 20261111 - 06 Görög Zita by Bochkor on desktop and mobile. Play over 320 million tracks for free on SoundCloud.")).toBe("");
   });
 });
+
+describe("role-label platform descriptions (2026-11-15)", () => {
+  it("finds an explicit guest credit in a matched Spotify description and reports that field", () => {
+    const r = findRoleLabelHits({ episode_description: "Beszélgetés a gazdaságról.", spotify_episode_description: "Vendég: Kovács Péter közgazdász" }, "Kovács Péter");
+    expect(r.outcome).toBe("hit");
+    expect(r.hits[0].field).toBe("spotify_episode_description");
+  });
+  it("keeps parser semantics on YouTube text: a bare name mention is not a credit", () => {
+    expect(findRoleLabelHits({ youtube_episode_description: "Kovács Péter beszélgetése a gazdaságról" }, "Kovács Péter").outcome).not.toBe("hit");
+  });
+});

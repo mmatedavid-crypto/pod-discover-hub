@@ -7,7 +7,13 @@
 // Never used fields: AI summaries, SEO text, clean text derived from other sources, transcripts.
 
 export const ROLE_LABEL_RULE_VERSION = "role-label-v1";
-export type RoleLabelField = "episode_title" | "episode_description" | "episode_page";
+export type RoleLabelField =
+  | "episode_title" | "episode_description" | "episode_page"
+  // Stored, correctly matched platform descriptions (same predicates as person_evidence_source_v1); never RSS or page text.
+  | "spotify_episode_description" | "youtube_episode_description";
+export const ROLE_LABEL_FIELDS: RoleLabelField[] = [
+  "episode_title", "episode_description", "episode_page", "spotify_episode_description", "youtube_episode_description",
+];
 export type RoleLabelRole = "guest" | "host";
 
 export interface RoleLabelHit {
@@ -103,7 +109,7 @@ export function findRoleLabelHits(
   if (!names.length) return { outcome: "no_multi_token_name", hits: [] };
   const hits: RoleLabelHit[] = [];
   let sawLabel = false;
-  for (const field of ["episode_title", "episode_description", "episode_page"] as RoleLabelField[]) {
+  for (const field of ROLE_LABEL_FIELDS) {
     const raw = fields[field];
     if (!raw) continue;
     const text = cleanRoleField(raw).normalize("NFC");

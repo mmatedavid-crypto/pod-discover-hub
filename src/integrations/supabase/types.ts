@@ -15851,16 +15851,38 @@ export type Database = {
         Args: { _after_episode: string; _after_person: string; _limit: number }
         Returns: Json
       }
-      person_role_label_source_hash_v1: {
-        Args: {
-          _aliases: string[]
-          _description: string
-          _name: string
-          _page: string
-          _title: string
-        }
-        Returns: string
+      person_role_label_platform_v1: {
+        Args: { _episode: string; _podcast: string; _published: string }
+        Returns: {
+          sig: string
+          sp_src: Json
+          sp_text: string
+          yt_src: Json
+          yt_text: string
+        }[]
       }
+      person_role_label_source_hash_v1:
+        | {
+            Args: {
+              _aliases: string[]
+              _description: string
+              _name: string
+              _page: string
+              _title: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              _aliases: string[]
+              _description: string
+              _name: string
+              _page: string
+              _platform_sig: string
+              _title: string
+            }
+            Returns: string
+          }
       person_text_fold_v1: { Args: { _t: string }; Returns: string }
       pipeline_catchup_caller_allowed_v1: { Args: never; Returns: boolean }
       pipeline_catchup_plan_v1: { Args: never; Returns: Json }
