@@ -8798,6 +8798,139 @@ export type Database = {
           },
         ]
       }
+      person_nonperson_rules_v1: {
+        Row: {
+          active: boolean
+          entity_kind: string
+          exact_name: string
+          explanation: string
+          organization_id: string | null
+          person_id: string
+          publisher_context: Json
+          run_id: string
+          source_hash: string
+          source_quote: string
+          source_url: string
+          verified_at: string
+          version: string
+        }
+        Insert: {
+          active?: boolean
+          entity_kind: string
+          exact_name: string
+          explanation: string
+          organization_id?: string | null
+          person_id: string
+          publisher_context: Json
+          run_id: string
+          source_hash: string
+          source_quote: string
+          source_url: string
+          verified_at?: string
+          version: string
+        }
+        Update: {
+          active?: boolean
+          entity_kind?: string
+          exact_name?: string
+          explanation?: string
+          organization_id?: string | null
+          person_id?: string
+          publisher_context?: Json
+          run_id?: string
+          source_hash?: string
+          source_quote?: string
+          source_url?: string
+          verified_at?: string
+          version?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "person_nonperson_rules_v1_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: true
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_nonperson_rules_v1_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: true
+            referencedRelation: "person_activation_status_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_nonperson_rules_v1_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: true
+            referencedRelation: "person_ai_action_queue_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_nonperson_rules_v1_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: true
+            referencedRelation: "person_ai_duplicate_candidates_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_nonperson_rules_v1_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: true
+            referencedRelation: "person_missing_content_review_view"
+            referencedColumns: ["person_id"]
+          },
+          {
+            foreignKeyName: "person_nonperson_rules_v1_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: true
+            referencedRelation: "v_person_diag_duplicate_clusters"
+            referencedColumns: ["person_a_id"]
+          },
+          {
+            foreignKeyName: "person_nonperson_rules_v1_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: true
+            referencedRelation: "v_person_diag_duplicate_clusters"
+            referencedColumns: ["person_b_id"]
+          },
+          {
+            foreignKeyName: "person_nonperson_rules_v1_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: true
+            referencedRelation: "v_person_diag_high_reject_ratio"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_nonperson_rules_v1_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: true
+            referencedRelation: "v_person_diag_pending_backlog"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_nonperson_rules_v1_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: true
+            referencedRelation: "v_person_diag_surname_only_candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_nonperson_rules_v1_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: true
+            referencedRelation: "v_person_diag_weak_public_pages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_nonperson_rules_v1_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "person_identity_repair_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       person_openai_batch_candidate_pool: {
         Row: {
           episode_id: string
@@ -14532,6 +14665,10 @@ export type Database = {
         }
         Returns: string
       }
+      apply_explicit_publisher_guest_labels_v1: {
+        Args: { _dry_run?: boolean; _limit?: number; _token: string }
+        Returns: Json
+      }
       apply_org_quality_holds_v1: {
         Args: { _dry_run?: boolean; _limit?: number; _run_id?: string }
         Returns: Json
@@ -14540,9 +14677,27 @@ export type Database = {
         Args: { _limit?: number }
         Returns: Json
       }
+      apply_person_host_identity_override_v1: {
+        Args: {
+          _dry_run?: boolean
+          _limit?: number
+          _rule_ids: string[]
+          _token: string
+        }
+        Returns: Json
+      }
       apply_person_host_rules_v1: { Args: { _limit?: number }; Returns: Json }
       apply_person_judge_pair: {
         Args: { _episode: string; _person: string; _token: string }
+        Returns: Json
+      }
+      apply_person_nonperson_rules_v1: {
+        Args: {
+          _dry_run?: boolean
+          _limit?: number
+          _run: string
+          _token: string
+        }
         Returns: Json
       }
       apply_person_openai_batch_item: { Args: { _item: string }; Returns: Json }
@@ -16124,6 +16279,10 @@ export type Database = {
         Args: { _dry_run?: boolean }
         Returns: Json
       }
+      repair_person_roster_origins_v1: {
+        Args: { _dry_run?: boolean; _limit?: number; _token: string }
+        Returns: Json
+      }
       requeue_legacy_clean_text_v4_backfill: {
         Args: { _limit?: number; _tiers?: string[] }
         Returns: Json
@@ -16734,9 +16893,27 @@ export type Database = {
       }
       transcript_source_class_v1: { Args: { p_model: string }; Returns: string }
       unaccent: { Args: { "": string }; Returns: string }
+      undo_explicit_publisher_guest_labels_v1: {
+        Args: {
+          _dry_run?: boolean
+          _limit?: number
+          _repair_run_id: string
+          _token: string
+        }
+        Returns: Json
+      }
       undo_organization_merge_v1: { Args: { _log_id: string }; Returns: Json }
       undo_person_episode_credit_pairs_v1: {
         Args: { _episode_ids: string[]; _reason: string; _rule_id: string }
+        Returns: Json
+      }
+      undo_person_host_identity_override_v1: {
+        Args: {
+          _dry_run?: boolean
+          _limit?: number
+          _repair_run_id: string
+          _token: string
+        }
         Returns: Json
       }
       undo_person_host_rule_pairs_v1: {
@@ -16749,6 +16926,10 @@ export type Database = {
       }
       undo_person_role_label_v1: {
         Args: { _all?: boolean; _audit_ids: number[]; _by?: string }
+        Returns: Json
+      }
+      undo_person_roster_origins_v1: {
+        Args: { _limit?: number; _run: string; _token: string }
         Returns: Json
       }
       update_page_event_dwell: {
