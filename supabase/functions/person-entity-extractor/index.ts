@@ -630,6 +630,7 @@ Deno.serve(async (req) => {
     // role/evidence fields; only new and never-reviewed rows are written.
     const reviewedKeys = new Set<string>();
     const protectedPairs = new Set<string>();
+    const leaseDeferredEpisodes = new Set<string>();
     const mentionEpIds = Array.from(new Set(mentionRowsUnique.map((r: any) => String(r.episode_id))));
     for (let c = 0; c < mentionEpIds.length; c += 100) {
       const ids = mentionEpIds.slice(c, c + 100);
@@ -660,7 +661,10 @@ Deno.serve(async (req) => {
           .select("person_id, episode_id").in("episode_id", ids).gt("lease_until", new Date().toISOString())
           .order("person_id").order("episode_id").range(offset, offset + 999);
         if (error) { errors.push(`leased_pairs: ${error.message}`); writeErrors++; break; }
-        for (const r of leased || []) protectedPairs.add(`${r.person_id}:${r.episode_id}`);
+        for (const r of leased || []) {
+          protectedPairs.add(`${r.person_id}:${r.episode_id}`);
+          leaseDeferredEpisodes.add(String(r.episode_id));
+        }
         if (!leased || leased.length < 1000) break;
       }
       if (writeErrors) break;
@@ -718,10 +722,13 @@ Deno.serve(async (req) => {
     }
 
     // ---------- Input fingerprints (only after every write succeeded) ----------
-    if (writeErrors === 0 && changedFps.length) {
-      for (let i = 0; i < changedFps.length; i += 200) {
+    // Leased pairs need another pass after release even if their inputs have not
+    // changed. Marking these episodes complete would discard deferred evidence.
+    const completedFps = changedFps.filter((r) => !leaseDeferredEpisodes.has(r.episode_id));
+    if (writeErrors === 0 && completedFps.length) {
+      for (let i = 0; i < completedFps.length; i += 200) {
         const { error: fpErr } = await supabase.from("person_extractor_episode_inputs")
-          .upsert(changedFps.slice(i, i + 200).map((r) => ({ ...r, processed_at: new Date().toISOString() })), { onConflict: "episode_id" });
+          .upsert(completedFps.slice(i, i + 200).map((r) => ({ ...r, processed_at: new Date().toISOString() })), { onConflict: "episode_id" });
         if (fpErr) { errors.push(`fingerprints: ${fpErr.message}`); break; }
       }
     }
