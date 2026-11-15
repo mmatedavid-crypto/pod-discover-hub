@@ -12,6 +12,7 @@ import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 import { runLog } from "../_shared/runner-run-log.ts";
 import { safePublicFetch } from "../_shared/safe-public-fetch.ts";
 import { findRoleLabelHits, ROLE_LABEL_RULE_VERSION } from "../_shared/person-role-label.ts";
+import { findProductionCreditHits } from "../_shared/person-production-credit.ts";
 import { parseEpisodePageMeta } from "../_shared/episode-page-meta.ts";
 import { checkProcessingPriority } from "../_shared/processing-priority.ts";
 
@@ -63,18 +64,30 @@ async function roleLabelLane(admin: any, ctrl: any, body: any, started: number, 
     scannedTotal += scanned;
     const results: any[] = [];
     const items: any[] = [];
+    const prodItems: any[] = [];
     for (const r of rows) {
       // Blocked pairs are not recorded: a cleared flag or resolved homonym must be re-checked next pass.
       if (r.block) { bump(`blocked_${r.block}`); continue; }
       if (!r.has_label) { results.push({ ...base(r), outcome: "no_label" }); bump("no_label"); continue; }
-      const res = findRoleLabelHits({ episode_title: r.title, episode_description: r.description, episode_page: r.page_description,
-        spotify_episode_description: r.spotify_description, youtube_episode_description: r.youtube_description }, r.name, r.aliases || []);
-      if (res.outcome !== "hit") { results.push({ ...base(r), outcome: res.outcome }); bump(res.outcome); continue; }
+      const fields = { episode_title: r.title, episode_description: r.description, episode_page: r.page_description,
+        spotify_episode_description: r.spotify_description, youtube_episode_description: r.youtube_description };
+      const res = findRoleLabelHits(fields, r.name, r.aliases || []);
+      if (res.outcome !== "hit") {
+        // Crew-only credit ("Vágó: X") is its own category, never a guest/mention (owner decision 2026-11-15).
+        const pc = res.outcome === "role_conflict" ? null : findProductionCreditHits(fields, r.name, r.aliases || []);
+        if (pc?.outcome === "production_credit") {
+          prodItems.push({ person_id: r.person_id, episode_id: r.episode_id, source_hash: r.source_hash, hits: pc.hits.slice(0, 20), _r: r });
+          continue;
+        }
+        const oc = pc?.outcome === "production_mixed" ? "production_credit_mixed" : res.outcome;
+        results.push({ ...base(r), outcome: oc }); bump(oc); continue;
+      }
       const h = res.hits[0];
       items.push({ person_id: r.person_id, episode_id: r.episode_id, role: h.role, field: h.field, quote: h.quote, snippet: h.snippet,
         matched_name: h.matched_name, descriptor: h.descriptor, source_hash: r.source_hash, _r: r });
     }
     if (dryRun) {
+      for (const it of prodItems) { bump("would_apply_production_credit"); applied.push({ person_id: it.person_id, episode_id: it.episode_id, production_credit: it.hits.map((h: any) => h.snippet) }); }
       for (const it of items) { bump("would_apply_check"); applied.push({ person_id: it.person_id, episode_id: it.episode_id, role: it.role, field: it.field, snippet: it.snippet, descriptor: it.descriptor }); }
     } else {
       for (let i = 0; i < items.length; i += 100) {
@@ -85,7 +98,18 @@ async function roleLabelLane(admin: any, ctrl: any, body: any, started: number, 
           const src = chunk.find((c) => c.person_id === o.person_id && c.episode_id === o.episode_id);
           bump(o.outcome);
           if (o.outcome === "applied") applied.push({ audit_id: o.audit_id, role: o.role, anchor: o.anchor, snippet: src?.snippet });
-          if (src && !RECHECK_OUTCOMES.test(o.outcome)) results.push({ ...base(src._r), outcome: o.outcome, detail: { role: src.role, field: src.field, snippet: src.snippet, ...o } });
+          if (src && !RECHECK_OUTCOMES.test(o.outcome)) results.push({ ...base(src._r), outcome: o.outcome, detail: { pc1: true, role: src.role, field: src.field, snippet: src.snippet, ...o } });
+        }
+      }
+      for (let i = 0; i < prodItems.length; i += 100) {
+        const chunk = prodItems.slice(i, i + 100);
+        const { data: out, error: pErr } = await admin.rpc("apply_person_production_credit_v1", { _items: chunk.map(({ _r, ...x }) => x) });
+        if (pErr) throw new Error(`apply_production_credit: ${pErr.message}`);
+        for (const o of (out || []) as any[]) {
+          const src = chunk.find((c) => c.person_id === o.person_id && c.episode_id === o.episode_id);
+          bump(o.outcome);
+          if (o.outcome === "production_credit_applied") applied.push({ audit_id: o.audit_id, production_credit: o.labels, snippet: src?.hits?.[0]?.snippet });
+          if (src && !RECHECK_OUTCOMES.test(o.outcome)) results.push({ ...base(src._r), outcome: o.outcome, detail: { pc1: true, lane: "production_credit", ...o } });
         }
       }
       for (let i = 0; i < results.length; i += 500) {
@@ -103,7 +127,8 @@ async function roleLabelLane(admin: any, ctrl: any, body: any, started: number, 
   return { scanned: scannedTotal, counts, applied: applied.slice(0, 40), applied_total: applied.length, passes_completed: passes };
 }
 const RECHECK_OUTCOMES = /^(source_changed|blocked_|identity_unanchored|mention_state_changed|busy_retry)/;
-const base = (r: any) => ({ person_id: r.person_id, episode_id: r.episode_id, source_hash: r.source_hash });
+// pc1: the result was produced with the production-credit check (older "no label" results are re-checked once).
+const base = (r: any) => ({ person_id: r.person_id, episode_id: r.episode_id, source_hash: r.source_hash, detail: { pc1: true } });
 
 async function pageFetchLane(admin: any, ctrl: any, body: any, started: number, dryRun: boolean) {
   const cap = Math.max(0, Math.min(5000, Number(ctrl.page_fetch_daily_cap ?? 1500)));

@@ -16,6 +16,7 @@ const PAIR_LABELS: Record<string, string> = {
   human_contradiction_review: "Valódi kézi eset: ellentmondás",
   resolved_show_host: "Lezárva: a műsor igazolt műsorvezetője (örökölt szerep, nem megszólalás)",
   resolved_feed_credit_not_episode: "Lezárva: RSS-szerzőkredit, az epizód mást nevez meg",
+  resolved_production_credit: "Lezárva: csak stábszerepben (pl. vágó, szerkesztő) szerepel, nem vendég és nem megszólalás",
   other: "Egyéb",
 };
 const REASON_LABELS: Record<string, string> = {

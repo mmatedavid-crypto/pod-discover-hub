@@ -14550,6 +14550,10 @@ export type Database = {
         Args: { _item: string }
         Returns: Json
       }
+      apply_person_production_credit_v1: {
+        Args: { _items: Json }
+        Returns: Json
+      }
       apply_person_role_label_v1: { Args: { _items: Json }; Returns: Json }
       apply_topic_cluster_staging: { Args: never; Returns: Json }
       apply_wiki_safe_match_v1: {
@@ -16737,6 +16741,10 @@ export type Database = {
       }
       undo_person_host_rule_pairs_v1: {
         Args: { _episode_ids: string[]; _reason: string; _rule_id: string }
+        Returns: Json
+      }
+      undo_person_production_credit_v1: {
+        Args: { _all?: boolean; _audit_ids: number[]; _by?: string }
         Returns: Json
       }
       undo_person_role_label_v1: {
