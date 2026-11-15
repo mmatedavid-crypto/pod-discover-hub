@@ -33,6 +33,7 @@ import { getEpisodeUnderstanding } from "@/lib/episodeUnderstanding";
 import { PodcastCover } from "@/components/PodcastCover";
 import { EpisodeClusterChips } from "@/components/EpisodeClusterChips";
 import { EpisodeAnswers } from "@/components/EpisodeAnswers";
+import { EpisodeSourceInsights } from "@/components/EpisodeSourceInsights";
 import { parsePublicCleanDescription, publicSourceLabel, type PublicCleanDescription } from "@/lib/publicCleanDescription";
 
 const ENT_KINDS: { kind: EntityKind; label: string }[] = [
@@ -657,6 +658,7 @@ export default function EpisodeDetail() {
         )}
 
         <EpisodeAnswers episodeId={e.id} />
+        <EpisodeSourceInsights episodeId={e.id} />
 
         {moments.length > 0 && (
           <KeyMoments moments={moments} audioUrl={e.audio_url} onSeek={e.audio_url ? handleSeek : undefined} />

@@ -8,6 +8,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { checkProcessingPriority } from "../_shared/processing-priority.ts";
 import { inputGuard, type Source } from "../_shared/person-relevance-batch.ts";
+import { episodePilotTick, episodePilotStatus } from "../_shared/episode-enrichment-worker.ts";
 import {
   actualCostUsd, BATCH_MAX_BYTES, buildCustomId, buildRequestLine, countsAsAttempt, decidePolicy, ESCALATION_MAX_OUTPUT_TOKENS, escalationFinal, estimateTokens, goldenMetrics,
   isStaleClaim, jsonlSize, mapBatchStatus, mergeControls, parseCustomId, parseOutputLine, PILOT_DESIGN, REQUEST_MAX_CHARS,
@@ -439,6 +440,10 @@ const TICK_UPPER_USD_PER_ESCALATION = 0.008;
 const ESCALATION_MAX_PER_JOB = 600;
 async function tickAction(db: any) {
   const polled = await (await pollAction(db, await loadControls(db), {})).json();
+  // Uses this worker's existing key/transport and unchanged global budget ledger.
+  // Disabled until the owner-authorized 10,000-episode pilot has been deployed.
+  const episodePilot = await episodePilotTick(db, openai);
+  if (!(episodePilot as any).skipped) return { ok: true, polled, episode_pilot: episodePilot };
   // Jobs killed mid-submit stay "claimed" forever (nothing uploaded or billed):
   // abort them so they free their open-job slot and their pairs' leases.
   const { data: claimed } = await db.from("person_relevance_batch_jobs").select("id,status,created_at,openai_input_file_id")
@@ -451,7 +456,7 @@ async function tickAction(db: any) {
     staleAborted += r.data?.length || 0;
   }
   const controls = await loadControls(db);
-  if (!controls.enabled) return { ok: true, polled, stale_aborted: staleAborted, submitted: false, reason: "controls_disabled" };
+  if (!controls.enabled) return { ok: true, polled, episode_pilot: episodePilot, stale_aborted: staleAborted, submitted: false, reason: "controls_disabled" };
   const { data: jobs } = await db.from("person_relevance_batch_jobs").select("tier,status,reserved_cost_usd,actual_cost_usd,request_count,created_at")
     .not("status", "in", "(draft,aborted)").limit(5000);
   const dayStart = new Date(); dayStart.setUTCHours(0, 0, 0, 0);
@@ -493,7 +498,7 @@ async function tickAction(db: any) {
     }
   }
   if (exhausted.primary && exhausted.escalation) await pauseControls(db, "authorized_budget_exhausted");
-  return { ok: true, polled, stale_aborted: staleAborted, submits, committed_usd: committed, lane_usd: lane };
+  return { ok: true, polled, episode_pilot: episodePilot, stale_aborted: staleAborted, submits, committed_usd: committed, lane_usd: lane };
 }
 
 Deno.serve(async (req) => {
@@ -509,6 +514,7 @@ Deno.serve(async (req) => {
     if (!userId) return json({ ok: false, error: "admin_required" }, 403);
     const controls = await loadControls(db);
     switch (body.action || "status") {
+      case "episode_pilot_status": return json(await episodePilotStatus(db));
       case "tick": return json(await tickAction(db));
       case "status": return json(await statusAction(db, controls));
       case "preview": return json(await previewAction(db, controls, body));
