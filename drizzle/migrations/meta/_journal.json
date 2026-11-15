@@ -1219,6 +1219,13 @@
       "when": 1794741299040,
       "tag": "0173_role_label_platform_descriptions",
       "breakpoints": true
+    },
+    {
+      "idx": 174,
+      "version": "7",
+      "when": 1794743088455,
+      "tag": "0174_activate_verified_people_and_unblock_role_labels",
+      "breakpoints": true
     }
   ]
 }

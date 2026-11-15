@@ -14446,6 +14446,10 @@ export type Database = {
         Args: { _lane: string; _seconds: number }
         Returns: string
       }
+      activate_people_with_verified_episodes_v1: {
+        Args: { _limit?: number }
+        Returns: number
+      }
       add_ai_spend: {
         Args: {
           p_amount: number
