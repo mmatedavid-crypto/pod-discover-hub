@@ -1,0 +1,3 @@
+# person-evidence-review rules
+
+- Evidence-pack person review (`person-evidence-review`, policy `_shared/person-evidence.ts`) is shadow-only: approved in-scope aliases only, accent-insensitive name windows, every positive role needs a verbatim episode-level quote with the name, show-level text never proves presence, packs are idempotent by content fingerprint, and the gate counts only human references (`person_evidence_references`, labelled goldens), never model agreement; work states live in `person_pair_dispositions`, never in public mention statuses, because the old pilot was quality-blocked and AI labels must not become ground truth.

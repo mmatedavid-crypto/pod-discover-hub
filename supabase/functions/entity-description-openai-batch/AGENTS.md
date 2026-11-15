@@ -1,0 +1,3 @@
+# entity-description-openai-batch rules
+
+- Organization/person AI descriptions are written only by `entity-description-openai-batch` with policy in `_shared/entity-description.ts` (public episode title/show/date/RSS card summary only, every claim a verbatim quote, unsupported numbers/participation rejected) and published only through `apply_entity_description_draft_v1` (organizations, CAS onto empty fields, backup, `rollback_entity_description_job_v1`); person drafts are never published without a separate owner decision, because hallucinated bios on indexed pages cannot be reviewed one by one.

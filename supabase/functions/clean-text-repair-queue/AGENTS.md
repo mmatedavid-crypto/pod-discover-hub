@@ -1,0 +1,4 @@
+# clean-text-repair-queue rules
+
+- Resolve legacy ytdesc review rows only via `_shared/clean-text-legacy-resolve.ts` in `clean-text-repair-queue` admin actions (merge only for v3-confirmed videos, extract-only, internal-only `multi_source`/`youtube_corroborated` source types, outcomes logged in `clean_text_legacy_resolutions`, AI only through the reserved/capped `clean_text_legacy_ai_reviews` ledger), because merged or unconfirmed third-party text must never become public and every decision must stay reversible.
+- Astra review of clean-text rows waiting for a human runs only as the advisory `clean-text-repair-queue` `astra_review` action (policy in `_shared/clean-text-astra-review.ts`, atomic reserve/settle against `clean_text_astra_review_controls` caps, results in `clean_text_astra_reviews`); it never writes episode text or queue status, because text changes must stay on the reviewed backup + CAS apply paths.
