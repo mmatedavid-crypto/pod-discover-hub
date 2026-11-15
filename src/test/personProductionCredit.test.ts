@@ -51,6 +51,11 @@ describe("production-credit-v1: never closes a speaking person", () => {
     const d = "Vágó:\nEbben az adásban Kovács Péter vendégünk volt.";
     expect(pc(d, "Kovács Péter").outcome).not.toBe("production_credit");
   });
+  it("music labels list the episode's content on music shows, not its crew", () => {
+    expect(pc("Zene: Henry Threadgill, Wadada Leo Smith", "Henry Threadgill").outcome).toBe("none");
+    expect(pc("Mix: Kovács Péter", "Kovács Péter").outcome).toBe("none");
+    expect(pc("Zenei szerkesztő: Varga Ramona", "Varga Ramona").outcome).toBe("production_credit");
+  });
   it("no crew label → nothing", () => {
     expect(pc("Kovács Péter beszélgetése a gazdaságról", "Kovács Péter").outcome).toBe("none");
   });

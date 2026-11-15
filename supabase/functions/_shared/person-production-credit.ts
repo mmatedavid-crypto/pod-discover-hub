@@ -3,6 +3,7 @@
 // 2026-11-15: such a credit is its own category: not a guest, not a mention, not a spoken appearance, and not
 // proof of absence either. It applies only when EVERY occurrence of the person's name in every usable field is
 // inside such a crew credit; any other occurrence (host line, guest line, running text, title) leaves the pair open.
+// "Zene:", "Mix:", "Tracklista:" are NOT crew labels: on music shows they list the artists the episode is about.
 // Pure text rule, no AI. Re-verified in apply_person_production_credit_v1 (source-hash CAS, quote + residual check).
 
 import { cleanRoleField, foldKeepLength, usableRoleNames, ROLE_LABEL_FIELDS, type RoleLabelField } from "./person-role-label.ts";
@@ -11,7 +12,7 @@ export const PRODUCTION_CREDIT_RULE_VERSION = "production-credit-v1";
 
 const WORD =
   "(?:vago(?:k|ja)?|vagta|vagas|videovagas|hangvagas|utomunka|studiomunka|szerkeszto(?:k|je|i)?|szerkesztette|producer(?:ek|e)?|produkcio" +
-  "|hangmernok(?:ok|e)?|hangtechnika|hangtechnikus|hangkeveres|keveres|mix|master(?:ing)?|zene|zenek|zenei alap|operator(?:ok)?|kamera" +
+  "|hangmernok(?:ok|e)?|hangtechnika|hangtechnikus|hangkeveres|operator(?:ok)?|kamera" +
   "|feny|fotok?|video|vizual|grafika|grafikus|design|boritokep|borito|diszlet|smink|rendezo|rendezte|technikus|felvetel)";
 const PREFIX = "(?:fo|felelos |vezeto |zenei |tartalmi )?";
 /** Label phrase: one or more crew words joined by , / & + és — never a speaking role. */
