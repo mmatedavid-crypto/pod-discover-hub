@@ -2923,6 +2923,151 @@ export type Database = {
         }
         Relationships: []
       }
+      episode_enrichment_pilot_items: {
+        Row: {
+          applied_at: string | null
+          apply_report: Json | null
+          before_state: Json | null
+          cost_usd: number
+          created_at: string
+          episode_id: string
+          error: string | null
+          fingerprint: string | null
+          input: Json | null
+          job_id: string | null
+          ordinal: number
+          result: Json | null
+          source_pair_count: number
+          status: string
+          validation_errors: Json | null
+        }
+        Insert: {
+          applied_at?: string | null
+          apply_report?: Json | null
+          before_state?: Json | null
+          cost_usd?: number
+          created_at?: string
+          episode_id: string
+          error?: string | null
+          fingerprint?: string | null
+          input?: Json | null
+          job_id?: string | null
+          ordinal: number
+          result?: Json | null
+          source_pair_count?: number
+          status?: string
+          validation_errors?: Json | null
+        }
+        Update: {
+          applied_at?: string | null
+          apply_report?: Json | null
+          before_state?: Json | null
+          cost_usd?: number
+          created_at?: string
+          episode_id?: string
+          error?: string | null
+          fingerprint?: string | null
+          input?: Json | null
+          job_id?: string | null
+          ordinal?: number
+          result?: Json | null
+          source_pair_count?: number
+          status?: string
+          validation_errors?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "episode_enrichment_pilot_items_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: true
+            referencedRelation: "episodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "episode_enrichment_pilot_items_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: true
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "episode_enrichment_pilot_items_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: true
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "episode_enrichment_pilot_items_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: true
+            referencedRelation: "v_episode_data_quality_issues"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "episode_enrichment_pilot_items_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: true
+            referencedRelation: "v_episode_quality_indicator_audit"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "episode_enrichment_pilot_items_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "episode_enrichment_pilot_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      episode_enrichment_pilot_jobs: {
+        Row: {
+          actual_cost_usd: number
+          created_at: string
+          id: string
+          last_error: string | null
+          lease_token: string | null
+          lease_until: string | null
+          model: string
+          openai_batch_id: string | null
+          openai_input_file_id: string | null
+          request_count: number
+          reserved_cost_usd: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          actual_cost_usd?: number
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          lease_token?: string | null
+          lease_until?: string | null
+          model?: string
+          openai_batch_id?: string | null
+          openai_input_file_id?: string | null
+          request_count?: number
+          reserved_cost_usd?: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          actual_cost_usd?: number
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          lease_token?: string | null
+          lease_until?: string | null
+          model?: string
+          openai_batch_id?: string | null
+          openai_input_file_id?: string | null
+          request_count?: number
+          reserved_cost_usd?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       episode_extracted_topics: {
         Row: {
           confidence: number | null
@@ -14637,6 +14782,17 @@ export type Database = {
         Args: { _draft: string }
         Returns: string
       }
+      apply_episode_enrichment_item_v1: {
+        Args: {
+          p_cost: number
+          p_episode: string
+          p_errors: Json
+          p_fingerprint: string
+          p_result: Json
+          p_role_items: Json
+        }
+        Returns: Json
+      }
       apply_episode_entities_v1: {
         Args: {
           p_episode_id: string
@@ -14894,6 +15050,10 @@ export type Database = {
           source_fingerprint: string
         }[]
       }
+      claim_episode_enrichment_job_v1: {
+        Args: { p_limit?: number }
+        Returns: Json
+      }
       claim_episode_source_changes_v1: {
         Args: { p_lease_seconds?: number; p_limit?: number }
         Returns: {
@@ -15131,6 +15291,19 @@ export type Database = {
       }
       episode_cards_backfill_tick: { Args: never; Returns: number }
       episode_classifier_stats: { Args: never; Returns: Json }
+      episode_enrichment_allowed_v1: {
+        Args: { p_require_enabled?: boolean }
+        Returns: boolean
+      }
+      episode_enrichment_input_v1: {
+        Args: { p_episode: string }
+        Returns: Json
+      }
+      episode_enrichment_pilot_counts_v1: { Args: never; Returns: Json }
+      episode_enrichment_progress_v1: {
+        Args: { p_detail?: string; p_event: string }
+        Returns: Json
+      }
       episode_topic_slug_backfill_tick: { Args: never; Returns: number }
       etsm_published_backfill: { Args: { _batch?: number }; Returns: number }
       extend_pipeline_catchup_v1: {
@@ -15215,6 +15388,10 @@ export type Database = {
           episode_id: string
           quality_status: string
         }[]
+      }
+      get_episode_enrichment_public_v1: {
+        Args: { p_episode: string }
+        Returns: Json
       }
       get_episode_index_text: {
         Args: { p_episode_id: string; p_max_chars?: number }
@@ -16458,6 +16635,10 @@ export type Database = {
           source_class: string
         }[]
       }
+      seed_episode_enrichment_pilot_v1: {
+        Args: { p_limit?: number; p_token: string }
+        Returns: Json
+      }
       select_changed_embed_episode_candidates_v1: {
         Args: { _limit: number }
         Returns: {
@@ -16893,6 +17074,10 @@ export type Database = {
       }
       transcript_source_class_v1: { Args: { p_model: string }; Returns: string }
       unaccent: { Args: { "": string }; Returns: string }
+      undo_episode_enrichment_item_v1: {
+        Args: { p_episode: string; p_token: string }
+        Returns: Json
+      }
       undo_explicit_publisher_guest_labels_v1: {
         Args: {
           _dry_run?: boolean
