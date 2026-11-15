@@ -14,7 +14,8 @@ const cors = {
 
 import { slugify as sharedSlugify } from "../_shared/slug.ts";
 import { canonicalizeHungarianPersonName } from "../_shared/hu-person-name.ts";
-import { aliasSetFingerprint, isReviewedMention, personExtractorInputFingerprint } from "../_shared/person-extractor-fingerprint.ts";
+import { aliasSetFingerprint, isReviewedMention, personExtractorInputFingerprint, PERSON_EXTRACTOR_INPUT_POLICY } from "../_shared/person-extractor-fingerprint.ts";
+import { personEpisodeInputs, isProtectedPersonPair } from "../_shared/person-extractor-inputs.ts";
 import { runLog } from "../_shared/runner-run-log.ts";
 // normalize() is kept as the comparison key for existing `people.normalized_name`
 // rows — changing it would re-bucket the entire people table. The slugify path
@@ -337,7 +338,7 @@ Deno.serve(async (req) => {
       for (let off = 0; ; off += 1000) {
         const { data: pods, error: podErr } = await supabase
           .from("podcasts")
-          .select("id, language, language_decision, hosts, title")
+          .select("id, language, language_decision, hosts, hosts_source, title")
           .eq("language_decision", "accept_hungarian")
           .order("id", { ascending: true })
           .range(off, off + 999);
@@ -355,7 +356,7 @@ Deno.serve(async (req) => {
           .select("id, podcast_id, title, ai_summary, people, mentioned, topics, entity_extraction_evidence, published_at")
         : supabase
           .from("episodes")
-          .select("id, podcast_id, title, ai_summary, people, mentioned, topics, entity_extraction_evidence, published_at, podcasts!inner(id, language, language_decision, hosts, title)")
+          .select("id, podcast_id, title, ai_summary, people, mentioned, topics, entity_extraction_evidence, published_at, podcasts!inner(id, language, language_decision, hosts, hosts_source, title)")
           .eq("podcasts.language_decision", "accept_hungarian");
       if (cursorMode) {
         query = query.order("id", { ascending: true }).limit(PAGE);
@@ -401,42 +402,34 @@ Deno.serve(async (req) => {
         const fp = await personExtractorInputFingerprint(e, pod, aliasFp);
         if (prevFp.get(String(e.id)) === fp) { skippedUnchanged++; continue; }
         changedFps.push({ episode_id: e.id, input_fp: fp });
-        const hosts: string[] = pod.hosts || [];
-        const hostSet = new Set(hosts.map((host) => normalize(canonicalPersonInput(host).name)));
+        const inputs = personEpisodeInputs(e, pod);
         const contextBucket = contextBucketFor(e, pod);
         const titleNorm = normalize(e.title || "");
         const descNorm = normalize([e.ai_summary, e.clean_text].filter(Boolean).join(" "));
         const allText = titleNorm + " " + descNorm;
 
         // -------- People --------
-        // Hosts: high confidence per podcast (mark as host on every episode of this pod)
-        for (const h of hosts) {
+        // Feed/manual roster candidates are show-level only; inheritance is
+        // resolved exclusively by publisher-backed person_host_rules.
+        for (const h of inputs.hosts) {
           const pid = getOrCreatePerson(h, contextBucket);
           if (!pid) continue;
           const agg = personAgg.get(pid)!;
-          agg.maxConfidence = Math.max(agg.maxConfidence, 0.95);
+          agg.maxConfidence = Math.max(agg.maxConfidence, 0.5);
           if (e.published_at && (!agg.latest || e.published_at > agg.latest)) agg.latest = e.published_at;
-          agg.mentions.push({ episode_id: e.id, podcast_id: pod.id, mention_type: "host", confidence: 0.95, source: "rss_author" });
-          const cur = agg.podcastRoles.get(pod.id) || { role: "host", count: 0, latest: null, confidence: 0.95 };
+          agg.mentions.push({ episode_id: e.id, podcast_id: pod.id, mention_type: "host", confidence: 0.5, source: inputs.hostSource!,
+            source_evidence: { scope: "podcast", hosts_source: inputs.hostsSource, episode_participation_verified: false } });
+          const cur = agg.podcastRoles.get(pod.id) || { role: "host", count: 0, latest: null, confidence: 0.5 };
           cur.count++;
           if (e.published_at && (!cur.latest || e.published_at > cur.latest)) cur.latest = e.published_at;
           agg.podcastRoles.set(pod.id, cur);
         }
 
-        const evidencePeople = Array.isArray(e.entity_extraction_evidence?.person_mentions)
-          ? e.entity_extraction_evidence.person_mentions
-          : [];
-        const evidenceSpeakers = evidencePeople
-          .filter((p: any) => p?.role === "speaker")
-          .map((p: any) => canonicalPersonInput(p.name).name);
-        const evidenceMentioned = evidencePeople
-          .filter((p: any) => p?.role !== "speaker")
-          .map((p: any) => canonicalPersonInput(p.name).name);
+        const evidencePeople = inputs.evidence;
 
         // Guests / speakers: prefer v5 evidence-backed mentions, fall back to legacy episodes.people.
-        for (const p of (evidenceSpeakers.length ? evidenceSpeakers : (e.people || []))) {
+        for (const p of inputs.speakers) {
           const canonicalName = canonicalPersonInput(p);
-          if (hostSet.has(normalize(canonicalName.name))) continue;
           const pid = getOrCreatePerson(p, contextBucket);
           if (!pid) continue;
           const inTitle = titleNorm.includes(normalize(p));
@@ -461,9 +454,8 @@ Deno.serve(async (req) => {
         }
 
         // Mentioned (talked about, not speaking): prefer v5 evidence-backed mentions.
-        for (const m of (evidenceMentioned.length ? evidenceMentioned : (e.mentioned || []))) {
+        for (const m of inputs.mentioned) {
           const canonicalName = canonicalPersonInput(m);
-          if (hostSet.has(normalize(canonicalName.name))) continue;
           const pid = getOrCreatePerson(m, contextBucket);
           if (!pid) continue;
           const evidence = evidencePeople.find((x: any) => normalize(canonicalPersonInput(x?.name || "").name) === normalize(canonicalName.name));
@@ -637,15 +629,44 @@ Deno.serve(async (req) => {
     // Mentions somebody already judged (AI judge, paid review, rule, manual) keep their
     // role/evidence fields; only new and never-reviewed rows are written.
     const reviewedKeys = new Set<string>();
+    const protectedPairs = new Set<string>();
     const mentionEpIds = Array.from(new Set(mentionRowsUnique.map((r: any) => String(r.episode_id))));
     for (let c = 0; c < mentionEpIds.length; c += 100) {
-      const { data: rv, error: rvErr } = await supabase.from("person_episode_mentions")
-        .select("person_id, episode_id, mention_type, validation_source")
-        .in("episode_id", mentionEpIds.slice(c, c + 100)).not("validation_source", "is", null);
-      if (rvErr) { errors.push(`reviewed_mentions: ${rvErr.message}`); writeErrors++; break; }
-      for (const r of rv || []) if (isReviewedMention(r as any)) reviewedKeys.add(`${(r as any).person_id}:${(r as any).episode_id}:${(r as any).mention_type}`);
+      const ids = mentionEpIds.slice(c, c + 100);
+      for (let offset = 0; ; offset += 1000) {
+        const { data: rv, error: rvErr } = await supabase.from("person_episode_mentions")
+          .select("person_id, episode_id, mention_type, validation_source, relevance_status")
+          .in("episode_id", ids).order("id").range(offset, offset + 999);
+        if (rvErr) { errors.push(`reviewed_mentions: ${rvErr.message}`); writeErrors++; break; }
+        for (const r of rv || []) {
+          const pair = `${r.person_id}:${r.episode_id}`;
+          if (isReviewedMention(r)) reviewedKeys.add(`${pair}:${r.mention_type}`);
+          if (isProtectedPersonPair(r)) protectedPairs.add(pair);
+        }
+        if (!rv || rv.length < 1000) break;
+      }
+      // A new role must not circumvent an existing pair decision or a paid
+      // review lease merely because its mention_type differs from the old row.
+      for (let offset = 0; ; offset += 1000) {
+        const { data: decisions, error } = await supabase.from("person_pair_dispositions")
+          .select("person_id, episode_id, disposition, decided_by").in("episode_id", ids)
+          .order("person_id").order("episode_id").range(offset, offset + 999);
+        if (error) { errors.push(`protected_pairs: ${error.message}`); writeErrors++; break; }
+        for (const r of decisions || []) if (isProtectedPersonPair(r)) protectedPairs.add(`${r.person_id}:${r.episode_id}`);
+        if (!decisions || decisions.length < 1000) break;
+      }
+      for (let offset = 0; ; offset += 1000) {
+        const { data: leased, error } = await supabase.from("person_relevance_work")
+          .select("person_id, episode_id").in("episode_id", ids).gt("lease_until", new Date().toISOString())
+          .order("person_id").order("episode_id").range(offset, offset + 999);
+        if (error) { errors.push(`leased_pairs: ${error.message}`); writeErrors++; break; }
+        for (const r of leased || []) protectedPairs.add(`${r.person_id}:${r.episode_id}`);
+        if (!leased || leased.length < 1000) break;
+      }
+      if (writeErrors) break;
     }
-    const mentionRowsWritable = writeErrors ? [] : mentionRowsUnique.filter((r: any) => !reviewedKeys.has(`${r.person_id}:${r.episode_id}:${r.mention_type}`));
+    const mentionRowsWritable = writeErrors ? [] : mentionRowsUnique.filter((r: any) =>
+      !reviewedKeys.has(`${r.person_id}:${r.episode_id}:${r.mention_type}`) && !protectedPairs.has(`${r.person_id}:${r.episode_id}`));
     reviewedMentionsKept = mentionRowsUnique.length - mentionRowsWritable.length;
     await chunkUpsert("person_episode_mentions", mentionRowsWritable, "person_id,episode_id,mention_type");
     await chunkUpsert("person_podcast_map", podcastRoleRowsUnique, "person_id,podcast_id,role");
@@ -736,9 +757,9 @@ Deno.serve(async (req) => {
       finished_at: new Date().toISOString(),
     }).eq("id", runId);
 
-    await log.finish(errors.length ? "error" : "ok", { scanned, changed: changedFps.length, skipped_unchanged: skippedUnchanged, reviewed_mentions_kept: reviewedMentionsKept, mentions_written: mentionRows.length - reviewedMentionsKept, cycle_completed: cycleCompleted }, errors.slice(0, 3).join(" | ") || null);
+    await log.finish(errors.length ? "error" : "ok", { input_policy: PERSON_EXTRACTOR_INPUT_POLICY, scanned, changed: changedFps.length, skipped_unchanged: skippedUnchanged, reviewed_mentions_kept: reviewedMentionsKept, mentions_written: mentionRowsWritable.length, cycle_completed: cycleCompleted }, errors.slice(0, 3).join(" | ") || null);
     return new Response(JSON.stringify({
-      ok: true, runId, scanned, changed: changedFps.length, skipped_unchanged: skippedUnchanged, reviewed_mentions_kept: reviewedMentionsKept,
+      ok: true, input_policy: PERSON_EXTRACTOR_INPUT_POLICY, runId, scanned, changed: changedFps.length, skipped_unchanged: skippedUnchanged, reviewed_mentions_kept: reviewedMentionsKept,
       peopleAggregated: personAgg.size, peopleRows: peopleRows.length,
       mentions: mentionRows.length, podcastRoles: podcastRoleRows.length,
       episodeTopicMaps: episodeTopicRows.length, podcastTopicMaps: podcastTopicRows.length,

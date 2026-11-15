@@ -3,7 +3,7 @@
 // (plus the topic-alias set, folded in as aliasFp, and this policy version). An episode
 // whose fingerprint is unchanged since its last successful write is skipped — no
 // people/mention/topic-map rewrite churn on every catalog sweep.
-export const PERSON_EXTRACTOR_INPUT_POLICY = "person-extractor-input-v1";
+export const PERSON_EXTRACTOR_INPUT_POLICY = "person-extractor-input-v2-roster-provenance";
 
 async function sha256Hex(s: string): Promise<string> {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
@@ -15,7 +15,7 @@ const arr = (v: unknown) => (Array.isArray(v) ? v.map(norm) : []);
 
 export async function personExtractorInputFingerprint(
   e: { id: string; title?: string | null; ai_summary?: string | null; clean_text?: string | null; people?: unknown; mentioned?: unknown; topics?: unknown; published_at?: string | null; entity_extraction_evidence?: any },
-  pod: { id: string; hosts?: unknown; language_decision?: string | null; title?: string | null } | null,
+  pod: { id: string; hosts?: unknown; hosts_source?: string | null; language_decision?: string | null; title?: string | null } | null,
   aliasFp: string,
 ): Promise<string> {
   const pm = Array.isArray(e.entity_extraction_evidence?.person_mentions)
@@ -24,7 +24,7 @@ export async function personExtractorInputFingerprint(
   return sha256Hex(JSON.stringify([
     PERSON_EXTRACTOR_INPUT_POLICY, aliasFp,
     e.id, norm(e.title), norm(e.ai_summary), norm(e.clean_text), arr(e.people), arr(e.mentioned), arr(e.topics), norm(e.published_at), pm,
-    pod ? [pod.id, arr(pod.hosts), norm(pod.language_decision), norm(pod.title)] : null,
+    pod ? [pod.id, arr(pod.hosts), norm(pod.hosts_source), norm(pod.language_decision), norm(pod.title)] : null,
   ]));
 }
 
