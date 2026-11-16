@@ -8,6 +8,19 @@ const ev={source:'rss',quote:'Az infláció és a megtakarítás kapcsolatáról
 const result=()=>({summary:{text:'Az epizód az infláció és a megtakarítás kapcsolatáról szól.',evidence:[ev]},topics:[{topic_id:'topic-1',label:'infláció',evidence:ev}],questions:[{text:'Hogyan függ össze az infláció és a megtakarítás?',evidence:ev}],entities:[],format:null,
  people:[{person_id:person,role:'guest',descriptor:'közgazdász',evidence:{source:'rss',quote:'Vendég: Kovács Péter közgazdász.'}}]});
 describe('episode-rich-v1',()=>{
+ it('counts emoji quotes like PostgreSQL and retains other valid fields',()=>{
+  const source={...input,sources:[...input.sources,{id:'emoji',kind:'episode_description',scope:'episode' as const,url:null,text:'🌮 Kimchi Truck. 🍛 Raj\'s Indian Kitchen'}]};
+  const raw={...result(),entities:[
+   {name:'Kimchi Truck',kind:'organization',evidence:{source:'emoji',quote:'🌮 Kimchi Truck'}},
+   {name:'Raj\'s Indian Kitchen',kind:'organization',evidence:{source:'emoji',quote:'🍛 Raj\'s Indian Kitchen'}},
+  ]};
+  expect(raw.entities[0].evidence.quote.length).toBe(15);
+  const checked=validateEnrichment(source,raw);
+  expect(checked.value.entities.map(e=>e.name)).toEqual(['Raj\'s Indian Kitchen']);
+  expect(checked.errors).toContain('entity');
+  expect(checked.value.summary).toEqual(raw.summary);
+  expect(checked.value.questions).toHaveLength(1);
+ });
  it('uses one episode request, approved model and Batch-compatible Responses schema',()=>{
   const r=buildEpisodeRequest(input);expect(r.url).toBe('/v1/responses');expect(r.body.model).toBe('gpt-6-luna');expect(r.body.store).toBe(false);expect(r.body.reasoning.effort).toBe('none');expect(r.body.text.format.strict).toBe(true);
   expect(r.body.input).not.toContain('role_source_hash');expect(r.custom_id).toContain(input.episode_id);
