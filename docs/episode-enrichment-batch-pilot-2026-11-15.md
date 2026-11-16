@@ -52,8 +52,10 @@ person identities are published. No absence-based rejection is introduced.
 - At most 500 requests per job / 12 open jobs; conservative UTF-8-byte input
   token bound, full output reservation, no assumed cache savings. Job sizes
   shrink near the cap after earlier reservations settle.
-- Paid outputs resume in chunks of at most 40 items or 60 seconds. A crash does
-  not repay the same inputs. Ambiguous batch submission is reconciled from
+- Paid outputs resume in audited transactions of at most 40 items, with one
+  shared 45-second ingestion deadline across jobs. Multiple completed jobs are
+  drained per tick, then the worker reaches submission even after partial
+  ingestion. A crash does not repay the same inputs. Ambiguous batch submission is reconciled from
   OpenAI job metadata before any further submission.
 - Invalid/stale/uncertain outcomes are visible in counts; they are not called
   resolved. New source or a separate authorization is needed for a paid retry.
@@ -93,3 +95,42 @@ Official model and Batch references:
 - https://developers.openai.com/api/docs/models/gpt-6-luna
 - https://developers.openai.com/api/docs/guides/batch
 - https://developers.openai.com/api/docs/pricing
+
+## 2026-11-16 ingestion and publication repair
+
+The 40-item limit previously ended an entire ten-minute tick; it also prevented
+submission while a completed job still had unread output. The worker now sends
+up to 40 validated items per SQL transaction through
+`apply_episode_enrichment_chunk_v1`, preserving the existing per-episode apply,
+source checks, identity policy and backups. A job lease is checked and locked in
+every chunk; final accounting uses `finish_episode_enrichment_job_v1`. Lost
+responses are recovered by reading stored states before the next attempt.
+
+A definite budget-cap refusal before upload halves the unpaid job until it fits
+the unchanged allowance, returning deferred episodes to selection. An unknown
+reservation outcome stops the run for later readback; it is never blindly retried.
+
+The public getter excludes sponsor and studio-credit evidence and hides content
+whose source package has changed. It still returns only question text, entity
+name/kind and format, never source quotes or person proposals. `public_enabled`
+was enabled under the owner's backlog lease on 2026-11-16; all later valid
+results use this same projection automatically. Person AI gates remain unchanged.
+
+The SQL migration was applied directly through the owner-authorized database
+connection, with prior definitions/settings backed up in repair run
+`6cc346e1-313f-477a-9d5e-de6518625173`. No migration-history row was fabricated.
+The changed existing `person-relevance-openai-batch` edge function still requires
+Lovable Cloud sync/redeploy after this commit; GitHub presence is not evidence
+that the deployed worker has changed. Do not invoke the Lovable AI agent or
+change the cron schedule.
+
+Additional validation:
+
+```sh
+node scripts/run-vitest.mjs run src/test/episodeEnrichmentWorker.test.ts
+```
+
+`supabase/tests/episode_enrichment_throughput.sql` passed in a rolled-back
+transaction under the owned backlog lease: foreign lease rejection, 40-item
+transaction cap, idempotence, invalid/missing output, budget settlement,
+promotional-credit filtering and write RPC permissions.
