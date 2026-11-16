@@ -14782,6 +14782,10 @@ export type Database = {
         Args: { _draft: string }
         Returns: string
       }
+      apply_episode_enrichment_chunk_v1: {
+        Args: { p_items: Json; p_job: string; p_token: string }
+        Returns: Json
+      }
       apply_episode_enrichment_item_v1: {
         Args: {
           p_cost: number
@@ -14848,6 +14852,15 @@ export type Database = {
         Returns: Json
       }
       apply_person_nonperson_rules_v1: {
+        Args: {
+          _dry_run?: boolean
+          _limit?: number
+          _run: string
+          _token: string
+        }
+        Returns: Json
+      }
+      apply_person_nonperson_rules_v2: {
         Args: {
           _dry_run?: boolean
           _limit?: number
@@ -15295,6 +15308,10 @@ export type Database = {
         Args: { p_require_enabled?: boolean }
         Returns: boolean
       }
+      episode_enrichment_content_quote_v1: {
+        Args: { p_quote: string }
+        Returns: boolean
+      }
       episode_enrichment_input_v1: {
         Args: { p_episode: string }
         Returns: Json
@@ -15333,6 +15350,10 @@ export type Database = {
       find_existing_podcast: {
         Args: { p_rss_url: string; p_title: string }
         Returns: string
+      }
+      finish_episode_enrichment_job_v1: {
+        Args: { p_batch_status: string; p_job: string; p_token: string }
+        Returns: Json
       }
       formula_c_candidates: {
         Args: { _limit?: number }
