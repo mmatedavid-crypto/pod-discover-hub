@@ -17,7 +17,7 @@ describe('rich blind benchmark',()=>{
   expect(db.actions.every(x=>x.name==='person_blind_benchmark_step_v1')).toBe(true);
  });
  it('never resubmits an ambiguous POST even if batch list does not find it',async()=>{
-  const db=dbFor(job({status:'submitting'}));const api=vi.fn(async()=>({ok:true,data:{data:[]}}));
+   const db=dbFor(job({status:'submitting'}));const api=vi.fn(async(_path:string)=>({ok:true,data:{data:[]}}));
   expect((await personBlindBenchmarkTick(db,api)).blocked).toBe('benchmark_submission_outcome_unknown');
   expect(api.mock.calls).toHaveLength(1);expect(api.mock.calls[0][0]).toBe('/batches?limit=100');
  });
