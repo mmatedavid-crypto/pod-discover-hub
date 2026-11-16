@@ -9,6 +9,7 @@ import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { checkProcessingPriority } from "../_shared/processing-priority.ts";
 import { inputGuard, type Source } from "../_shared/person-relevance-batch.ts";
 import { episodePilotTick, episodePilotStatus } from "../_shared/episode-enrichment-worker.ts";
+import { personBlindBenchmarkTick } from "../_shared/person-blind-benchmark-worker.ts";
 import {
   actualCostUsd, BATCH_MAX_BYTES, buildCustomId, buildRequestLine, countsAsAttempt, decidePolicy, ESCALATION_MAX_OUTPUT_TOKENS, escalationFinal, estimateTokens, goldenMetrics,
   isStaleClaim, jsonlSize, mapBatchStatus, mergeControls, parseCustomId, parseOutputLine, PILOT_DESIGN, REQUEST_MAX_CHARS,
@@ -440,10 +441,11 @@ const TICK_UPPER_USD_PER_ESCALATION = 0.008;
 const ESCALATION_MAX_PER_JOB = 600;
 async function tickAction(db: any) {
   const polled = await (await pollAction(db, await loadControls(db), {})).json();
+  const benchmark = await personBlindBenchmarkTick(db, openai);
   // Uses this worker's existing key/transport and unchanged global budget ledger.
   // Disabled until the owner-authorized 10,000-episode pilot has been deployed.
   const episodePilot = await episodePilotTick(db, openai);
-  if (!(episodePilot as any).skipped) return { ok: true, polled, episode_pilot: episodePilot };
+  if (!(episodePilot as any).skipped) return { ok: true, polled, benchmark, episode_pilot: episodePilot };
   // Jobs killed mid-submit stay "claimed" forever (nothing uploaded or billed):
   // abort them so they free their open-job slot and their pairs' leases.
   const { data: claimed } = await db.from("person_relevance_batch_jobs").select("id,status,created_at,openai_input_file_id")
