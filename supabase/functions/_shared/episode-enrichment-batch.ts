@@ -75,7 +75,8 @@ export function episodeUsageCost(u: any): number {
   return ((i - c) * 0.05 + c * 0.005 + Math.max(0, Number(u?.output_tokens) || 0) * 0.25) / 1e6;
 }
 export function verifyEvidence(input: EpisodeInput, e: any): e is Evidence {
-  if (!e || typeof e.quote !== 'string' || norm(e.quote).length < 15 || e.quote.length > 350) return false;
+  // Match PostgreSQL length(text): count Unicode code points, not UTF-16 units.
+  if (!e || typeof e.quote !== 'string' || Array.from(norm(e.quote)).length < 15 || e.quote.length > 350) return false;
   const s = promptInput(input).sources.find(x => x.id === e.source && x.scope === 'episode');
   return !!s && norm(s.text).includes(norm(e.quote));
 }
