@@ -6766,6 +6766,94 @@ export type Database = {
           },
         ]
       }
+      person_blind_benchmark_items: {
+        Row: {
+          cost_usd: number
+          episode_id: string
+          error: string | null
+          input: Json
+          job_id: string
+          raw_result: Json | null
+          status: string
+          validated_result: Json | null
+        }
+        Insert: {
+          cost_usd?: number
+          episode_id: string
+          error?: string | null
+          input: Json
+          job_id: string
+          raw_result?: Json | null
+          status?: string
+          validated_result?: Json | null
+        }
+        Update: {
+          cost_usd?: number
+          episode_id?: string
+          error?: string | null
+          input?: Json
+          job_id?: string
+          raw_result?: Json | null
+          status?: string
+          validated_result?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "person_blind_benchmark_items_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "person_blind_benchmark_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      person_blind_benchmark_jobs: {
+        Row: {
+          actual_cost_usd: number
+          created_at: string
+          id: string
+          lease_token: string | null
+          lease_until: string | null
+          openai_batch_id: string | null
+          openai_input_file_id: string | null
+          repair_run_id: string
+          reserved_cost_usd: number
+          status: string
+        }
+        Insert: {
+          actual_cost_usd?: number
+          created_at?: string
+          id?: string
+          lease_token?: string | null
+          lease_until?: string | null
+          openai_batch_id?: string | null
+          openai_input_file_id?: string | null
+          repair_run_id: string
+          reserved_cost_usd?: number
+          status?: string
+        }
+        Update: {
+          actual_cost_usd?: number
+          created_at?: string
+          id?: string
+          lease_token?: string | null
+          lease_until?: string | null
+          openai_batch_id?: string | null
+          openai_input_file_id?: string | null
+          repair_run_id?: string
+          reserved_cost_usd?: number
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "person_blind_benchmark_jobs_repair_run_id_fkey"
+            columns: ["repair_run_id"]
+            isOneToOne: false
+            referencedRelation: "person_identity_repair_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       person_common_surname_watchlist: {
         Row: {
           created_at: string
@@ -6925,6 +7013,7 @@ export type Database = {
           podcast_id: string
           provenance: string
           rule_key: string
+          source_field: string
           source_hash: string
           source_quote: string
           source_url: string
@@ -6947,6 +7036,7 @@ export type Database = {
           podcast_id: string
           provenance: string
           rule_key: string
+          source_field?: string
           source_hash: string
           source_quote: string
           source_url: string
@@ -6969,6 +7059,7 @@ export type Database = {
           podcast_id?: string
           provenance?: string
           rule_key?: string
+          source_field?: string
           source_hash?: string
           source_quote?: string
           source_url?: string
@@ -16048,6 +16139,10 @@ export type Database = {
           count: number
           letter: string
         }[]
+      }
+      person_blind_benchmark_step_v1: {
+        Args: { p_action: string; p_payload?: Json; p_token?: string }
+        Returns: Json
       }
       person_canonical_identity_id_v1: {
         Args: { p_id: string }
