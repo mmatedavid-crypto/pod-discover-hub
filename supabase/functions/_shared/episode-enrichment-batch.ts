@@ -1,6 +1,7 @@
 // One public-source package per episode; no model-generated label becomes identity proof.
 import { findRoleLabelHits, type RoleLabelField } from './person-role-label.ts';
 import { assertHungarianPublicFields } from './hu-language-guard.ts';
+import { episodeSourceEligible } from './person-relationship-evidence.ts';
 
 export const EPISODE_BATCH_VERSION = 'episode-rich-v1';
 export const EPISODE_BATCH_MODEL = 'gpt-6-luna';
@@ -57,7 +58,7 @@ export function promptInput(input: EpisodeInput) {
 export function buildEpisodeRequest(input: EpisodeInput) {
   const payload = promptInput(input);
   if (payload.sources.reduce((n, s) => n + s.text.length, 0) > 240000) throw new Error('source_package_too_large');
-  if (!payload.sources.some(s => s.scope === 'episode' && s.text.length >= 100)) throw new Error('no_episode_source');
+  if (!episodeSourceEligible(input)) throw new Error('no_episode_source');
   return { custom_id: `${EPISODE_BATCH_VERSION}|${input.episode_id}|${input.fingerprint}`, method: 'POST', url: '/v1/responses', body: {
     model: EPISODE_BATCH_MODEL, store: false, reasoning: { effort: 'none' }, max_output_tokens: 3000,
     instructions: EPISODE_INSTRUCTIONS, input: JSON.stringify(payload),

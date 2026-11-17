@@ -6,6 +6,36 @@ const input={episode_id:'22222222-2222-4222-8222-222222222222',fingerprint:'abc'
 const job=(overrides={})=>({id:'job',lease_token:'token',status:'prepared',items:[{episode_id:input.episode_id,input,status:'prepared'}],...overrides});
 function dbFor(j:any,failAction?:string){const actions:any[]=[];return {actions,rpc:vi.fn(async(name,args)=>{actions.push({name,...args});return args.p_action===failAction?{error:{message:'evidence_pilot_cap_exceeded'}}:{data:args.p_action==='claim'?j:{ok:true}};})};}
 describe('rich blind benchmark',()=>{
+ it('advertises supported policies without provider work',async()=>{
+  const db=dbFor({skipped:'no_benchmark_job'}),api=vi.fn();
+  expect((await personBlindBenchmarkTick(db,api)).supported_policies).toContain('person-relations-v2');
+  expect(api).not.toHaveBeenCalled();
+ });
+ it('rejects unknown policy before reserve/upload and releases lease',async()=>{
+  const db=dbFor(job({items:[{episode_id:input.episode_id,input:{...input,relationship_policy:'unknown'},status:'prepared'}]})),api=vi.fn();
+  await expect(personBlindBenchmarkTick(db,api)).rejects.toThrow('unsupported_benchmark_policy');
+  expect(api).not.toHaveBeenCalled();expect(db.actions.map(x=>x.p_action)).toEqual(['claim','release']);
+ });
+ it('submits v2 using the existing budget RPC and versioned metadata',async()=>{
+  const db=dbFor(job({items:[{episode_id:input.episode_id,input:{...input,relationship_policy:'person-relations-v2'},status:'prepared'}]}));
+  const api=vi.fn(async(path,init)=>{
+   if(path==='/files') return {ok:true,data:{id:'file'}};
+   expect(JSON.parse(init.body).metadata.policy).toBe('person-relations-v2-blind');
+   return {ok:true,data:{id:'batch'}};
+  });
+  expect((await personBlindBenchmarkTick(db,api)).submitted).toBe(true);
+  expect(db.actions.map(x=>x.p_action)).toEqual(['claim','reserve','guard','submitting','guard','submitted','release']);
+ });
+ it('persists v2 inference without a public apply or reference label',async()=>{
+  const db=dbFor(job({status:'submitted',openai_batch_id:'batch',items:[{episode_id:input.episode_id,input:{...input,relationship_policy:'person-relations-v2'},status:'prepared'}]}));
+  const raw={people:[{person_id:input.people[0].id,claims:[{kind:'show_host',basis:'model_knowledge',evidence:[],rationale:'Ellenőrizendő háttértudás.'}],unknown_reason:null}]};
+  const row={custom_id:`person-relations-v2|${input.episode_id}|abc`,response:{status_code:200,body:{status:'completed',usage:{input_tokens:100,output_tokens:100},output:[{type:'message',content:[{type:'output_text',text:JSON.stringify(raw)}]}]}}};
+  const api=vi.fn(async(path)=>path.startsWith('/batches/')?{ok:true,data:{status:'completed',output_file_id:'out'}}:{ok:true,res:{text:async()=>JSON.stringify(row)}});
+  await personBlindBenchmarkTick(db,api);
+  const saved=db.actions.find(x=>x.p_action==='result').p_payload;
+  expect(saved.raw).toEqual(raw);expect(saved.validated.value.people[0].claims[0]).toMatchObject({route:'source_research',public_apply:false});
+  expect(db.actions.every(x=>x.name==='person_blind_benchmark_step_v1')).toBe(true);
+ });
  it('does not contact provider when budget reservation fails and releases owned lease',async()=>{
   const db=dbFor(job(),'reserve'),api=vi.fn(); const out=await personBlindBenchmarkTick(db,api);
   expect(out.blocked).toBe('benchmark_budget');expect(api).not.toHaveBeenCalled();expect(db.actions.at(-1).p_action).toBe('release');

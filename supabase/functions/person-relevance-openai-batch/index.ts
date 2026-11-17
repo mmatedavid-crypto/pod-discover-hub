@@ -458,7 +458,7 @@ async function tickAction(db: any) {
     staleAborted += r.data?.length || 0;
   }
   const controls = await loadControls(db);
-  if (!controls.enabled) return { ok: true, polled, episode_pilot: episodePilot, stale_aborted: staleAborted, submitted: false, reason: "controls_disabled" };
+  if (!controls.enabled) return { ok: true, polled, benchmark, episode_pilot: episodePilot, stale_aborted: staleAborted, submitted: false, reason: "controls_disabled" };
   const { data: jobs } = await db.from("person_relevance_batch_jobs").select("tier,status,reserved_cost_usd,actual_cost_usd,request_count,created_at")
     .not("status", "in", "(draft,aborted)").limit(5000);
   const dayStart = new Date(); dayStart.setUTCHours(0, 0, 0, 0);
@@ -500,7 +500,7 @@ async function tickAction(db: any) {
     }
   }
   if (exhausted.primary && exhausted.escalation) await pauseControls(db, "authorized_budget_exhausted");
-  return { ok: true, polled, episode_pilot: episodePilot, stale_aborted: staleAborted, submits, committed_usd: committed, lane_usd: lane };
+  return { ok: true, polled, benchmark, episode_pilot: episodePilot, stale_aborted: staleAborted, submits, committed_usd: committed, lane_usd: lane };
 }
 
 Deno.serve(async (req) => {
