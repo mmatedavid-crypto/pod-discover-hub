@@ -961,7 +961,8 @@ async function buildEpisode(
       .select("title, display_title, slug, published_at, summary:card_summary")
       .eq("podcast_id", pod.id)
       .neq("episode_id", ep.id)
-      .order("published_at", { ascending: false })
+      // NULLS LAST matches episode_cards_podcast_published_idx (index walk, no per-show sort).
+      .order("published_at", { ascending: false, nullsFirst: false })
       .limit(12),
     // Canonical entity rows so the crawlable links point at real, indexable
     // hub URLs (/temak, /szemelyek, /ceg) instead of legacy redirect paths.
