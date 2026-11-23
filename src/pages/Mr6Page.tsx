@@ -39,13 +39,8 @@ export default function Mr6Page() {
         <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Podiverzum-válogatás</p>
         <h1 className="mt-1 text-3xl font-semibold">Mr. Six – Max Biaggi</h1>
         <p className="mt-4 leading-relaxed text-muted-foreground">
-          A „Mr. Six” a Podiverzum saját címe ehhez a rajongói, szerkesztőségi válogatáshoz. A „Six” (hat) Max Biaggi
-          hat világbajnoki címére utal: 1994 és 1997 között négy egymást követő 250 cm³-es vb-címet nyert, majd 2010-ben
-          és 2012-ben a Superbike-világbajnokságot is megnyerte.{" "}
-          <a href={SOURCE_URL} target="_blank" rel="noopener noreferrer" className="underline hover:text-primary">
-            Forrás: WorldSBK
-          </a>
-          . Az oldal nem áll kapcsolatban Max Biaggival, a MotoGP-vel vagy a podcastok kiadóival.
+          Ezzel a válogatással Max Biaggi előtt tisztelgünk, aki a 250-esek között négyszer, a Superbike-ban kétszer
+          lett világbajnok. A két interjúban ő maga mesél a kezdetekről és a Valentino Rossival vívott csatákról.
         </p>
 
         <section className="mt-10">
@@ -108,6 +103,14 @@ export default function Mr6Page() {
             ))}
           </ul>
         </section>
+
+        <p className="mt-12 text-xs leading-relaxed text-muted-foreground">
+          Forrás:{" "}
+          <a href={SOURCE_URL} target="_blank" rel="noopener noreferrer" className="underline hover:text-primary">
+            WorldSBK
+          </a>
+          . Az oldal nem áll kapcsolatban Max Biaggival, a MotoGP-vel vagy a podcastok kiadóival.
+        </p>
       </div>
     </Layout>
   );
