@@ -43,6 +43,8 @@ const CategoriesPage = lazy(() => import("./pages/CategoriesPage.tsx"));
 const CategoryDetail = lazy(() => import("./pages/CategoryDetail.tsx"));
 const KozflixPage = lazy(() => import("./pages/KozflixPage.tsx"));
 const Mr6Page = lazy(() => import("./pages/Mr6Page.tsx"));
+const AnantaraPage = lazy(() => import("./pages/AnantaraPage.tsx"));
+const BydPage = lazy(() => import("./pages/BydPage.tsx"));
 const PodcastDetail = lazy(() => import("./pages/PodcastDetail.tsx"));
 const EpisodeDetail = lazy(() => import("./pages/EpisodeDetail.tsx"));
 const SearchPage = lazy(() => import("./pages/SearchPage.tsx"));
@@ -154,6 +156,8 @@ const App = () => (
           <Route path="/kategoria/:slug" element={<CategoryDetail />} />
           <Route path="/kozflix" element={<KozflixPage />} />
           <Route path="/mr6" element={<Mr6Page />} />
+          <Route path="/anantara" element={<AnantaraPage />} />
+          <Route path="/byd" element={<BydPage />} />
           <Route path="/category/:slug" element={<RedirectWithSlug to="/kategoria" />} />
           <Route path="/podcast/:podcastSlug" element={<PodcastDetail />} />
           <Route path="/podcast/:podcastSlug/:episodeSlug" element={<EpisodeDetail />} />
