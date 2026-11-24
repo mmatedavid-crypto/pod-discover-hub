@@ -27,6 +27,21 @@ function RedirectTopicYear({ to }: { to: string }) {
   const { slug = "", year = "" } = useParams();
   return <Navigate to={`${to}/${slug}/${year}`} replace />;
 }
+
+// On the kozflix.hu / közflix.hu domains the root path serves the Kozflix
+// landing page directly, without navigation. Every other host keeps Index.
+const KOZFLIX_HOSTS = new Set([
+  "kozflix.hu",
+  "www.kozflix.hu",
+  "xn--kzflix-wxa.hu",
+  "www.xn--kzflix-wxa.hu",
+]);
+
+function HomeRoute() {
+  const isKozflixHost =
+    typeof window !== "undefined" && KOZFLIX_HOSTS.has(window.location.hostname);
+  return isKozflixHost ? <KozflixPage /> : <Index />;
+}
 import PageViewTracker from "./components/PageViewTracker.tsx";
 import AnalyticsProvider from "./components/AnalyticsProvider.tsx";
 import { SearchHotkey } from "./components/SearchHotkey.tsx";
@@ -145,7 +160,7 @@ const App = () => (
         <SearchHotkey />
         <Suspense fallback={<RouteLoading />}>
         <Routes>
-          <Route path="/" element={<Index />} />
+          <Route path="/" element={<HomeRoute />} />
           <Route path="/start" element={<StartLandingPage />} />
           <Route path="/vibe" element={<RedirectPreserveSearch to="/te-podiverzumod" />} />
           <Route path="/te-podiverzumod" element={<StartSwipePage />} />
