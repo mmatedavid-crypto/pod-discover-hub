@@ -28,19 +28,31 @@ function RedirectTopicYear({ to }: { to: string }) {
   return <Navigate to={`${to}/${slug}/${year}`} replace />;
 }
 
-// On the kozflix.hu / közflix.hu domains the root path serves the Kozflix
-// landing page directly, without navigation. Every other host keeps Index.
-const KOZFLIX_HOSTS = new Set([
-  "kozflix.hu",
-  "www.kozflix.hu",
-  "xn--kzflix-wxa.hu",
-  "www.xn--kzflix-wxa.hu",
-]);
+// On the thematic domains the root path serves the matching landing page
+// directly, without navigation. Every other host keeps Index.
+const THEMATIC_HOST_ROUTES: Record<string, () => JSX.Element> = {
+  "kozflix.hu": () => <KozflixPage />,
+  "www.kozflix.hu": () => <KozflixPage />,
+  "xn--kzflix-wxa.hu": () => <KozflixPage />,
+  "www.xn--kzflix-wxa.hu": () => <KozflixPage />,
+  "anantara.hu": () => <AnantaraPage />,
+  "www.anantara.hu": () => <AnantaraPage />,
+  "bydauto.hu": () => <BydPage />,
+  "www.bydauto.hu": () => <BydPage />,
+  "byd-cars.hu": () => <BydPage />,
+  "www.byd-cars.hu": () => <BydPage />,
+  "mr6.hu": () => <Mr6Page />,
+  "www.mr6.hu": () => <Mr6Page />,
+  "mr6budapest.hu": () => <Mr6Page />,
+  "www.mr6budapest.hu": () => <Mr6Page />,
+};
 
 function HomeRoute() {
-  const isKozflixHost =
-    typeof window !== "undefined" && KOZFLIX_HOSTS.has(window.location.hostname);
-  return isKozflixHost ? <KozflixPage /> : <Index />;
+  const render =
+    typeof window !== "undefined"
+      ? THEMATIC_HOST_ROUTES[window.location.hostname]
+      : undefined;
+  return render ? render() : <Index />;
 }
 import PageViewTracker from "./components/PageViewTracker.tsx";
 import AnalyticsProvider from "./components/AnalyticsProvider.tsx";
