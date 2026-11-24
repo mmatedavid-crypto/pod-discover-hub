@@ -10,6 +10,8 @@ const YT_ID = "gpLI-NSGK3Y";
 const APPLE_URL =
   "https://podcasts.apple.com/it/podcast/live-io-ricordo-max-biaggi-io-e-rossi-siamo-stati-due-cretini/id1498123517?i=1000608603732";
 const APPLE_EMBED = "https://embed.podcasts.apple.com/it/episode/1000608603732";
+// 1992-es magyar nagydíj 250-s végeredménye: Max Biaggi DNF (1992. július 12., Hungaroring).
+const RACE_RESULT_URL = "https://motoracelab.com/en/events/1992-hun/";
 
 // Catalog search (title + RSS description) found a single Hungarian episode naming Biaggi; it is a short segment, not an episode about him.
 const HU_MENTIONS = [
@@ -40,7 +42,17 @@ export default function Mr6Page() {
         <h1 className="mt-1 text-3xl font-semibold">Mr. Six – Max Biaggi</h1>
         <p className="mt-4 leading-relaxed text-muted-foreground">
           Ezzel a válogatással Max Biaggi előtt tisztelgünk, aki a 250-esek között négyszer, a Superbike-ban kétszer
-          lett világbajnok. A két interjúban ő maga mesél a kezdetekről és a Valentino Rossival vívott csatákról.
+          lett világbajnok. 1992. július 12-én még mind a hat cím előtte volt, amikor 250-es Apriliájával{" "}
+          <a
+            href={RACE_RESULT_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline decoration-dotted underline-offset-2 hover:text-primary"
+          >
+            rajthoz állt
+          </a>{" "}
+          a Budapest melletti Hungaroringen. A két interjúban ő maga mesél a kezdetekről és a Valentino Rossival vívott
+          csatákról.
         </p>
 
         <section className="mt-10">
