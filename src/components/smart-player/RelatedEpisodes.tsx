@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { filterSafeRelatedEpisodes, type RecommendationContext } from "@/lib/recommendationGuards";
 import { useSmartPlayer, type SmartPlayerEpisode } from "./SmartPlayerProvider";
+import { isAudioSourceProvenBroken } from "@/lib/playerAudio";
 import { SMART_PLAYER_RECOMMENDATIONS_ENABLED } from "./recommendationsConfig";
 import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
 import { imageSrcSet, imageSrcSetForAspect, optimizedImageUrl } from "@/lib/image";
@@ -188,7 +189,7 @@ export function RelatedEpisodes({ episodeIdOverride, podcastIdOverride, variant 
 
       // Fallback when no episode embedding: explicit shared topics / people / category only.
       const sel =
-        "id,podcast_id,title,display_title,slug,image_url,ai_summary,summary,description,published_at,audio_url,topics,people,companies,podcasts!inner(slug,title,display_title,image_url,category,rss_status,language_decision,rank_label)";
+        "id,podcast_id,title,display_title,slug,image_url,ai_summary,summary,description,published_at,audio_url,audio_health_status,audio_manual_override,topics,people,companies,podcasts!inner(slug,title,display_title,image_url,category,rss_status,language_decision,rank_label)";
 
       const probes: any[] = [];
       if (topics.length) probes.push(supabase.from("episodes").select(sel).neq("id", episodeId!).eq("podcasts.language_decision", "accept_hungarian").overlaps("topics", topics.slice(0, 8)).order("published_at", { ascending: false, nullsFirst: false }).limit(10));
@@ -202,7 +203,7 @@ export function RelatedEpisodes({ episodeIdOverride, podcastIdOverride, variant 
       const results = await Promise.all(probes);
       const candidates = new Map<string, any>();
       results.forEach((r: any) => (r?.data || []).forEach((row: any) => {
-        if (!row.audio_url) return;
+        if (!row.audio_url || isAudioSourceProvenBroken(row)) return;
         if (row.podcasts?.rss_status === "failed" || row.podcasts?.rss_status === "inactive") return;
         if (row.podcasts?.language_decision !== "accept_hungarian") return;
         if (!candidates.has(row.id)) candidates.set(row.id, row);

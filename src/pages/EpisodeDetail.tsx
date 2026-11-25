@@ -25,8 +25,8 @@ import { KeyMoments } from "@/components/KeyMoments";
 import { InlineAudioPlayer } from "@/components/InlineAudioPlayer";
 import { EpisodeAudioPlayer } from "@/components/smart-player/EpisodeAudioPlayer";
 import { useSmartPlayer, type SmartPlayerEpisode } from "@/components/smart-player/SmartPlayerProvider";
-import { playableAudioUrl } from "@/lib/playerAudio";
-import { playbackPageUrl } from "@/lib/playerFallback";
+import { isAudioSourceProvenBroken, playableAudioUrl } from "@/lib/playerAudio";
+import { playbackAlternative, playbackPageUrl } from "@/lib/playerFallback";
 import { Button } from "@/components/ui/button";
 import { getProgress } from "@/lib/playerProgress";
 import { logPlayerEvent } from "@/lib/playerEvents";
@@ -231,17 +231,17 @@ export default function EpisodeDetail() {
                 url: typeof window !== "undefined" ? `${window.location.origin}/podcast/${p.slug}` : undefined,
                 webFeed: p.rss_url || undefined,
               },
-              associatedMedia: e.audio_url
+              associatedMedia: playableAudioUrl(e)
                 ? {
                     "@type": "AudioObject",
-                    contentUrl: e.audio_url,
+                    contentUrl: playableAudioUrl(e),
                     duration: toIsoDuration(e.duration_seconds) || undefined,
                     encodingFormat: "audio/mpeg",
                   }
                 : undefined,
               potentialAction: {
                 "@type": "ListenAction",
-                target: e.audio_url || canonical,
+                target: playableAudioUrl(e) || playbackPageUrl(e) || canonical,
               },
               uploadDate: e.published_at || undefined,
               hasPart: moments.length
@@ -424,10 +424,12 @@ export default function EpisodeDetail() {
         {(() => {
           const playerAudioUrl = playableAudioUrl(e);
           const canInternalPlay = !!playerAudioUrl;
+          const isProvenBroken = isAudioSourceProvenBroken(e);
           const isCurrent = currentEpisode?.id === e.id;
           const isThisPlaying = isCurrent && isPlaying;
           const hasPlaybackError = isCurrent && !!playerError;
-          const alternativeHref = playbackPageUrl(e, isCurrent ? currentEpisode?.audioUrl : playerAudioUrl);
+          const alternative = playbackAlternative(e, isCurrent ? currentEpisode?.audioUrl : (playerAudioUrl || e.audio_url));
+          const alternativeHref = alternative?.href ?? null;
 
           const handleInternalPrimary = () => {
             if (!playerAudioUrl) return;
@@ -461,7 +463,8 @@ export default function EpisodeDetail() {
           };
 
           const externalFallbackHref = alternativeHref;
-          const externalFallbackLabel = "Megnyitás az eredeti oldalon";
+          const externalFallbackLabel = alternative?.label ?? "Megnyitás az eredeti oldalon";
+          const externalFallbackPlatform = alternative?.platform ?? "original_page";
 
           const isPlaceholder = !!e.is_prefetch_placeholder;
 
@@ -507,16 +510,23 @@ export default function EpisodeDetail() {
                     <span>{isThisPlaying ? "Szünet" : isCurrent ? "Folytatás" : "Hallgatás"}</span>
                   </button>
                 ) : externalFallbackHref ? (
-                  <a
-                    href={externalFallbackHref}
-                    target="_blank"
-                    rel="noreferrer"
-                    onClick={() => trackExternal("original_page", externalFallbackHref)}
-                    className="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-3 font-semibold text-primary-foreground shadow-[0_6px_22px_-8px_hsl(var(--brand-red)/0.55)] transition-colors hover:bg-primary/90"
-                  >
-                    <ExternalLink className="h-5 w-5" />
-                    <span>{externalFallbackLabel}</span>
-                  </a>
+                  <>
+                    {isProvenBroken && (
+                      <span className="w-full text-sm text-muted-foreground">
+                        A beágyazott hangfájl már nem elérhető ennél a kiadónál — az epizód itt hallgatható meg:
+                      </span>
+                    )}
+                    <a
+                      href={externalFallbackHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => trackExternal(externalFallbackPlatform, externalFallbackHref)}
+                      className="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-3 font-semibold text-primary-foreground shadow-[0_6px_22px_-8px_hsl(var(--brand-red)/0.55)] transition-colors hover:bg-primary/90"
+                    >
+                      <ExternalLink className="h-5 w-5" />
+                      <span>{externalFallbackLabel}</span>
+                    </a>
+                  </>
                 ) : null}
                 {!isPlaceholder && <EpisodeMarks episodeId={e.id} />}
                 {!isPlaceholder && (
@@ -602,10 +612,10 @@ export default function EpisodeDetail() {
 
               {/* Smart Player card (or legacy inline fallback) */}
               {smartPlayerVisible ? (
-                <EpisodeAudioPlayer episode={e} podcast={p} />
+                !(isProvenBroken && externalFallbackHref) && <EpisodeAudioPlayer episode={e} podcast={p} />
               ) : (
-                e.audio_url && (
-                  <InlineAudioPlayer ref={audioRef} src={e.audio_url} title={e.display_title || e.title} />
+                canInternalPlay && playerAudioUrl && (
+                  <InlineAudioPlayer ref={audioRef} src={playerAudioUrl} title={e.display_title || e.title} />
                 )
               )}
             </>
@@ -675,7 +685,7 @@ export default function EpisodeDetail() {
         <EpisodeSourceInsights episodeId={e.id} />
 
         {moments.length > 0 && (
-          <KeyMoments moments={moments} audioUrl={e.audio_url} onSeek={e.audio_url ? handleSeek : undefined} />
+          <KeyMoments moments={moments} audioUrl={playableAudioUrl(e)} onSeek={playableAudioUrl(e) ? handleSeek : undefined} />
         )}
 
         {hasEntities && (

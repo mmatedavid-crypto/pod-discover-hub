@@ -10,7 +10,7 @@ import { EpisodeMarks } from "@/components/EpisodeMarks";
 import { ShareMomentButton } from "./ShareMomentCard";
 import { SMART_PLAYER_RECOMMENDATIONS_ENABLED } from "./recommendationsConfig";
 import { imageSrcSet, optimizedImageUrl } from "@/lib/image";
-import { playbackPageUrl } from "@/lib/playerFallback";
+import { playbackAlternative } from "@/lib/playerFallback";
 import { Button } from "@/components/ui/button";
 
 type Props = {
@@ -19,6 +19,8 @@ type Props = {
     title: string;
     display_title?: string | null;
     audio_url?: string | null;
+    audio_health_status?: string | null;
+    audio_manual_override?: string | null;
     episode_url?: string | null;
     youtube_url?: string | null;
     spotify_url?: string | null;
@@ -47,7 +49,8 @@ export function EpisodeAudioPlayer({ episode, podcast }: Props) {
   const epTitle = episode.display_title || episode.title;
   const podTitle = podcast.display_title || podcast.title;
   const img = episode.image_url || podcast.image_url || null;
-  const externalHref = playbackPageUrl(episode, currentEpisode?.id === episode.id ? currentEpisode.audioUrl : null);
+  const alt = playbackAlternative(episode, currentEpisode?.id === episode.id ? currentEpisode.audioUrl : episode.audio_url);
+  const externalHref = alt?.href ?? null;
 
   const isCurrent = currentEpisode?.id === episode.id;
   const showErrorFallback = isCurrent && !!error;
@@ -67,10 +70,10 @@ export function EpisodeAudioPlayer({ episode, podcast }: Props) {
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => {
-              void import("@/lib/playerEvents").then(({ logPlayerEvent }) => logPlayerEvent({ eventType: "external_open", episodeId: episode.id, podcastId: podcast.id, meta: { platform: "original_page", url: externalHref } }));
+              void import("@/lib/playerEvents").then(({ logPlayerEvent }) => logPlayerEvent({ eventType: "external_open", episodeId: episode.id, podcastId: podcast.id, meta: { platform: alt?.platform ?? "original_page", url: externalHref } }));
             }}
             className="inline-flex items-center text-xs px-3 py-1.5 rounded-md bg-primary text-primary-foreground"
-          >{t("openOriginal")}</a>
+          >{alt?.label ?? t("openOriginal")}</a>
         )}
         {showErrorFallback && <Button variant="outline" className="ml-2" onClick={resume}>Újrapróbálás</Button>}
       </div>

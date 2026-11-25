@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
-import { Apple, Music, Youtube, Globe, Activity, AlertTriangle, Mic, Search, X, Play, Pause, Headphones, CalendarDays, Library, ArrowRight, type LucideIcon } from "lucide-react";
+import { Apple, Music, Youtube, Globe, Activity, AlertTriangle, Mic, Search, X, Play, Pause, Headphones, CalendarDays, Library, ArrowRight, ExternalLink, type LucideIcon } from "lucide-react";
 import { PodcastCover } from "@/components/PodcastCover";
 import PersonAvatar from "@/components/PersonAvatar";
 import { setSeo, ogImageUrl, breadcrumbJsonLd } from "@/lib/seo";
@@ -19,7 +19,8 @@ import { categoryHref, categoryLabel } from "@/lib/categoryLabels";
 import { PodcastFollow } from "@/components/PodcastFollow";
 import { PodcastNewEpisodeSubscribe } from "@/components/PodcastNewEpisodeSubscribe";
 import { useSmartPlayer } from "@/components/smart-player/SmartPlayerProvider";
-import { detectAudioSource } from "@/lib/playerAudio";
+import { playableAudioUrl } from "@/lib/playerAudio";
+import { playbackAlternative, playbackPageUrl } from "@/lib/playerFallback";
 import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
 import { pickEpisodeDescription } from "@/lib/episodeText";
 import ListLoadError from "@/components/ListLoadError";
@@ -74,7 +75,7 @@ function isSafeHostPerson(p: any): boolean {
 // to abort the whole list, which rendered as "ennek a podcastnak nincs epizódja".
 async function fetchAllEpisodes(podcastId: string): Promise<{ rows: any[]; failed: boolean }> {
   const PAGE = 300;
-  const SELECT = "id,title,display_title,slug,published_at,ai_summary,summary,description,audio_url,image_url,episode_url,topics,people,companies,tickers,ingredients";
+  const SELECT = "id,title,display_title,slug,published_at,ai_summary,summary,description,audio_url,audio_health_status,audio_manual_override,image_url,episode_url,spotify_url,apple_url,youtube_url,topics,people,companies,tickers,ingredients";
   let from = 0;
   const all: any[] = [];
   for (let i = 0; i < 40; i++) {
@@ -274,7 +275,8 @@ export default function PodcastDetail() {
   const lastFresh = p.last_fetched_at ? relativeTime(p.last_fetched_at) : null;
   const displayCategory = categoryLabel(p.category);
   const latestEpisode = eps[0] || null;
-  const latestAudio = latestEpisode ? detectAudioSource(latestEpisode)?.url || latestEpisode.audio_url || null : null;
+  const latestAudio = latestEpisode ? playableAudioUrl(latestEpisode) : null;
+  const latestAlt = latestEpisode && !latestAudio ? playbackAlternative(latestEpisode, latestEpisode.audio_url) : null;
   const latestPublished = latestEpisode?.published_at ? relativeTime(latestEpisode.published_at) : null;
   const description = sanitizeHungarianPublicText(p.summary) || sanitizeHungarianPublicText(p.description);
   const externalLinks = [
@@ -294,7 +296,7 @@ export default function PodcastDetail() {
       episodeSlug: latestEpisode.slug || null,
       imageUrl: latestEpisode.image_url || p.image_url || null,
       audioUrl: latestAudio,
-      externalUrl: latestEpisode.episode_url || latestEpisode.audio_url || null,
+      externalUrl: playbackPageUrl(latestEpisode, latestAudio),
     }, { resume: true });
   };
 
@@ -399,6 +401,16 @@ export default function PodcastDetail() {
                   >
                     <Play className="h-4 w-4 fill-current" /> Legfrissebb epizód
                   </button>
+                )}
+                {latestEpisode && !latestAudio && latestAlt && (
+                  <a
+                    href={latestAlt.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+                  >
+                    <ExternalLink className="h-4 w-4" /> {latestAlt.label}
+                  </a>
                 )}
                 <PodcastFollow podcastId={p.id} />
                 <SharePanel title={p.display_title || p.title} />
@@ -579,8 +591,8 @@ function EpisodeListWithSearch({ eps, podcast, q }: { eps: any[]; podcast: any; 
           <ul className="grid gap-3">
             {visibleEpisodes.map((e, i) => {
               const fr = freshnessOf(e.published_at);
-              const audioSrc = detectAudioSource(e);
-              const playerAudioUrl = audioSrc?.url || e.audio_url || null;
+              const playerAudioUrl = playableAudioUrl(e);
+              const epAlt = !playerAudioUrl ? playbackAlternative(e, e.audio_url) : null;
               const thumb = e.image_url || podcast.image_url || null;
               const isCurrent = currentEpisode?.id === e.id;
               const isThisPlaying = isCurrent && isPlaying;
@@ -600,7 +612,7 @@ function EpisodeListWithSearch({ eps, podcast, q }: { eps: any[]; podcast: any; 
                   episodeSlug: e.slug || null,
                   imageUrl: e.image_url || podcast.image_url || null,
                   audioUrl: playerAudioUrl,
-                  externalUrl: e.episode_url || e.audio_url || null,
+                  externalUrl: playbackPageUrl(e, playerAudioUrl),
                 }, { resume: true });
               };
               return (
@@ -658,6 +670,17 @@ function EpisodeListWithSearch({ eps, podcast, q }: { eps: any[]; podcast: any; 
                             {isThisPlaying ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
                             <span>{isThisPlaying ? "Szünet" : isCurrent ? "Folytatás" : "Hallgatás"}</span>
                           </button>
+                        )}
+                        {!playerAudioUrl && epAlt && (
+                          <a
+                            href={epAlt.href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 rounded-md bg-secondary px-2.5 py-1 text-xs text-foreground hover:bg-secondary/80"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            <span>{epAlt.label}</span>
+                          </a>
                         )}
                         <Link
                           to={`/podcast/${podcastSlug}/${e.slug}`}

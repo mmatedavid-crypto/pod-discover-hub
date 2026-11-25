@@ -7,6 +7,7 @@ import ListLoadError from "@/components/ListLoadError";
 import { Button } from "@/components/ui/button";
 import { setSeo } from "@/lib/seo";
 import { useSmartPlayer } from "@/components/smart-player/SmartPlayerProvider";
+import { playableAudioUrl } from "@/lib/playerAudio";
 import { MAX_CONSECUTIVE_SKIPS, nextPlayableIndex } from "@/lib/landingCuration";
 
 const CANONICAL = "https://podiverzum.hu/anantara";
@@ -70,7 +71,7 @@ export default function AnantaraPage() {
       setError(false);
       const { data, error: qErr } = await supabase
         .from("episodes")
-        .select("id, title, display_title, slug, audio_url, episode_url, published_at, duration_seconds, podcasts!inner(slug, title, display_title, language)")
+        .select("id, title, display_title, slug, audio_url, audio_health_status, audio_manual_override, episode_url, published_at, duration_seconds, podcasts!inner(slug, title, display_title, language)")
         .in("id", EPISODE_IDS);
       if (cancelled) return;
       if (qErr) { setError(true); setItems([]); return; }
@@ -79,14 +80,15 @@ export default function AnantaraPage() {
       for (const id of EPISODE_IDS) {
         const r: any = byId.get(id);
         const p = r?.podcasts;
-        if (!r?.slug || !r.audio_url || !p?.slug || !String(p.language || "").toLowerCase().startsWith("hu")) continue;
+        const audio = playableAudioUrl(r);
+        if (!r?.slug || !audio || !p?.slug || !String(p.language || "").toLowerCase().startsWith("hu")) continue;
         list.push({
           id,
           title: r.display_title || r.title,
           href: `/podcast/${p.slug}/${r.slug}`,
           show: p.display_title || p.title,
           showHref: `/podcast/${p.slug}`,
-          audio: r.audio_url,
+          audio,
           original: r.episode_url && /^https?:\/\//.test(r.episode_url) ? r.episode_url : null,
           date: r.published_at ? huDate(r.published_at) : "",
           dateIso: r.published_at || "",

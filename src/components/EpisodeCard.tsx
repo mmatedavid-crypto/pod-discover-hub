@@ -7,7 +7,8 @@ import { freshnessOf, relativeTime } from "@/lib/freshness";
 import { entityDisplayLabel, entityHref } from "@/lib/entity";
 import { useLinkableEntities } from "@/hooks/useLinkableEntities";
 import { useSmartPlayer } from "./smart-player/SmartPlayerProvider";
-import { detectAudioSource } from "@/lib/playerAudio";
+import { playableAudioUrl } from "@/lib/playerAudio";
+import { playbackPageUrl } from "@/lib/playerFallback";
 import { getEpisodeUnderstanding } from "@/lib/episodeUnderstanding";
 import { categoryLabel } from "@/lib/categoryLabels";
 import { pickEpisodeDescription } from "@/lib/episodeText";
@@ -28,6 +29,12 @@ export type EpisodeLite = {
   image_url?: string | null;
   published_at?: string | null;
   audio_url?: string | null;
+  audio_health_status?: string | null;
+  audio_manual_override?: string | null;
+  episode_url?: string | null;
+  spotify_url?: string | null;
+  apple_url?: string | null;
+  youtube_url?: string | null;
   // episode_rank intentionally removed (Formula C v3 cleanup; legacy frozen field)
   topics?: string[] | null;
   people?: string[] | null;
@@ -162,8 +169,8 @@ export function EpisodeCard({
   const coverImage = e.image_url || p.image_url || null;
   const coverTitle = e.image_url ? epTitle : podTitle;
   const { play } = useSmartPlayer();
-  const playable = detectAudioSource({ audio_url: e.audio_url });
-  const playerAudioUrl = playable?.url || e.audio_url || null;
+  const playerAudioUrl = playableAudioUrl(e);
+  const fallbackUrl = playbackPageUrl(e, playerAudioUrl);
   const safeWhyMatched = safeEpisodeCardPublicText(e.why_matched, 12);
   const safeHomepageReason = safeEpisodeCardPublicText(e.homepageReason);
   const safeChunkSnippet = safeEpisodeCardPublicText(e.chunk_match?.content_snippet, 24);
@@ -182,7 +189,7 @@ export function EpisodeCard({
       episodeSlug: e.slug,
       imageUrl: coverImage,
       audioUrl: playerAudioUrl,
-      externalUrl: e.audio_url || null,
+      externalUrl: fallbackUrl,
     }, { resume: true });
   };
   const handlePlayFromMatch = (ev: React.MouseEvent) => {
@@ -198,7 +205,7 @@ export function EpisodeCard({
       episodeSlug: e.slug,
       imageUrl: coverImage,
       audioUrl: playerAudioUrl,
-      externalUrl: e.audio_url || null,
+      externalUrl: fallbackUrl,
     }, { startAt: chunkStart });
   };
   const allEnts = entityChips(e, showEntities);
@@ -312,7 +319,7 @@ export function EpisodeCard({
           >
             <Info className="h-3.5 w-3.5" />
           </Link>
-          {e.audio_url && (
+          {playerAudioUrl && (
             <button
               type="button"
               onClick={handlePlay}
@@ -335,7 +342,7 @@ export function EpisodeCard({
           )}
           {/* Tablet/desktop: text links */}
           <Link to={`/podcast/${p.slug}/${e.slug}`} className="hidden sm:inline text-muted-foreground hover:text-foreground">Részletek</Link>
-          {e.audio_url && (
+          {playerAudioUrl && (
             <button
               type="button"
               onClick={handlePlay}
@@ -372,8 +379,8 @@ function EpisodeRailCard({
   const coverImage = e.image_url || p.image_url || null;
   const coverTitle = e.image_url ? epTitle : podTitle;
   const { play } = useSmartPlayer();
-  const playable = detectAudioSource({ audio_url: e.audio_url });
-  const playerAudioUrl = playable?.url || e.audio_url || null;
+  const playerAudioUrl = playableAudioUrl(e);
+  const fallbackUrl = playbackPageUrl(e, playerAudioUrl);
   const safeHomepageReason = safeEpisodeCardPublicText(e.homepageReason);
   const handlePlay = (ev: React.MouseEvent) => {
     ev.preventDefault();
@@ -388,7 +395,7 @@ function EpisodeRailCard({
       episodeSlug: e.slug,
       imageUrl: coverImage,
       audioUrl: playerAudioUrl,
-      externalUrl: e.audio_url || null,
+      externalUrl: fallbackUrl,
     }, { resume: true });
   };
   const allEnts = entityChips(e, showEntities, { max: 4, kinds: ["person", "company"] });

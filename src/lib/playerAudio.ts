@@ -23,11 +23,29 @@ export type AudioSource = { url: string; likelyDirect: boolean };
 
 export type AudioRejectReason =
   | "missing_audio_url" | "invalid_url" | "non_http"
-  | "non_direct_audio_url" | "unsupported_mime";
+  | "non_direct_audio_url" | "unsupported_mime" | "broken_external_only";
 
 export type EligibilityResult =
   | { ok: true; source: AudioSource }
   | { ok: false; reason: AudioRejectReason };
+
+export type AudioHealthInput = {
+  audio_url?: string | null;
+  episode_url?: string | null;
+  audio_health_status?: string | null;
+  audio_manual_override?: string | null;
+};
+
+/**
+ * True only when server verification confirmed the audio stream is dead and a verified
+ * episode-level external alternative is active (or manual override set external_only),
+ * and no manual keep_internal override is present.
+ */
+export function isAudioSourceProvenBroken(ep: AudioHealthInput | null | undefined): boolean {
+  if (!ep) return false;
+  if (ep.audio_manual_override === "keep_internal") return false;
+  return ep.audio_manual_override === "external_only" || ep.audio_health_status === "external_only";
+}
 
 function hostMatches(host: string, list: string[]): boolean {
   const h = host.toLowerCase();
@@ -35,9 +53,10 @@ function hostMatches(host: string, list: string[]): boolean {
 }
 
 export function evaluateAudioEligibility(
-  ep: { audio_url?: string | null; episode_url?: string | null } | null | undefined,
+  ep: AudioHealthInput | null | undefined,
 ): EligibilityResult {
   if (!ep) return { ok: false, reason: "missing_audio_url" };
+  if (isAudioSourceProvenBroken(ep)) return { ok: false, reason: "broken_external_only" };
   const raw0 = (ep.audio_url || "").trim();
   if (!raw0) return { ok: false, reason: "missing_audio_url" };
   const raw = decodeHtmlEntities(raw0).trim();
@@ -58,7 +77,7 @@ export function evaluateAudioEligibility(
 }
 
 export function detectAudioSource(
-  ep: { audio_url?: string | null; episode_url?: string | null } | null | undefined,
+  ep: AudioHealthInput | null | undefined,
 ): AudioSource | null {
   const r = evaluateAudioEligibility(ep);
   return r.ok ? r.source : null;
@@ -70,7 +89,7 @@ export function detectAudioSource(
  * pages (Spotify/Apple/YouTube…) never are — those get the "listen elsewhere" links instead.
  */
 export function playableAudioUrl(
-  ep: { audio_url?: string | null; episode_url?: string | null } | null | undefined,
+  ep: AudioHealthInput | null | undefined,
 ): string | null {
   const r = evaluateAudioEligibility(ep);
   if (r.ok) return r.source.url;

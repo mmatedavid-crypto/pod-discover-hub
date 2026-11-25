@@ -209,6 +209,260 @@ export type Database = {
         }
         Relationships: []
       }
+      audio_source_repair_audit: {
+        Row: {
+          action: string
+          after_apple_url: string | null
+          after_audio_health_status: string | null
+          after_audio_url: string | null
+          after_episode_url: string | null
+          after_spotify_url: string | null
+          after_youtube_url: string | null
+          batch_id: string
+          before_apple_url: string | null
+          before_audio_health_status: string | null
+          before_audio_url: string | null
+          before_episode_url: string | null
+          before_spotify_url: string | null
+          before_youtube_url: string | null
+          created_at: string
+          episode_id: string
+          id: string
+          match_evidence: Json
+          match_method: string | null
+          podcast_id: string
+          reverted_at: string | null
+          reverted_by: string | null
+        }
+        Insert: {
+          action: string
+          after_apple_url?: string | null
+          after_audio_health_status?: string | null
+          after_audio_url?: string | null
+          after_episode_url?: string | null
+          after_spotify_url?: string | null
+          after_youtube_url?: string | null
+          batch_id: string
+          before_apple_url?: string | null
+          before_audio_health_status?: string | null
+          before_audio_url?: string | null
+          before_episode_url?: string | null
+          before_spotify_url?: string | null
+          before_youtube_url?: string | null
+          created_at?: string
+          episode_id: string
+          id?: string
+          match_evidence?: Json
+          match_method?: string | null
+          podcast_id: string
+          reverted_at?: string | null
+          reverted_by?: string | null
+        }
+        Update: {
+          action?: string
+          after_apple_url?: string | null
+          after_audio_health_status?: string | null
+          after_audio_url?: string | null
+          after_episode_url?: string | null
+          after_spotify_url?: string | null
+          after_youtube_url?: string | null
+          batch_id?: string
+          before_apple_url?: string | null
+          before_audio_health_status?: string | null
+          before_audio_url?: string | null
+          before_episode_url?: string | null
+          before_spotify_url?: string | null
+          before_youtube_url?: string | null
+          created_at?: string
+          episode_id?: string
+          id?: string
+          match_evidence?: Json
+          match_method?: string | null
+          podcast_id?: string
+          reverted_at?: string | null
+          reverted_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audio_source_repair_audit_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "episodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audio_source_repair_audit_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "audio_source_repair_audit_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "audio_source_repair_audit_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "v_episode_data_quality_issues"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "audio_source_repair_audit_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "v_episode_quality_indicator_audit"
+            referencedColumns: ["episode_id"]
+          },
+        ]
+      }
+      audio_source_repair_queue: {
+        Row: {
+          attempts: number
+          created_at: string
+          episode_id: string
+          error_event_count: number
+          error_session_count: number
+          first_error_at: string
+          last_error_at: string
+          last_error_meta: Json | null
+          last_probe_detail: Json | null
+          last_probe_status: number | null
+          last_probe_verdict: string | null
+          lease_expires_at: string | null
+          lease_owner: string | null
+          next_attempt_at: string
+          observed_audio_url: string | null
+          podcast_id: string
+          resolution_note: string | null
+          resolved_at: string | null
+          status: string
+          trigger_source: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          episode_id: string
+          error_event_count?: number
+          error_session_count?: number
+          first_error_at?: string
+          last_error_at?: string
+          last_error_meta?: Json | null
+          last_probe_detail?: Json | null
+          last_probe_status?: number | null
+          last_probe_verdict?: string | null
+          lease_expires_at?: string | null
+          lease_owner?: string | null
+          next_attempt_at?: string
+          observed_audio_url?: string | null
+          podcast_id: string
+          resolution_note?: string | null
+          resolved_at?: string | null
+          status?: string
+          trigger_source?: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          episode_id?: string
+          error_event_count?: number
+          error_session_count?: number
+          first_error_at?: string
+          last_error_at?: string
+          last_error_meta?: Json | null
+          last_probe_detail?: Json | null
+          last_probe_status?: number | null
+          last_probe_verdict?: string | null
+          lease_expires_at?: string | null
+          lease_owner?: string | null
+          next_attempt_at?: string
+          observed_audio_url?: string | null
+          podcast_id?: string
+          resolution_note?: string | null
+          resolved_at?: string | null
+          status?: string
+          trigger_source?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audio_source_repair_queue_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: true
+            referencedRelation: "episodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audio_source_repair_queue_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: true
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "audio_source_repair_queue_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: true
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "audio_source_repair_queue_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: true
+            referencedRelation: "v_episode_data_quality_issues"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "audio_source_repair_queue_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: true
+            referencedRelation: "v_episode_quality_indicator_audit"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "audio_source_repair_queue_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "audio_source_repair_queue_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "audio_source_repair_queue_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "podcasts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audio_source_repair_queue_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "v_hu_archive_completeness"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "audio_source_repair_queue_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "v_youtube_native_transcript_candidates"
+            referencedColumns: ["podcast_id"]
+          },
+        ]
+      }
       beta_feedback: {
         Row: {
           created_at: string
@@ -3894,7 +4148,13 @@ export type Database = {
           ai_summary: string | null
           ai_summary_source: string | null
           apple_url: string | null
+          audio_health_checked_at: string | null
+          audio_health_status: string
+          audio_manual_override: string | null
           audio_probe_attempted_at: string | null
+          audio_repaired_at: string | null
+          audio_repaired_from: string | null
+          audio_repaired_source: string | null
           audio_url: string | null
           clean_text_status: string
           companies: string[] | null
@@ -3954,7 +4214,13 @@ export type Database = {
           ai_summary?: string | null
           ai_summary_source?: string | null
           apple_url?: string | null
+          audio_health_checked_at?: string | null
+          audio_health_status?: string
+          audio_manual_override?: string | null
           audio_probe_attempted_at?: string | null
+          audio_repaired_at?: string | null
+          audio_repaired_from?: string | null
+          audio_repaired_source?: string | null
           audio_url?: string | null
           clean_text_status?: string
           companies?: string[] | null
@@ -4014,7 +4280,13 @@ export type Database = {
           ai_summary?: string | null
           ai_summary_source?: string | null
           apple_url?: string | null
+          audio_health_checked_at?: string | null
+          audio_health_status?: string
+          audio_manual_override?: string | null
           audio_probe_attempted_at?: string | null
+          audio_repaired_at?: string | null
+          audio_repaired_from?: string | null
+          audio_repaired_source?: string | null
           audio_url?: string | null
           clean_text_status?: string
           companies?: string[] | null
@@ -14865,6 +15137,27 @@ export type Database = {
       }
       ai_call_audit_compact: { Args: never; Returns: string }
       ai_call_audit_drain_tick: { Args: never; Returns: number }
+      apply_audio_source_repair_v1: {
+        Args: {
+          p_action: string
+          p_backoff_minutes?: number
+          p_batch_id: string
+          p_episode_id: string
+          p_expected_audio_url: string
+          p_match_evidence?: Json
+          p_match_method?: string
+          p_new_apple_url?: string
+          p_new_audio_url?: string
+          p_new_episode_url?: string
+          p_new_spotify_url?: string
+          p_new_youtube_url?: string
+          p_probe_detail?: Json
+          p_probe_status?: number
+          p_probe_verdict?: string
+          p_resolution_note?: string
+        }
+        Returns: Json
+      }
       apply_clean_text_repair_v1: {
         Args: { p_batch_id: string; p_items: Json }
         Returns: Json
@@ -15121,6 +15414,38 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      claim_audio_source_repair_queue_v1: {
+        Args: { p_lease_seconds?: number; p_limit?: number; p_owner?: string }
+        Returns: {
+          apple_url: string
+          attempts: number
+          audio_health_status: string
+          audio_manual_override: string
+          audio_url: string
+          best_spotify_meta_confidence: number
+          best_spotify_meta_url: string
+          confirmed_youtube_video_id: string
+          episode_duration_seconds: number
+          episode_guid: string
+          episode_id: string
+          episode_published_at: string
+          episode_title: string
+          episode_url: string
+          error_event_count: number
+          error_session_count: number
+          last_error_at: string
+          podcast_id: string
+          podcast_rss_url: string
+          podcast_title: string
+          podcast_website_url: string
+          recent_play_start_count: number
+          recent_progress_after_last_error: number
+          recent_progress_count: number
+          spotify_url: string
+          trigger_source: string
+          youtube_url: string
+        }[]
       }
       claim_clean_text_repair_queue_ids_v1: {
         Args: { p_ids: string[]; p_lease_seconds?: number; p_owner: string }
@@ -16638,6 +16963,15 @@ export type Database = {
         Args: { p_episode_ids: string[] }
         Returns: Json
       }
+      revert_audio_source_repair_v1: {
+        Args: {
+          p_audit_id?: string
+          p_batch_id?: string
+          p_episode_id?: string
+          p_reason?: string
+        }
+        Returns: Json
+      }
       revert_wiki_safe_match_v1: {
         Args: { _entity_id?: string; _run_id: string }
         Returns: number
@@ -16750,6 +17084,10 @@ export type Database = {
           first_char: number
           source_class: string
         }[]
+      }
+      seed_audio_source_repair_queue_30d_v1: {
+        Args: { p_days?: number; p_limit?: number }
+        Returns: number
       }
       seed_episode_enrichment_pilot_v1: {
         Args: { p_limit?: number; p_token: string }

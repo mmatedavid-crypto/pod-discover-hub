@@ -909,7 +909,7 @@ async function buildEpisode(
 
   const { data: ep, error: epError } = await supabase
     .from("episodes")
-    .select("id, title, display_title, slug, published_at, audio_url, duration_seconds, image_url, ai_summary, summary, description, seo_title, seo_description, topics, people, companies, tickers, ingredients")
+    .select("id, title, display_title, slug, published_at, audio_url, audio_health_status, audio_manual_override, episode_url, spotify_url, apple_url, youtube_url, duration_seconds, image_url, ai_summary, summary, description, seo_title, seo_description, topics, people, companies, tickers, ingredients")
     .eq("podcast_id", pod.id)
     .eq("slug", episodeSlug)
     .maybeSingle();
@@ -1226,6 +1226,11 @@ async function buildEpisode(
     : "";
 
   const isoDuration = toIsoDuration(ep.duration_seconds);
+  const epInternalAudioUsable =
+    !!ep.audio_url &&
+    !(ep.audio_manual_override !== "keep_internal" && (ep.audio_health_status === "external_only" || ep.audio_manual_override === "external_only"));
+  const epFallbackUrl =
+    [ep.spotify_url, ep.youtube_url, ep.apple_url, ep.episode_url].find((u) => typeof u === "string" && /^https?:\/\//i.test(u.trim())) || null;
   const ld = {
     "@context": "https://schema.org",
     "@type": "PodcastEpisode",
@@ -1240,7 +1245,7 @@ async function buildEpisode(
     isAccessibleForFree: true,
     timeRequired: isoDuration,
     duration: isoDuration,
-    associatedMedia: ep.audio_url
+    associatedMedia: epInternalAudioUsable
       ? {
           "@type": "AudioObject",
           contentUrl: ep.audio_url,
@@ -1259,9 +1264,11 @@ async function buildEpisode(
       // verified source-publisher field exists. PREAG publishes the website
       // (see WebSite.publisher), not the podcast.
     },
-    potentialAction: ep.audio_url
+    potentialAction: epInternalAudioUsable
       ? { "@type": "ListenAction", target: ep.audio_url }
-      : undefined,
+      : epFallbackUrl
+        ? { "@type": "ListenAction", target: epFallbackUrl }
+        : undefined,
     ...(episodePersonMentions.length ? { about: episodePersonMentions } : {}),
   };
 
@@ -1394,7 +1401,7 @@ ${factsHtml}
 ${chaptersHtml}
 ${bodyParas.length ? `<section><h2>Ebben az epizódban</h2>${bodyParas.map((p) => `<p>${esc(p)}</p>`).join("")}${bodyPrimary === cleanText && cleanSourceLabel ? `<p><small>Forrás: ${/^https:\/\/(www\.youtube\.com|open\.spotify\.com)\//.test(cleanSourceUrl) ? `<a href="${esc(cleanSourceUrl)}" rel="nofollow noopener">${esc(cleanSourceLabel)}</a>` : esc(cleanSourceLabel)} (reklámok és linkek nélkül)</small></p>` : ""}</section>` : (longText ? `<section><p>${esc(longText)}</p></section>` : "")}
 ${entitySection ? `<section><h2>Említett entitások</h2>${entitySection}</section>` : ""}
-${ep.audio_url ? `<section><h2>Hallgasd meg</h2><audio controls preload="none" src="${esc(ep.audio_url)}"></audio></section>` : ""}
+${epInternalAudioUsable ? `<section><h2>Hallgasd meg</h2><audio controls preload="none" src="${esc(ep.audio_url)}"></audio></section>` : epFallbackUrl ? `<section><h2>Hallgasd meg</h2><p><a href="${esc(epFallbackUrl)}" rel="nofollow noopener">Megnyitás külső platformon</a></p></section>` : ""}
 ${qaHtml}
 ${epFaqHtml}
 ${siblingsHtml}
