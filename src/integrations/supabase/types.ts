@@ -338,6 +338,9 @@ export type Database = {
           next_attempt_at: string
           observed_audio_url: string | null
           podcast_id: string
+          previous_status: string | null
+          priority: number
+          requires_rss_match: boolean
           resolution_note: string | null
           resolved_at: string | null
           status: string
@@ -361,6 +364,9 @@ export type Database = {
           next_attempt_at?: string
           observed_audio_url?: string | null
           podcast_id: string
+          previous_status?: string | null
+          priority?: number
+          requires_rss_match?: boolean
           resolution_note?: string | null
           resolved_at?: string | null
           status?: string
@@ -384,6 +390,9 @@ export type Database = {
           next_attempt_at?: string
           observed_audio_url?: string | null
           podcast_id?: string
+          previous_status?: string | null
+          priority?: number
+          requires_rss_match?: boolean
           resolution_note?: string | null
           resolved_at?: string | null
           status?: string
@@ -15447,6 +15456,41 @@ export type Database = {
           youtube_url: string
         }[]
       }
+      claim_audio_source_repair_queue_v2: {
+        Args: { p_lease_seconds?: number; p_limit?: number; p_owner?: string }
+        Returns: {
+          apple_url: string
+          attempts: number
+          audio_health_status: string
+          audio_manual_override: string
+          audio_url: string
+          best_spotify_meta_confidence: number
+          best_spotify_meta_url: string
+          confirmed_youtube_video_id: string
+          episode_duration_seconds: number
+          episode_guid: string
+          episode_id: string
+          episode_published_at: string
+          episode_title: string
+          episode_url: string
+          error_event_count: number
+          error_session_count: number
+          last_error_at: string
+          podcast_id: string
+          podcast_rss_url: string
+          podcast_title: string
+          podcast_website_url: string
+          previous_status: string
+          priority: number
+          recent_play_start_count: number
+          recent_progress_after_last_error: number
+          recent_progress_count: number
+          requires_rss_match: boolean
+          spotify_url: string
+          trigger_source: string
+          youtube_url: string
+        }[]
+      }
       claim_clean_text_repair_queue_ids_v1: {
         Args: { p_ids: string[]; p_lease_seconds?: number; p_owner: string }
         Returns: {
@@ -15713,6 +15757,10 @@ export type Database = {
       enqueue_email: {
         Args: { payload: Json; queue_name: string }
         Returns: number
+      }
+      enqueue_targeted_double_encoded_archive_v1: {
+        Args: { p_limit?: number; p_podcast_slug: string }
+        Returns: Json
       }
       entity_description_sources_v1: {
         Args: { _kind: string; _limit: number }

@@ -409,3 +409,27 @@ export function nextBackoffMinutes(attempts: number, baseMinutes = 360): number 
   const exp = Math.min(5, Math.max(0, attempts - 1));
   return Math.min(7 * 24 * 60, Math.round(baseMinutes * Math.pow(2, exp)));
 }
+
+/**
+ * Targeted maintenance items (e.g. legacy double-encoded Archive.org enclosures) may only be
+ * repaired after a fresh identical RSS episode match + live byte probe — never via blind
+ * host-canonical URL rewriting alone.
+ */
+export function shouldAllowHostCanonicalFallback(row: { requires_rss_match?: boolean | null }): boolean {
+  return !row.requires_rss_match;
+}
+
+/**
+ * Mirrors the SQL claim priority order in claim_audio_source_repair_queue_v2:
+ *  - Real listener playback errors (pending/deferred, priority >= 100): 100
+ *  - Targeted non-human maintenance items (pending/deferred, priority < 100): row.priority (e.g. 40)
+ *  - Expired broken_no_alternative rare re-check: 20
+ *  - Expired external_only rare re-check: 10
+ */
+export function effectiveQueuePriority(row: { status: string; priority?: number | null }): number {
+  const p = Number(row.priority ?? 100);
+  if (row.status === "pending" || row.status === "deferred") return p >= 100 ? 100 : p;
+  if (row.status === "broken_no_alternative") return 20;
+  if (row.status === "external_only") return 10;
+  return 0;
+}

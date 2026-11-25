@@ -22,6 +22,7 @@ import {
   deriveSafeHostCanonicalCandidates,
   matchEpisodeInFeedItems,
   nextBackoffMinutes,
+  shouldAllowHostCanonicalFallback,
   type ProbeClassification,
 } from "../_shared/audio-source-repair.ts";
 
@@ -226,6 +227,19 @@ Deno.serve(async (req) => {
     return json({ ok: true, action, days, seeded: data });
   }
 
+  // 2b. Idempotent targeted enqueue for double-encoded Archive.org episodes of a specific HU show
+  if (action === "enqueue_double_encoded_archive") {
+    const slug = String(body.podcast_slug || "").trim();
+    if (!slug) return json({ ok: false, error: "podcast_slug_required" }, 400);
+    const limit = Math.max(1, Math.min(1000, Number(body.limit) || 500));
+    const { data, error } = await admin.rpc("enqueue_targeted_double_encoded_archive_v1", {
+      p_podcast_slug: slug,
+      p_limit: limit,
+    });
+    if (error) return json({ ok: false, error: error.message }, 500);
+    return json({ ok: true, action, result: data });
+  }
+
   // 3. Regular tick (cron or manual bounded pass)
   const guard = await checkBackgroundJobsAllowed(admin, "audio-source-repair");
   if (guard.blocked && !body.ignore_pause) {
@@ -254,16 +268,27 @@ Deno.serve(async (req) => {
     claimed: 0,
     repaired: 0,
     already_ok: 0,
+    recovered_internal: 0,
     external_only: 0,
     broken_no_alternative: 0,
     deferred: 0,
     skipped_manual: 0,
+    skipped_stale: 0,
     errors: 0,
     items: [] as Array<Record<string, unknown>>,
   };
 
+  const releaseStatusFor = (prev: unknown, fallback: "pending" | "deferred") =>
+    prev === "external_only" || prev === "broken_no_alternative" ? prev : fallback;
+
+  async function applyRepair(params: Record<string, unknown>) {
+    const { data, error } = await admin.rpc("apply_audio_source_repair_v1", params);
+    if (error) throw error;
+    return (data || {}) as Record<string, unknown>;
+  }
+
   try {
-    const { data: claimed, error: claimErr } = await admin.rpc("claim_audio_source_repair_queue_v1", {
+    const { data: claimed, error: claimErr } = await admin.rpc("claim_audio_source_repair_queue_v2", {
       p_limit: perRun,
       p_lease_seconds: leaseSec,
       p_owner: batchId,
@@ -281,9 +306,16 @@ Deno.serve(async (req) => {
 
     for (const row of rows) {
       if (Date.now() - startedAt > timeBudgetMs) {
-        // Release remaining unclaimed time-budget rows back to pending cleanly
+        // Release remaining time-budget rows cleanly while preserving prior rare-recheck status
+        const restoredStatus = releaseStatusFor(row.previous_status, "pending");
         await admin.from("audio_source_repair_queue")
-          .update({ status: "pending", lease_owner: null, lease_expires_at: null, next_attempt_at: new Date().toISOString() })
+          .update({
+            status: restoredStatus,
+            previous_status: null,
+            lease_owner: null,
+            lease_expires_at: null,
+            next_attempt_at: new Date().toISOString(),
+          })
           .eq("episode_id", row.episode_id)
           .eq("lease_owner", batchId);
         continue;
@@ -330,7 +362,7 @@ Deno.serve(async (req) => {
 
         if (step1 === "already_ok") {
           const matchMethod = probe.verdict === "valid_audio" ? "direct_probe_ok" : "recent_playback_ok";
-          await admin.rpc("apply_audio_source_repair_v1", {
+          const applied = await applyRepair({
             p_batch_id: batchId,
             p_episode_id: row.episode_id,
             p_expected_audio_url: row.audio_url,
@@ -342,14 +374,20 @@ Deno.serve(async (req) => {
             p_probe_detail: probeDetail,
             p_resolution_note: matchMethod === "direct_probe_ok" ? `audio_valid:${probe.format}` : "recent_listener_progress",
           });
+          if (!applied.ok) {
+            summary.skipped_stale++;
+            summary.items.push({ episode_id: row.episode_id, outcome: "skipped_stale", reason: applied.reason });
+            continue;
+          }
           summary.already_ok++;
-          summary.items.push({ episode_id: row.episode_id, outcome: "already_ok", reason: probe.reason, method: matchMethod });
+          if (applied.recovered_internal) summary.recovered_internal++;
+          summary.items.push({ episode_id: row.episode_id, outcome: "already_ok", recovered_internal: !!applied.recovered_internal, reason: probe.reason, method: matchMethod });
           continue;
         }
 
         if (step1 === "defer") {
           const backoff = nextBackoffMinutes(Number(row.attempts || 1), baseBackoffMin);
-          await admin.rpc("apply_audio_source_repair_v1", {
+          const applied = await applyRepair({
             p_batch_id: batchId,
             p_episode_id: row.episode_id,
             p_expected_audio_url: row.audio_url,
@@ -362,6 +400,11 @@ Deno.serve(async (req) => {
             p_backoff_minutes: backoff,
             p_resolution_note: `deferred:${probe.reason}`,
           });
+          if (!applied.ok) {
+            summary.skipped_stale++;
+            summary.items.push({ episode_id: row.episode_id, outcome: "skipped_stale", reason: applied.reason });
+            continue;
+          }
           summary.deferred++;
           summary.items.push({ episode_id: row.episode_id, outcome: "deferred", reason: probe.reason, backoff_min: backoff });
           continue;
@@ -372,11 +415,14 @@ Deno.serve(async (req) => {
         let repairMethod: string | null = null;
         let repairEvidence: Record<string, unknown> = {};
         let repairEpisodeUrl: string | null = null;
+        let rssUnavailableOrCandidateInconclusive: string | null = null;
 
         // 2a. Same confirmed show's live RSS feed
         if (row.podcast_rss_url) {
           const feedItems = await fetchPodcastFeedItems(row.podcast_rss_url, feedCache);
-          if (feedItems && feedItems.length) {
+          if (!feedItems || !feedItems.length) {
+            if (row.requires_rss_match) rssUnavailableOrCandidateInconclusive = "rss_feed_unavailable";
+          } else {
             const matched = matchEpisodeInFeedItems(
               {
                 title: row.episode_title,
@@ -403,13 +449,17 @@ Deno.serve(async (req) => {
                     bytes_read: candProbe.bytesRead,
                   },
                 };
+              } else if (candProbe.verdict === "inconclusive") {
+                rssUnavailableOrCandidateInconclusive = `rss_candidate_inconclusive:${candProbe.reason}`;
               }
             }
           }
+        } else if (row.requires_rss_match) {
+          rssUnavailableOrCandidateInconclusive = "missing_podcast_rss_url";
         }
 
-        // 2b. Safe same-host canonical URL fixes (e.g. double-encoded %2520, Buzzsprout /episodes/ path)
-        if (!repairedUrl && row.audio_url) {
+        // 2b. Safe same-host canonical URL fixes (disabled when row.requires_rss_match is true)
+        if (!repairedUrl && row.audio_url && shouldAllowHostCanonicalFallback(row)) {
           const hostCandidates = deriveSafeHostCanonicalCandidates(row.audio_url);
           for (const hc of hostCandidates) {
             const candProbe = await probeAudioUrl(hc.url);
@@ -431,7 +481,7 @@ Deno.serve(async (req) => {
         }
 
         if (repairedUrl && repairMethod) {
-          await admin.rpc("apply_audio_source_repair_v1", {
+          const applied = await applyRepair({
             p_batch_id: batchId,
             p_episode_id: row.episode_id,
             p_expected_audio_url: row.audio_url,
@@ -445,8 +495,40 @@ Deno.serve(async (req) => {
             p_probe_detail: probeDetail,
             p_resolution_note: `repaired:${repairMethod}`,
           });
+          if (!applied.ok) {
+            summary.skipped_stale++;
+            summary.items.push({ episode_id: row.episode_id, outcome: "skipped_stale", reason: applied.reason });
+            continue;
+          }
           summary.repaired++;
-          summary.items.push({ episode_id: row.episode_id, outcome: "repaired", method: repairMethod, new_audio_url: repairedUrl });
+          if (applied.recovered_internal) summary.recovered_internal++;
+          summary.items.push({ episode_id: row.episode_id, outcome: "repaired", recovered_internal: !!applied.recovered_internal, method: repairMethod, new_audio_url: repairedUrl });
+          continue;
+        }
+
+        // When fresh RSS was required and unavailable (or its candidate probe was inconclusive), defer instead of marking dead
+        if (rssUnavailableOrCandidateInconclusive) {
+          const backoff = nextBackoffMinutes(Number(row.attempts || 1), baseBackoffMin);
+          const applied = await applyRepair({
+            p_batch_id: batchId,
+            p_episode_id: row.episode_id,
+            p_expected_audio_url: row.audio_url,
+            p_action: "deferred",
+            p_match_method: "rss_retry_needed",
+            p_match_evidence: { original_probe: probeDetail, reason: rssUnavailableOrCandidateInconclusive },
+            p_probe_status: probe.status,
+            p_probe_verdict: probe.verdict,
+            p_probe_detail: probeDetail,
+            p_backoff_minutes: backoff,
+            p_resolution_note: `deferred:${rssUnavailableOrCandidateInconclusive}`,
+          });
+          if (!applied.ok) {
+            summary.skipped_stale++;
+            summary.items.push({ episode_id: row.episode_id, outcome: "skipped_stale", reason: applied.reason });
+            continue;
+          }
+          summary.deferred++;
+          summary.items.push({ episode_id: row.episode_id, outcome: "deferred", reason: rssUnavailableOrCandidateInconclusive, backoff_min: backoff });
           continue;
         }
 
@@ -475,7 +557,7 @@ Deno.serve(async (req) => {
         }
 
         if (chosenAlt) {
-          await admin.rpc("apply_audio_source_repair_v1", {
+          const applied = await applyRepair({
             p_batch_id: batchId,
             p_episode_id: row.episode_id,
             p_expected_audio_url: row.audio_url,
@@ -496,10 +578,15 @@ Deno.serve(async (req) => {
             p_probe_detail: probeDetail,
             p_resolution_note: `external_only:${chosenAlt.source}`,
           });
+          if (!applied.ok) {
+            summary.skipped_stale++;
+            summary.items.push({ episode_id: row.episode_id, outcome: "skipped_stale", reason: applied.reason });
+            continue;
+          }
           summary.external_only++;
           summary.items.push({ episode_id: row.episode_id, outcome: "external_only", field: chosenAlt.field, source: chosenAlt.source, url: chosenAlt.url });
         } else {
-          await admin.rpc("apply_audio_source_repair_v1", {
+          const applied = await applyRepair({
             p_batch_id: batchId,
             p_episode_id: row.episode_id,
             p_expected_audio_url: row.audio_url,
@@ -512,15 +599,22 @@ Deno.serve(async (req) => {
             p_backoff_minutes: recheckBrokenMin,
             p_resolution_note: `broken_no_alt:${probe.reason}`,
           });
+          if (!applied.ok) {
+            summary.skipped_stale++;
+            summary.items.push({ episode_id: row.episode_id, outcome: "skipped_stale", reason: applied.reason });
+            continue;
+          }
           summary.broken_no_alternative++;
           summary.items.push({ episode_id: row.episode_id, outcome: "broken_no_alternative", reason: probe.reason });
         }
       } catch (e) {
         summary.errors++;
         const msg = e instanceof Error ? e.message : String(e);
+        const restoredStatus = releaseStatusFor(row.previous_status, "deferred");
         await admin.from("audio_source_repair_queue")
           .update({
-            status: "deferred",
+            status: restoredStatus,
+            previous_status: null,
             lease_owner: null,
             lease_expires_at: null,
             next_attempt_at: new Date(Date.now() + 60 * 60_000).toISOString(),

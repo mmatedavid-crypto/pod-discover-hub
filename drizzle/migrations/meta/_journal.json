@@ -1247,6 +1247,13 @@
       "when": 1795606485735,
       "tag": "0177_audio_source_repair",
       "breakpoints": true
+    },
+    {
+      "idx": 178,
+      "version": "7",
+      "when": 1795607563796,
+      "tag": "0178_audio_source_repair_v2_priority_recheck_lease",
+      "breakpoints": true
     }
   ]
 }

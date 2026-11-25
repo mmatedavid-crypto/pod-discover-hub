@@ -4,9 +4,12 @@ import {
   collectVerifiedEpisodeAlternatives,
   decideAfterProbe,
   deriveSafeHostCanonicalCandidates,
+  effectiveQueuePriority,
   hasAudioMagicBytes,
   matchEpisodeInFeedItems,
+  shouldAllowHostCanonicalFallback,
 } from "../../supabase/functions/_shared/audio-source-repair";
+import { parseFeed } from "../../supabase/functions/_shared/rss";
 import { detectAudioSource, isAudioSourceProvenBroken, playableAudioUrl } from "@/lib/playerAudio";
 import { playbackAlternative } from "@/lib/playerFallback";
 
@@ -175,5 +178,43 @@ describe("verified episode-level external alternatives & player gating", () => {
     expect(playableAudioUrl({ ...krizso, audio_manual_override: "keep_internal" })).toBe(krizso.audio_url);
     expect(playableAudioUrl({ ...krizso, audio_health_status: "repaired" })).toBe(krizso.audio_url);
     expect(playableAudioUrl({ ...krizso, audio_health_status: "unknown" })).toBe(krizso.audio_url);
+  });
+});
+
+describe("queue priority tiers, strict RSS-match requirement & RSS parser encoding", () => {
+  it("orders real listener playback errors ahead of targeted maintenance items and rare re-checks", () => {
+    const realError = effectiveQueuePriority({ status: "pending", priority: 100 });
+    const targetedArchive = effectiveQueuePriority({ status: "pending", priority: 40 });
+    const brokenRecheck = effectiveQueuePriority({ status: "broken_no_alternative", priority: 100 });
+    const externalRecheck = effectiveQueuePriority({ status: "external_only", priority: 100 });
+
+    expect(realError).toBe(100);
+    expect(targetedArchive).toBe(40);
+    expect(brokenRecheck).toBe(20);
+    expect(externalRecheck).toBe(10);
+    expect(realError).toBeGreaterThan(targetedArchive);
+    expect(targetedArchive).toBeGreaterThan(brokenRecheck);
+    expect(brokenRecheck).toBeGreaterThan(externalRecheck);
+  });
+
+  it("disables blind host-canonical fallback when requires_rss_match is true", () => {
+    expect(shouldAllowHostCanonicalFallback({ requires_rss_match: true })).toBe(false);
+    expect(shouldAllowHostCanonicalFallback({ requires_rss_match: false })).toBe(true);
+    expect(shouldAllowHostCanonicalFallback({})).toBe(true);
+  });
+
+  it("parseFeed keeps single %20 Archive.org enclosure URLs verbatim without double-encoding to %2520", () => {
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+      <rss version="2.0"><channel><title>A Hét Mesterlövésze - FILMEK KÜLÖN</title>
+        <item>
+          <title>2 nap Párizsban</title>
+          <guid>https://archive.org/download/ahm_egyes_filmek/2%20nap%20Párizsban.mp3</guid>
+          <enclosure url="https://archive.org/download/ahm_egyes_filmek/2%20nap%20Párizsban.mp3" type="audio/mpeg" />
+        </item>
+      </channel></rss>`;
+    const items = parseFeed(xml);
+    expect(items).toHaveLength(1);
+    expect(items[0].audio_url).toBe("https://archive.org/download/ahm_egyes_filmek/2%20nap%20Párizsban.mp3");
+    expect(items[0].audio_url).not.toContain("%2520");
   });
 });
