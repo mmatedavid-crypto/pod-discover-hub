@@ -12,13 +12,16 @@ import { LikeDislikeButtons } from "@/components/taste/LikeDislikeButtons";
 import { t, formatSpeedLabel } from "@/lib/playerLocale";
 import { SMART_PLAYER_RECOMMENDATIONS_ENABLED } from "./recommendationsConfig";
 import { imageSrcSet, optimizedImageUrl } from "@/lib/image";
+import { playbackPageUrl } from "@/lib/playerFallback";
+import { Button } from "@/components/ui/button";
+import { RotateCcw } from "lucide-react";
 
 
 export function SmartPlayerBar() {
   const {
     playerVisible, currentEpisode, isPlaying, isLoading, error, flags,
     toggle, seekBy, currentTime, duration, expanded, setExpanded, stop, previewActive,
-    playbackRate, setPlaybackRate, autoplayMode, setAutoplayMode,
+    playbackRate, setPlaybackRate, autoplayMode, setAutoplayMode, resume,
   } = useSmartPlayer();
 
   const SPEEDS = [1, 1.25, 1.5, 1.75, 2, 0.75];
@@ -34,6 +37,13 @@ export function SmartPlayerBar() {
   void playerVisible;
 
   const ep = currentEpisode;
+  const externalHref = playbackPageUrl(ep);
+  const trackFallback = () => {
+    void import("@/lib/playerEvents").then(({ logPlayerEvent }) => logPlayerEvent({
+      eventType: "external_open", episodeId: ep.id, podcastId: ep.podcastId,
+      meta: { platform: "original_page", url: externalHref },
+    }));
+  };
 
   const href = ep.podcastSlug && ep.episodeSlug ? `/podcast/${ep.podcastSlug}/${ep.episodeSlug}` : null;
   const hasDuration = isFinite(duration) && duration > 0;
@@ -130,13 +140,11 @@ export function SmartPlayerBar() {
             </div>
           )}
 
-          {error && ep.externalUrl ? (
-            <a
-              href={ep.externalUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs px-3 py-1.5 rounded-md bg-primary text-primary-foreground shrink-0"
-            >{t("openOriginal")}</a>
+          {error ? (
+            <div className="flex shrink-0 items-center gap-2">
+              {externalHref && <Button asChild size="sm"><a href={externalHref} target="_blank" rel="noopener noreferrer" onClick={trackFallback}>{t("openOriginal")}</a></Button>}
+              <Button variant="outline" size="icon" onClick={resume} aria-label="Újrapróbálás" title="Újrapróbálás"><RotateCcw className="h-4 w-4" /></Button>
+            </div>
           ) : (
             <button
               onClick={toggle}
@@ -226,14 +234,10 @@ export function SmartPlayerBar() {
             {error ? (
               <div className="w-full max-w-md rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm text-center">
                 <div className="mb-3">{t("fallbackUnavailable")}</div>
-                {ep.externalUrl && (
-                  <a
-                    href={ep.externalUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center text-sm px-4 py-2 rounded-md bg-primary text-primary-foreground"
-                  >{t("openOriginal")}</a>
-                )}
+                <div className="flex flex-wrap justify-center gap-2">
+                  {externalHref && <Button asChild><a href={externalHref} target="_blank" rel="noopener noreferrer" onClick={trackFallback}>{t("openOriginal")}</a></Button>}
+                  <Button variant="outline" onClick={resume}><RotateCcw className="mr-2 h-4 w-4" />Újrapróbálás</Button>
+                </div>
               </div>
             ) : (
               <>

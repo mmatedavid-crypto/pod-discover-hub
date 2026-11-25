@@ -1,5 +1,9 @@
 # Traffic-led improvements
 
+## Targeted playback recovery (2026-11-25)
+- [x] Deduplicate terminal errors per attempt, reload on deliberate retry with position preservation, and offer safe distinct episode/platform links next to the main button and in both player views.
+- [x] Focused successful/error/retry tests, real episode playback and recovery, one external_open per click, desktop/mobile and expanded UI verified; preview build OK.
+
 ## Visitor-first processing
 - [x] Apply visitor-first priority without changing AI models or quality gates: maintenance before relevance before Astra; public and newest relationships first.
 - [x] Verify configured controls and priority behavior; keep credit pause intact. Three focused tests passed; both deployed bulk runners returned higher_priority_work:seo_jobs_pending without paid AI calls. No credit recovery or complete processing run attempted.

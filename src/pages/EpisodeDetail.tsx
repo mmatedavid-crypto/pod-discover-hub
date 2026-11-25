@@ -26,6 +26,8 @@ import { InlineAudioPlayer } from "@/components/InlineAudioPlayer";
 import { EpisodeAudioPlayer } from "@/components/smart-player/EpisodeAudioPlayer";
 import { useSmartPlayer, type SmartPlayerEpisode } from "@/components/smart-player/SmartPlayerProvider";
 import { playableAudioUrl } from "@/lib/playerAudio";
+import { playbackPageUrl } from "@/lib/playerFallback";
+import { Button } from "@/components/ui/button";
 import { getProgress } from "@/lib/playerProgress";
 import { logPlayerEvent } from "@/lib/playerEvents";
 import { RelatedEpisodes } from "@/components/smart-player/RelatedEpisodes";
@@ -64,7 +66,7 @@ export default function EpisodeDetail() {
   }, [episodeIdForClean]);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const { playerVisible: smartPlayerVisible, play, toggle, currentEpisode, isPlaying, seekTo } = useSmartPlayer();
+  const { playerVisible: smartPlayerVisible, play, toggle, currentEpisode, isPlaying, error: playerError, resume, seekTo } = useSmartPlayer();
   const location = useLocation();
   const deepLinkAppliedRef = useRef<string | null>(null);
 
@@ -94,7 +96,7 @@ export default function EpisodeDetail() {
       episodeSlug: data.e.slug || null,
       imageUrl: data.e.image_url || data.p.image_url || null,
       audioUrl: playerAudioUrl,
-      externalUrl: data.e.episode_url || data.e.audio_url || null,
+      externalUrl: playbackPageUrl(data.e, playerAudioUrl),
     };
     play(ep, { startAt: t });
   }, [data, location.search, currentEpisode, play, seekTo]);
@@ -424,6 +426,8 @@ export default function EpisodeDetail() {
           const canInternalPlay = !!playerAudioUrl;
           const isCurrent = currentEpisode?.id === e.id;
           const isThisPlaying = isCurrent && isPlaying;
+          const hasPlaybackError = isCurrent && !!playerError;
+          const alternativeHref = playbackPageUrl(e, isCurrent ? currentEpisode?.audioUrl : playerAudioUrl);
 
           const handleInternalPrimary = () => {
             if (!playerAudioUrl) return;
@@ -442,7 +446,7 @@ export default function EpisodeDetail() {
               episodeSlug: e.slug || null,
               imageUrl: e.image_url || p.image_url || null,
               audioUrl: playerAudioUrl,
-              externalUrl: e.episode_url || e.audio_url || null,
+              externalUrl: alternativeHref,
             };
             play(ep, { resume: canResume });
           };
@@ -456,10 +460,8 @@ export default function EpisodeDetail() {
             });
           };
 
-          const externalFallbackHref = e.audio_url || e.episode_url || null;
-          const externalFallbackLabel = e.audio_url
-            ? "Megnyitás külső lejátszóban"
-            : "Megnyitás az eredeti oldalon";
+          const externalFallbackHref = alternativeHref;
+          const externalFallbackLabel = "Megnyitás az eredeti oldalon";
 
           const isPlaceholder = !!e.is_prefetch_placeholder;
 
@@ -483,6 +485,18 @@ export default function EpisodeDetail() {
                       <PodcastNewEpisodeSubscribe podcastId={p.id} podcastTitle={p.display_title || p.title} />
                     </div>
                   </div>
+                ) : hasPlaybackError ? (
+                  <>
+                    <span className="w-full text-sm text-muted-foreground" role="status">Ez a hangforrás most nem játszható le.</span>
+                    {alternativeHref && (
+                      <Button asChild>
+                        <a href={alternativeHref} target="_blank" rel="noopener noreferrer" onClick={() => trackExternal("original_page", alternativeHref)}>
+                          <ExternalLink className="mr-2 h-4 w-4" />Megnyitás másik oldalon
+                        </a>
+                      </Button>
+                    )}
+                    <Button variant={alternativeHref ? "outline" : "default"} onClick={resume}>Újrapróbálás</Button>
+                  </>
                 ) : canInternalPlay ? (
                   <button
                     onClick={handleInternalPrimary}
@@ -569,7 +583,7 @@ export default function EpisodeDetail() {
                       <span className="hidden sm:inline">YouTube</span>
                     </a>
                   )}
-                  {canInternalPlay && e.episode_url && (
+                  {canInternalPlay && playbackPageUrl({ episode_url: e.episode_url, audio_url: e.audio_url }) && (
                     <a
                       href={e.episode_url}
                       target="_blank"

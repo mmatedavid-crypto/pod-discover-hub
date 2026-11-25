@@ -157,6 +157,10 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
   // older episode must not touch the current one.
   const loadGenRef = useRef(0);
   const retriedRef = useRef<Set<string>>(new Set());
+  const failedGenRef = useRef<number | null>(null);
+  const retryPendingRef = useRef(false);
+  const playRequestRef = useRef(0);
+  const retryPositionRef = useRef(0);
   const resumeAttemptsRef = useRef(0);
   const pendingSeekRef = useRef<(() => void) | null>(null);
   const seekLogRef = useRef<{ timer: number | null; from: number; epId: string | null }>({ timer: null, from: 0, epId: null });
@@ -181,25 +185,64 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
     }, SEEK_LOG_DEBOUNCE_MS);
   };
 
-  const handlePlayRejection = (err: unknown, ep: SmartPlayerEpisode, gen: number) => {
-    if (loadGenRef.current !== gen) return; // an older request; the new episode owns the UI
+  const restorePosition = (a: HTMLAudioElement, pos: number, gen: number) => {
+    if (pendingSeekRef.current) a.removeEventListener("loadedmetadata", pendingSeekRef.current);
+    const onReady = () => {
+      a.removeEventListener("loadedmetadata", onReady);
+      if (pendingSeekRef.current === onReady) pendingSeekRef.current = null;
+      if (loadGenRef.current !== gen) return;
+      try { a.currentTime = Math.max(0, pos); } catch { /* noop */ }
+    };
+    pendingSeekRef.current = onReady;
+    a.addEventListener("loadedmetadata", onReady);
+  };
+
+  const reportFailure = (ep: SmartPlayerEpisode, gen: number, phase: string, rejection?: string) => {
+    if (loadGenRef.current !== gen || failedGenRef.current === gen || retryPendingRef.current) return;
+    const a = audioRef.current;
+    if (!a) return;
+    const code = a.error?.code ?? null;
+    retryPositionRef.current = a.currentTime || retryPositionRef.current;
+    if (code === 2 && !retriedRef.current.has(ep.id)) {
+      retriedRef.current.add(ep.id);
+      retryPendingRef.current = true;
+      ++playRequestRef.current; // invalidate the promise paired with this element error
+      setIsLoading(true);
+      window.setTimeout(() => {
+        if (loadGenRef.current !== gen || userPausedRef.current) return;
+        retryPendingRef.current = false;
+        restorePosition(a, retryPositionRef.current, gen);
+        a.load();
+        const request = ++playRequestRef.current;
+        void a.play().catch((err: unknown) => handlePlayRejection(err, ep, gen, request));
+      }, 1500);
+      return;
+    }
+    failedGenRef.current = gen;
+    interruptedRef.current = false;
+    setError("Playback error");
+    setIsPlaying(false);
+    setIsLoading(false);
+    logPlayerEventLater({
+      eventType: "playback_error", episodeId: ep.id, podcastId: ep.podcastId,
+      positionSec: retryPositionRef.current,
+      meta: { phase, rejection, ...mediaErrorMeta(code, a.currentSrc || ep.audioUrl, retriedRef.current.has(ep.id)) },
+    });
+  };
+
+  const handlePlayRejection = (err: unknown, ep: SmartPlayerEpisode, gen: number, request: number) => {
+    if (loadGenRef.current !== gen || playRequestRef.current !== request || retryPendingRef.current || failedGenRef.current === gen) return;
     const kind = classifyPlayRejection(err);
     if (kind === "superseded") return;
     setIsLoading(false);
     if (kind === "blocked") {
       // Not a broken source: show the play button again, no error fallback.
+      interruptedRef.current = false;
       setIsPlaying(false);
       logPlayerEventLater({ eventType: "playback_blocked", episodeId: ep.id, podcastId: ep.podcastId, meta: { reason: "not_allowed" } });
       return;
     }
-    setError("Playback error");
-    const a = audioRef.current;
-    logPlayerEventLater({
-      eventType: "playback_error",
-      episodeId: ep.id,
-      podcastId: ep.podcastId,
-      meta: { phase: "play_promise", rejection: kind, ...mediaErrorMeta(a?.error?.code ?? null, a?.currentSrc || ep.audioUrl, false) },
-    });
+    reportFailure(ep, gen, "play_promise", kind);
   };
 
   useEffect(() => {
@@ -266,30 +309,9 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
     const onError = () => {
       const ep = currentEpisodeRef.current;
       // An element with no source (stop/reset) also fires "error": not a playback failure.
-      if (!ep || !a.getAttribute("src")) return;
-      const code = a.error?.code ?? null;
-      const gen = loadGenRef.current;
-      // One bounded retry for network-type failures (flaky mobile connection), never a loop.
-      if (code === 2 && !retriedRef.current.has(ep.id)) {
-        retriedRef.current.add(ep.id);
-        const pos = a.currentTime || 0;
-        window.setTimeout(() => {
-          if (loadGenRef.current !== gen) return;
-          try { a.load(); if (pos > 0) a.currentTime = pos; } catch { /* noop */ }
-          void a.play().catch(() => { /* the next error event reports it */ });
-        }, 1500);
-        return;
-      }
-      setError("Playback error");
-      setIsPlaying(false);
-      setIsLoading(false);
-      logPlayerEventLater({
-        eventType: "playback_error",
-        episodeId: ep.id,
-        podcastId: ep.podcastId,
-        positionSec: a.currentTime,
-        meta: { phase: "element", ...mediaErrorMeta(code, a.currentSrc || a.src, retriedRef.current.has(ep.id)) },
-      });
+      if (!ep || !a.getAttribute("src") || !a.error) return;
+      if (a.currentSrc && a.currentSrc !== a.src) return;
+      reportFailure(ep, loadGenRef.current, "element");
     };
     const onEnded = () => {
       setIsPlaying(false);
@@ -341,6 +363,7 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
     const tryResume = () => {
       const a = audioRef.current;
       if (!a) return;
+      if (failedGenRef.current === loadGenRef.current || retryPendingRef.current) return;
       if (!interruptedRef.current) return;
       if (!currentEpisodeRef.current) return;
       if (!a.paused || a.ended) return;
@@ -434,6 +457,11 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
       });
       navigator.mediaSession.setActionHandler("play", () => {
         userPausedRef.current = false;
+        if (failedGenRef.current === loadGenRef.current || retryPendingRef.current) {
+          const ep = currentEpisodeRef.current;
+          if (ep) playLatestRef.current(ep);
+          return;
+        }
         void audioRef.current?.play().catch(() => { /* lock-screen play refused: user can tap again */ });
       });
       navigator.mediaSession.setActionHandler("pause", () => {
@@ -454,19 +482,29 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
   const play = useCallback((ep: SmartPlayerEpisode, opts?: { resume?: boolean; startAt?: number }) => {
     const a = audioRef.current;
     if (!a) return;
+    const same = currentEpisodeRef.current?.id === ep.id;
+    const reload = same && (failedGenRef.current === loadGenRef.current || retryPendingRef.current);
+    const savedPosition = a.currentTime || retryPositionRef.current;
     setError(null);
-    const same = currentEpisode?.id === ep.id;
     const startAt = typeof opts?.startAt === "number" && Number.isFinite(opts.startAt) && opts.startAt >= 0
       ? opts.startAt
       : null;
-    const gen = same ? loadGenRef.current : ++loadGenRef.current;
-    if (!same) {
+    const gen = ++loadGenRef.current;
+    failedGenRef.current = null;
+    retryPendingRef.current = false;
+    retriedRef.current.clear();
+    retryPositionRef.current = same ? savedPosition : 0;
+    userPausedRef.current = false;
+    interruptedRef.current = false;
+    if (!same || reload) {
       setCurrentEpisode(ep);
       // Keep non-React handlers on the new episode immediately (not after the next render).
       currentEpisodeRef.current = ep;
-      setCurrentTime(0);
-      setDuration(0);
-      markedRef.current = new Set();
+      if (!same) {
+        setCurrentTime(0);
+        setDuration(0);
+        markedRef.current = new Set();
+      }
       userPausedRef.current = false;
       resumeAttemptsRef.current = 0;
       if (pendingSeekRef.current) {
@@ -477,7 +515,7 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
       const prog = getProgress(ep.id);
       const target = startAt != null
         ? startAt
-        : (opts?.resume && prog && prog.currentTime > 30 && !prog.completed ? prog.currentTime : null);
+        : (reload ? savedPosition : opts?.resume && prog && prog.currentTime > 30 && !prog.completed ? prog.currentTime : null);
       if (target != null) {
         // Wait for metadata so currentTime sticks reliably (Safari ignores earlier seeks);
         // a later episode switch removes this listener so it cannot seek the wrong episode.
@@ -490,6 +528,7 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
         pendingSeekRef.current = onReady;
         a.addEventListener("loadedmetadata", onReady);
       }
+      if (reload) a.load();
       markPlayCount(ep.id);
       logPlayerEventLater({
         eventType: "play_start",
@@ -516,7 +555,8 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
       });
     }
     setIsLoading(true);
-    void a.play().catch((err: unknown) => handlePlayRejection(err, ep, gen));
+    const request = ++playRequestRef.current;
+    void a.play().catch((err: unknown) => handlePlayRejection(err, ep, gen, request));
   }, [currentEpisode]);
 
   const playLatestRef = useRef(play);
@@ -526,6 +566,7 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
   const pause = useCallback(() => {
     userPausedRef.current = true;
     interruptedRef.current = false;
+    if (retryPendingRef.current) setIsLoading(false);
     audioRef.current?.pause();
     if (currentEpisode) {
       logPlayerEventLater({
@@ -543,9 +584,7 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
     const a = audioRef.current;
     const ep = currentEpisodeRef.current;
     if (!a) return;
-    setError(null);
-    const gen = loadGenRef.current;
-    a.play().catch((err: unknown) => { if (ep) handlePlayRejection(err, ep, gen); });
+    if (ep) playLatestRef.current(ep);
   }, []);
 
   const toggle = useCallback(() => {
