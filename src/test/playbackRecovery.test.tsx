@@ -124,6 +124,39 @@ describe("actual player attempt recovery", () => {
     await act(async () => { audio.fail(4); await flush(); player.stop(); audio.fail(4); await flush(); });
     expect(errors()).toHaveLength(0);
   });
+  it("keeps a shared timestamp (?t=) seek when autoplay is blocked and the user taps Play", async () => {
+    audio.play.mockRejectedValueOnce({ name: "NotAllowedError" });
+    await act(async () => { player.play(ep, { startAt: 125 }); await flush(); });
+    expect(player.isPlaying).toBe(false); expect(player.error).toBeNull(); expect(audio.currentTime).toBe(0);
+    await act(async () => { player.toggle(); await flush(); audio.dispatchEvent(new Event("loadedmetadata")); });
+    expect(player.isPlaying).toBe(true); expect(audio.currentTime).toBe(125);
+  });
+  it("replaces a pending seek when another timestamp is requested before metadata loads", async () => {
+    audio.play.mockRejectedValueOnce({ name: "NotAllowedError" });
+    await act(async () => { player.play(ep, { startAt: 125 }); await flush(); });
+    await act(async () => { player.play(ep, { startAt: 240 }); await flush(); audio.dispatchEvent(new Event("loadedmetadata")); });
+    expect(audio.currentTime).toBe(240);
+  });
+  it("does not apply a previous episode's pending seek after switching or stopping", async () => {
+    audio.play.mockRejectedValueOnce({ name: "NotAllowedError" });
+    await act(async () => { player.play(ep, { startAt: 125 }); await flush(); });
+    await start(epB);
+    await act(async () => { audio.dispatchEvent(new Event("loadedmetadata")); });
+    expect(audio.currentTime).toBe(0);
+    audio.play.mockRejectedValueOnce({ name: "NotAllowedError" });
+    await act(async () => { player.play(ep, { startAt: 125 }); await flush(); });
+    await act(async () => { player.stop(); await flush(); });
+    await start(ep);
+    await act(async () => { audio.dispatchEvent(new Event("loadedmetadata")); });
+    expect(audio.currentTime).toBe(0);
+  });
+  it("preserves a shared timestamp across a failure before metadata loads and deliberate retry", async () => {
+    audio.play.mockRejectedValueOnce({ name: "NotAllowedError" });
+    await act(async () => { player.play(ep, { startAt: 125 }); await flush(); });
+    await act(async () => { audio.fail(4); await flush(); });
+    await act(async () => { player.resume(); await flush(); audio.dispatchEvent(new Event("loadedmetadata")); });
+    expect(audio.load).toHaveBeenCalledTimes(1); expect(audio.currentTime).toBe(125); expect(player.isPlaying).toBe(true);
+  });
 });
 
 describe("distinct safe fallback pages", () => {

@@ -156,6 +156,9 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
   // Load generation: async results (play promise, metadata seek, autoplay lookup) from an
   // older episode must not touch the current one.
   const loadGenRef = useRef(0);
+  // Source generation: bumped only when the loaded audio source changes or stops, so a pending
+  // loadedmetadata seek survives tapping Play on the same episode after blocked autoplay.
+  const sourceGenRef = useRef(0);
   const retriedRef = useRef<Set<string>>(new Set());
   const failedGenRef = useRef<number | null>(null);
   const retryPendingRef = useRef(false);
@@ -185,13 +188,19 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
     }, SEEK_LOG_DEBOUNCE_MS);
   };
 
-  const restorePosition = (a: HTMLAudioElement, pos: number, gen: number) => {
-    if (pendingSeekRef.current) a.removeEventListener("loadedmetadata", pendingSeekRef.current);
+  const clearPendingSeek = (a: HTMLAudioElement | null) => {
+    if (pendingSeekRef.current && a) a.removeEventListener("loadedmetadata", pendingSeekRef.current);
+    pendingSeekRef.current = null;
+  };
+
+  const restorePosition = (a: HTMLAudioElement, pos: number, sourceGen: number) => {
+    clearPendingSeek(a);
+    const target = Math.max(0, pos);
     const onReady = () => {
       a.removeEventListener("loadedmetadata", onReady);
       if (pendingSeekRef.current === onReady) pendingSeekRef.current = null;
-      if (loadGenRef.current !== gen) return;
-      try { a.currentTime = Math.max(0, pos); } catch { /* noop */ }
+      if (sourceGenRef.current !== sourceGen) return;
+      try { a.currentTime = target; } catch { /* noop */ }
     };
     pendingSeekRef.current = onReady;
     a.addEventListener("loadedmetadata", onReady);
@@ -211,7 +220,7 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
       window.setTimeout(() => {
         if (loadGenRef.current !== gen || userPausedRef.current) return;
         retryPendingRef.current = false;
-        restorePosition(a, retryPositionRef.current, gen);
+        restorePosition(a, retryPositionRef.current, sourceGenRef.current);
         a.load();
         const request = ++playRequestRef.current;
         void a.play().catch((err: unknown) => handlePlayRejection(err, ep, gen, request));
@@ -340,6 +349,7 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
     a.addEventListener("ended", onEnded);
 
     return () => {
+      clearPendingSeek(a);
       a.pause();
       audioRef.current = null;
       a.removeEventListener("timeupdate", onTime);
@@ -497,6 +507,7 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
     userPausedRef.current = false;
     interruptedRef.current = false;
     if (!same || reload) {
+      const sourceGen = ++sourceGenRef.current;
       setCurrentEpisode(ep);
       // Keep non-React handlers on the new episode immediately (not after the next render).
       currentEpisodeRef.current = ep;
@@ -507,26 +518,17 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
       }
       userPausedRef.current = false;
       resumeAttemptsRef.current = 0;
-      if (pendingSeekRef.current) {
-        a.removeEventListener("loadedmetadata", pendingSeekRef.current);
-        pendingSeekRef.current = null;
-      }
+      clearPendingSeek(a);
       a.src = ep.audioUrl;
       const prog = getProgress(ep.id);
       const target = startAt != null
         ? startAt
         : (reload ? savedPosition : opts?.resume && prog && prog.currentTime > 30 && !prog.completed ? prog.currentTime : null);
       if (target != null) {
+        retryPositionRef.current = target;
         // Wait for metadata so currentTime sticks reliably (Safari ignores earlier seeks);
-        // a later episode switch removes this listener so it cannot seek the wrong episode.
-        const onReady = () => {
-          a.removeEventListener("loadedmetadata", onReady);
-          if (pendingSeekRef.current === onReady) pendingSeekRef.current = null;
-          if (loadGenRef.current !== gen) return;
-          try { a.currentTime = Math.max(0, target); } catch { /* noop */ }
-        };
-        pendingSeekRef.current = onReady;
-        a.addEventListener("loadedmetadata", onReady);
+        // tied to sourceGen so tapping Play after blocked autoplay still applies the seek.
+        restorePosition(a, target, sourceGen);
       }
       if (reload) a.load();
       markPlayCount(ep.id);
@@ -544,7 +546,14 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
       });
     } else if (startAt != null) {
       const from = a.currentTime;
-      try { a.currentTime = Math.max(0, startAt); } catch { /* noop */ }
+      const target = Math.max(0, startAt);
+      retryPositionRef.current = target;
+      if (pendingSeekRef.current || a.readyState === 0) {
+        restorePosition(a, target, sourceGenRef.current);
+      } else {
+        clearPendingSeek(a);
+      }
+      try { a.currentTime = target; } catch { /* noop */ }
       queueSeekLog(ep, from, a.currentTime);
     } else {
       logPlayerEventLater({
@@ -598,7 +607,12 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
     if (!a) return;
     const from = a.currentTime;
     const max = Number.isFinite(a.duration) && a.duration > 0 ? a.duration : Infinity;
-    try { a.currentTime = Math.min(max, Math.max(0, sec)); } catch { /* noop */ }
+    const target = Math.min(max, Math.max(0, sec));
+    retryPositionRef.current = target;
+    if (pendingSeekRef.current || a.readyState === 0) {
+      restorePosition(a, target, sourceGenRef.current);
+    }
+    try { a.currentTime = target; } catch { /* noop */ }
     if (currentEpisode) queueSeekLog(currentEpisode, from, a.currentTime);
   }, [currentEpisode]);
 
@@ -627,6 +641,8 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
     userPausedRef.current = true;
     interruptedRef.current = false;
     loadGenRef.current += 1;
+    sourceGenRef.current += 1;
+    clearPendingSeek(audioRef.current);
     currentEpisodeRef.current = null;
     audioRef.current?.pause();
     setCurrentEpisode(null);
