@@ -1,5 +1,6 @@
 import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
 import { episodeIsExcluded } from "../_shared/episode-ingest-exclusion.ts";
+import { ANNUAL_ARCHIVE_MIN_EPISODES, ANNUAL_ARCHIVE_PAGE_SIZE, podcastYearArchivePath } from "../_shared/podcast-annual-archive.ts";
 // Refresh sitemap: regenerates per-type sitemaps and uploads them to the
 // public `sitemaps` Storage bucket. Triggered by pg_cron daily.
 // Two run modes (CPU budget split):
@@ -194,7 +195,7 @@ Deno.serve(async (req) => {
   async function rebuildIndex() {
     const st = await getState();
     const lastmod = new Date().toISOString();
-    const order = ['pages', 'podcasts', 'people', 'organizations', 'topics', 'episodes'];
+    const order = ['pages', 'podcasts', 'archives', 'people', 'organizations', 'topics', 'episodes'];
     const entries: string[] = [];
     for (const k of order) {
       const files = (st[k] as string[]) || [];
@@ -366,17 +367,25 @@ Deno.serve(async (req) => {
 
 
 
-      // podcasts
+      // podcasts (canonical active HU shows only — exclude duplicate aliases)
+      const { data: aliasRows, error: aliasErr } = await sb
+        .from('podcast_canonical_mappings')
+        .select('alias_podcast_id')
+        .eq('status', 'active');
+      if (aliasErr) throw aliasErr;
+      const aliasPodcastIds = new Set((aliasRows || []).map((r: any) => String(r.alias_podcast_id)));
+
       const podcasts: string[] = [];
       for (let from = 0; ; from += PAGE) {
         const { data, error } = await sb.from('podcasts')
-          .select('slug,updated_at,ai_enriched_at,rank_label,language_decision')
+          .select('id,slug,updated_at,ai_enriched_at,rank_label,language_decision,rss_status')
           .eq('language_decision', 'accept_hungarian')
+          .neq('rss_status', 'inactive')
           .order('id').range(from, from + PAGE - 1);
         if (error) throw error;
         if (!data?.length) break;
         for (const p of data) {
-          if (!p.slug) continue;
+          if (!p.slug || aliasPodcastIds.has(String(p.id))) continue;
           const t = p.rank_label;
           const pr = t === 'S' ? '0.9' : t === 'A' ? '0.8' : t === 'B' ? '0.7' : t === 'C' ? '0.6' : '0.5';
           const lm = [p.updated_at, p.ai_enriched_at].filter(Boolean).sort().pop();
@@ -385,6 +394,22 @@ Deno.serve(async (req) => {
         if (data.length < PAGE) break;
       }
       const podFiles = await writeChunks('podcasts', podcasts);
+
+      // canonical annual archive pages (bounded indexed DB query, includes paginated pages 2..N)
+      const archiveUrls: string[] = [];
+      const { data: archiveRows, error: archiveErr } = await sb.rpc('list_sitemap_podcast_annual_archives_v1', {
+        p_min_episodes: ANNUAL_ARCHIVE_MIN_EPISODES,
+        p_page_size: ANNUAL_ARCHIVE_PAGE_SIZE,
+      });
+      if (archiveErr) throw archiveErr;
+      for (const row of (archiveRows || []) as Array<{ podcast_slug: string; pub_year: number; total_pages: number; latest_published_at: string | null }>) {
+        if (!row.podcast_slug || !row.pub_year || !row.total_pages) continue;
+        for (let page = 1; page <= row.total_pages; page++) {
+          const path = podcastYearArchivePath(row.podcast_slug, row.pub_year, page);
+          archiveUrls.push(tag(`${SITE}${esc(path)}`, row.latest_published_at, 'weekly', page === 1 ? '0.6' : '0.5'));
+        }
+      }
+      const archiveFiles = await writeChunks('archives', archiveUrls);
 
       // people
       const peopleUrls: string[] = [];
@@ -442,6 +467,7 @@ Deno.serve(async (req) => {
       await setState({
         pages: ['pages.xml'],
         podcasts: podFiles,
+        archives: archiveFiles,
         people: peopleFiles,
         organizations: orgFiles,
         topics: topicFiles,
@@ -453,6 +479,7 @@ Deno.serve(async (req) => {
         totals: {
           pages: pages.length,
           podcasts: podcasts.length,
+          archives: archiveUrls.length,
           people: peopleUrls.length,
           organizations: orgUrls.length,
           topics: topicUrls.length,
@@ -468,22 +495,30 @@ Deno.serve(async (req) => {
           google_submit_status: googleSubmit.status,
           google_submit_reason: googleSubmit.reason,
         },
-        files: ['pages.xml', ...podFiles, ...peopleFiles, ...orgFiles, ...topicFiles],
+        files: ['pages.xml', ...podFiles, ...archiveFiles, ...peopleFiles, ...orgFiles, ...topicFiles],
         index_entries: indexEntries,
       });
     } else if (type === 'episodes') {
       // Fetch HU podcasts map once (small) to avoid PostgREST inner join cost
       // and per-row JSON re-parsing on 138k episodes.
+      const { data: aliasRows, error: aliasErr } = await sb
+        .from('podcast_canonical_mappings')
+        .select('alias_podcast_id')
+        .eq('status', 'active');
+      if (aliasErr) throw aliasErr;
+      const aliasPodcastIds = new Set((aliasRows || []).map((r: any) => String(r.alias_podcast_id)));
+
       const podMap = new Map<string, { slug: string; rank: string | null }>();
       for (let from = 0; ; from += PAGE) {
         const { data, error } = await sb.from('podcasts')
-          .select('id,slug,rank_label,language_decision')
+          .select('id,slug,rank_label,language_decision,rss_status')
           .eq('language_decision', 'accept_hungarian')
+          .neq('rss_status', 'inactive')
           .order('id').range(from, from + PAGE - 1);
         if (error) throw error;
         if (!data?.length) break;
         for (const p of data) {
-          if (!p.slug) continue;
+          if (!p.slug || aliasPodcastIds.has(String(p.id))) continue;
           podMap.set(String(p.id), { slug: p.slug, rank: p.rank_label });
         }
         if (data.length < PAGE) break;

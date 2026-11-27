@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useParams, useLocation } from "react-router-dom";
+import { Link, Navigate, useParams, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { Apple, Brain, Music, Youtube, ExternalLink, Play, Pause, Globe, CalendarDays, ArrowLeft, Sparkles, Clock } from "lucide-react";
@@ -49,6 +49,7 @@ const ENT_KINDS: { kind: EntityKind; label: string }[] = [
 
 export default function EpisodeDetail() {
   const { podcastSlug, episodeSlug } = useParams();
+  const [aliasRedirectTo, setAliasRedirectTo] = useState<string | null>(null);
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [moreFromPod, setMoreFromPod] = useState<EpisodeLite[]>([]);
@@ -105,8 +106,21 @@ export default function EpisodeDetail() {
     if (!podcastSlug || !episodeSlug) return;
     (async () => {
       setLoading(true);
+      setAliasRedirectTo(null);
+      const { data: redirRows } = await (supabase as any).rpc("resolve_podcast_redirect_v1", {
+        p_podcast_slug: podcastSlug,
+        p_episode_slug: episodeSlug,
+        p_year: null,
+        p_page: null,
+      });
+      const redir = Array.isArray(redirRows) ? redirRows[0] : redirRows;
+      if (typeof redir?.redirect_path === "string" && redir.redirect_path) {
+        setAliasRedirectTo(`${redir.redirect_path}${location.search || ""}`);
+        setLoading(false);
+        return;
+      }
       const { data: p } = await supabase.from("podcasts").select("*").eq("slug", podcastSlug).maybeSingle();
-      if (!p) { setData(null); setLoading(false); return; }
+      if (!p || p.rss_status === "inactive") { setData(null); setLoading(false); return; }
       const isForeignRejected = ["reject_foreign", "confirmed_foreign", "reject_non_hungarian"].includes(String(p.language_decision || ""));
       if (isForeignRejected) {
         setData(null);
@@ -278,6 +292,7 @@ export default function EpisodeDetail() {
     [data?.e?.description, data?.e?.summary],
   );
 
+  if (aliasRedirectTo) return <Navigate to={aliasRedirectTo} replace />;
   if (loading) return <Layout><EpisodeDetailSkeleton /></Layout>;
   if (!data?.e) return <NotFoundState title="Nincs ilyen epizód" message="Ez az epizód nem létezik vagy eltávolításra került." />;
   const { p, e } = data;

@@ -6,6 +6,7 @@ import { slugify as slugifyShared } from "./slug.ts";
 import { countLinks, linkIdentifiesItem, newestFirst } from "./feed-item-policy.ts";
 import { parseChannelMeta } from "./podcast-channel-meta.ts";
 import { episodeIsExcluded } from "./episode-ingest-exclusion.ts";
+import { normalizeFeedUrlConservative } from "./rss-url-normalize.ts";
 
 function slugify(s: string) {
   return slugifyShared(s, "episode");
@@ -16,11 +17,14 @@ const QUARANTINE_THRESHOLD = 5;  // consecutive other failures → quarantined 7
 const QUARANTINE_DAYS = 7;
 
 async function recordRssUrlChange(supabase: any, podcastId: string, oldUrl: string | null, newUrl: string, reason: string) {
+  const cleanNew = normalizeFeedUrlConservative(newUrl);
+  const cleanOld = normalizeFeedUrlConservative(oldUrl);
+  if (!cleanNew || cleanOld === cleanNew) return;
   try {
     await supabase.from("rss_url_history").insert({
-      podcast_id: podcastId, old_url: oldUrl, new_url: newUrl, reason,
+      podcast_id: podcastId, old_url: oldUrl, new_url: cleanNew, reason,
     });
-    await supabase.from("podcasts").update({ rss_url: newUrl }).eq("id", podcastId);
+    await supabase.from("podcasts").update({ rss_url: cleanNew }).eq("id", podcastId);
   } catch { /* noop */ }
 }
 
@@ -57,6 +61,26 @@ export async function fetchOne(supabase: any, podcast: any, opts: { episodeCap?:
     return { ok: false, error: "no rss_url", new: 0, duplicates: 0, items: 0 };
   }
 
+  // Suppress reingestion of duplicate show aliases without affecting canonical refreshes.
+  if (podcast.rss_status === "inactive") {
+    return { ok: true, skipped_alias: true, new: 0, duplicates: 0, items: 0 };
+  }
+  const { data: aliasMapping } = await supabase
+    .from("podcast_canonical_mappings")
+    .select("canonical_podcast_id")
+    .eq("alias_podcast_id", podcast.id)
+    .eq("status", "active")
+    .maybeSingle();
+  if (aliasMapping?.canonical_podcast_id) {
+    return { ok: true, skipped_alias: true, canonical_podcast_id: aliasMapping.canonical_podcast_id, new: 0, duplicates: 0, items: 0 };
+  }
+
+  const normalizedFetchUrl = normalizeFeedUrlConservative(podcast.rss_url as string);
+  if (normalizedFetchUrl && normalizedFetchUrl !== podcast.rss_url) {
+    await recordRssUrlChange(supabase, podcast.id, podcast.rss_url, normalizedFetchUrl, "normalize_trailing_whitespace");
+    podcast.rss_url = normalizedFetchUrl;
+  }
+
   let xml = "";
   let respEtag: string | null = null;
   let respLastModified: string | null = null;
@@ -67,13 +91,13 @@ export async function fetchOne(supabase: any, podcast: any, opts: { episodeCap?:
     if (podcast.last_etag) headers["If-None-Match"] = podcast.last_etag;
     if (podcast.last_modified) headers["If-Modified-Since"] = podcast.last_modified;
 
-    const res = await fetch(podcast.rss_url, {
+    const res = await fetch(finalUrl, {
       headers,
       redirect: "follow",
       signal: AbortSignal.timeout(fetchTimeoutMs),
     });
 
-    finalUrl = res.url || podcast.rss_url;
+    finalUrl = normalizeFeedUrlConservative(res.url || finalUrl) || finalUrl;
     if (finalUrl !== podcast.rss_url) {
       await recordRssUrlChange(supabase, podcast.id, podcast.rss_url, finalUrl, "http_redirect");
       podcast.rss_url = finalUrl;

@@ -13,6 +13,95 @@
 
 const PRERENDER_ENDPOINT =
   "https://yoxewklaybougzpmzvkg.supabase.co/functions/v1/prerender";
+const PODCAST_REDIRECT_RPC =
+  "https://yoxewklaybougzpmzvkg.supabase.co/rest/v1/rpc/resolve_podcast_redirect_v1";
+const SUPABASE_PUBLISHABLE_KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlveGV3a2xheWJvdWd6cG16dmtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1ODAxNDAsImV4cCI6MjA5NDE1NjE0MH0.R5tBT9VgFqWPvd5AYPIb16vJXmB7c116MSMfAuogwv8";
+
+// Verified lossless duplicate show aliases (alias_slug -> canonical_slug).
+// Drives zero-latency single-hop 301s for both humans and bots; episode URLs on
+// these aliases resolve exact canonical slugs via edge-cached RPC (unmatched -> 404).
+const DUPLICATE_PODCAST_ALIASES = {
+  "marko-es-barna": "marko-es-barna-1",
+  "juhi-podcast": "juhi-podcast-9ee9",
+  "parallaxis-univerzum-1": "parallaxis-univerzum",
+  "maria-radio-magyarorszag-8dbd": "maria-radio-magyarorszag",
+  "csonkamagyarorszag-tilos-radio-podcast--3885": "csonkamagyarorszag-tilos-radio-podcast",
+  "zartosztaly-podcast-1": "zartosztaly-podcast",
+  "alley-oop": "alley-oop-3",
+  "alley-oop-1": "alley-oop-3",
+  "alley-oop-2": "alley-oop-3",
+  "alley-oop-4": "alley-oop-3",
+  "okosotthon-guru-muhelye-az-automatizalason-tul-fcbc": "okosotthon-guru-muhelye-az-automatizalason-tul",
+  "innen-es-tul": "innen-es-tul-1",
+  "a-maria-ut-podcast-csatornaja-8b0d": "a-maria-ut-podcast-csatornaja",
+  "kanada-banda-podcast-d17d": "kanada-banda-podcast",
+  "a-jovo-hangjai-generaciok-talalkozasa-2": "a-jovo-hangjai-generaciok-talalkozasa",
+  "deloitte-magyarorszag-1": "deloitte-magyarorszag",
+  "booklove-podcast-272a": "booklove-podcast",
+  "szaval-a-jo-oreg-csallokozi-1": "szaval-a-jo-oreg-csallokozi",
+  "vipcast-hu-powered-by-media1-1": "vipcast-hu-powered-by-media1",
+  "adatepitesz-1": "adatepitesz",
+  "adatepitesz-2": "adatepitesz",
+  "adatepitesz-3": "adatepitesz",
+};
+
+const ACTIVE_SHOW_TRIAL_SLUGS = new Set([
+  "ziccer-24-hu",
+  "juhi-podcast-9ee9",
+  "sajat-toke-podcast",
+  "marko-es-barna-1",
+  "nem-futball-calcio",
+  "neked-ugatok",
+  "sinoa-podcast",
+  "filmklub-podcast",
+  "csukas-meseradio",
+  "friderikusz-podcast",
+]);
+
+async function resolveAliasEpisodeRedirect(aliasSlug, episodeSlug, origin) {
+  const cache = caches.default;
+  const cacheKey = new Request(
+    `${origin}/__podi_alias_ep_redir/v1/${encodeURIComponent(aliasSlug)}/${encodeURIComponent(episodeSlug)}`,
+    { method: "GET" }
+  );
+  const cached = await cache.match(cacheKey);
+  if (cached) {
+    const txt = await cached.text();
+    return txt || null;
+  }
+  try {
+    const resp = await fetch(PODCAST_REDIRECT_RPC, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: SUPABASE_PUBLISHABLE_KEY,
+        Authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
+      },
+      body: JSON.stringify({
+        p_podcast_slug: aliasSlug,
+        p_episode_slug: episodeSlug,
+        p_year: null,
+        p_page: null,
+      }),
+    });
+    if (!resp.ok) return null;
+    const rows = await resp.json();
+    const redirectPath = Array.isArray(rows) && rows[0] && typeof rows[0].redirect_path === "string"
+      ? rows[0].redirect_path
+      : "";
+    await cache.put(
+      cacheKey,
+      new Response(redirectPath, {
+        status: 200,
+        headers: { "Cache-Control": redirectPath ? "public, max-age=86400" : "public, max-age=300" },
+      })
+    );
+    return redirectPath || null;
+  } catch (_e) {
+    return null;
+  }
+}
 const SITEMAP_CACHE_TTL_SECONDS = 900;
 const NEWS_SITEMAP_CACHE_TTL_SECONDS = 300;
 const INDEXNOW_KEY = "cd4aa0ff3daa6bff678ed60d1431affc45fcf9ef72ff14c90613492dc7c32f6a";
@@ -154,7 +243,7 @@ function shouldPrerender(pathname) {
   if (pathname === "/kereses" || pathname === "/kereses/") return true;
   // /podcast/:slug  or  /podcast/:slug/:episode  or  /podcast/:slug/epizodok/:year (Wave 3)
   if (/^\/podcast\/[^/]+(\/[^/]+)?\/?$/.test(pathname)) return true;
-  if (/^\/podcast\/[^/]+\/epizodok\/\d{4}\/?$/.test(pathname)) return true;
+  if (/^\/podcast\/[^/]+\/epizodok\/\d{4}(?:\/oldal\/[^/]+)?\/?$/.test(pathname)) return true;
   if (/^\/(category|kategoria)\/[^/]+\/?$/.test(pathname)) return true;
   // Entity routes — EN + HU aliases (topic/tema/temak, person/szemely/szemelyek,
   // company/ceg/cegek, szervezetek, partok, ticker, ingredient/hozzavalo).
@@ -250,6 +339,50 @@ export default {
         Location: `https://podiverzum.hu/szemelyek/vereb-istvan${url.search}`,
         "Cache-Control": "public, max-age=86400", "X-Redirect": "verified-person-alias-301",
       } });
+    }
+
+    // One-hop HTTP 301 redirects for verified duplicate shows, archives, and mapped episodes (human + bot).
+    if (["podiverzum.hu", "www.podiverzum.hu"].includes(url.hostname) && url.pathname.startsWith("/podcast/")) {
+      const trimmedPath = url.pathname.replace(/\/+$/, "");
+      const segs = trimmedPath.split("/").filter(Boolean);
+      if (segs[0] === "podcast" && segs.length >= 2) {
+        const slug = segs[1];
+        const canonicalShow = DUPLICATE_PODCAST_ALIASES[slug] || null;
+        // /podcast/:alias -> /podcast/:canonical
+        if (canonicalShow && segs.length === 2) {
+          return new Response(null, { status: 301, headers: {
+            Location: `https://podiverzum.hu/podcast/${canonicalShow}${url.search}`,
+            "Cache-Control": "public, max-age=86400", "X-Redirect": "duplicate-podcast-alias-301",
+          } });
+        }
+        // /podcast/:slug/epizodok/:year(/oldal/:page) -> canonical show & collapse /oldal/1
+        if (segs[2] === "epizodok" && (segs.length === 4 || (segs.length === 6 && segs[4] === "oldal"))) {
+          const yearPart = segs[3];
+          const pagePart = segs.length === 6 ? segs[5] : null;
+          if (/^\d{4}$/.test(yearPart) && (pagePart === null || /^[1-9]\d*$/.test(pagePart))) {
+            const targetShow = canonicalShow || slug;
+            const needsRedirect = Boolean(canonicalShow) || pagePart === "1";
+            if (needsRedirect) {
+              const suffix = pagePart && pagePart !== "1" ? `/oldal/${pagePart}` : "";
+              return new Response(null, { status: 301, headers: {
+                Location: `https://podiverzum.hu/podcast/${targetShow}/epizodok/${yearPart}${suffix}${url.search}`,
+                "Cache-Control": "public, max-age=86400",
+                "X-Redirect": canonicalShow ? "duplicate-podcast-archive-301" : "archive-page1-canonical-301",
+              } });
+            }
+          }
+        }
+        // /podcast/:alias/:episodeSlug -> exact mapped canonical episode (unmatched stays 404)
+        if (canonicalShow && segs.length === 3) {
+          const epTarget = await resolveAliasEpisodeRedirect(slug, segs[2], url.origin);
+          if (epTarget) {
+            return new Response(null, { status: 301, headers: {
+              Location: `https://podiverzum.hu${epTarget}${url.search}`,
+              "Cache-Control": "public, max-age=86400", "X-Redirect": "duplicate-episode-alias-301",
+            } });
+          }
+        }
+      }
     }
     // Permanent www -> apex redirect (preserves path + query).
     // Runs first so no other logic (passthrough, prerender) can downgrade it to 302.
@@ -617,8 +750,13 @@ export default {
     // Episode pages use their own cache namespace: 2026-10-20 removed the
     // auto-generated NewsArticle + third-party publisher claim from them, so
     // only that page class is invalidated; every other route keeps its cache.
+    const podcastShowMatch = url.pathname.match(/^\/podcast\/([^/]+)\/?$/);
     const cacheNs = url.pathname.startsWith("/szemelyek/")
       ? "20261127-person-editorial"
+      : /^\/podcast\/[^/]+\/epizodok\//.test(url.pathname)
+        ? "20261127-archive-paginated"
+        : podcastShowMatch && ACTIVE_SHOW_TRIAL_SLUGS.has(podcastShowMatch[1])
+          ? "20261127-active-show-trial"
       : /^\/podcast\/[^/]+\/[^/]+\/?$/.test(url.pathname) && !/\/epizodok\//.test(url.pathname)
         ? "20261020-episode-nonews"
         : "20260916-seo";

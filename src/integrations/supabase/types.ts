@@ -2534,6 +2534,192 @@ export type Database = {
           },
         ]
       }
+      episode_canonical_mappings: {
+        Row: {
+          alias_episode_id: string
+          alias_episode_slug: string
+          alias_podcast_id: string
+          alias_podcast_slug: string
+          canonical_episode_id: string
+          canonical_episode_slug: string
+          canonical_podcast_id: string
+          canonical_podcast_slug: string
+          created_at: string
+          match_method: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          alias_episode_id: string
+          alias_episode_slug: string
+          alias_podcast_id: string
+          alias_podcast_slug: string
+          canonical_episode_id: string
+          canonical_episode_slug: string
+          canonical_podcast_id: string
+          canonical_podcast_slug: string
+          created_at?: string
+          match_method: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          alias_episode_id?: string
+          alias_episode_slug?: string
+          alias_podcast_id?: string
+          alias_podcast_slug?: string
+          canonical_episode_id?: string
+          canonical_episode_slug?: string
+          canonical_podcast_id?: string
+          canonical_podcast_slug?: string
+          created_at?: string
+          match_method?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "episode_canonical_mappings_alias_episode_id_fkey"
+            columns: ["alias_episode_id"]
+            isOneToOne: true
+            referencedRelation: "episodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "episode_canonical_mappings_alias_episode_id_fkey"
+            columns: ["alias_episode_id"]
+            isOneToOne: true
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "episode_canonical_mappings_alias_episode_id_fkey"
+            columns: ["alias_episode_id"]
+            isOneToOne: true
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "episode_canonical_mappings_alias_episode_id_fkey"
+            columns: ["alias_episode_id"]
+            isOneToOne: true
+            referencedRelation: "v_episode_data_quality_issues"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "episode_canonical_mappings_alias_episode_id_fkey"
+            columns: ["alias_episode_id"]
+            isOneToOne: true
+            referencedRelation: "v_episode_quality_indicator_audit"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "episode_canonical_mappings_alias_podcast_id_fkey"
+            columns: ["alias_podcast_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "episode_canonical_mappings_alias_podcast_id_fkey"
+            columns: ["alias_podcast_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "episode_canonical_mappings_alias_podcast_id_fkey"
+            columns: ["alias_podcast_id"]
+            isOneToOne: false
+            referencedRelation: "podcasts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "episode_canonical_mappings_alias_podcast_id_fkey"
+            columns: ["alias_podcast_id"]
+            isOneToOne: false
+            referencedRelation: "v_hu_archive_completeness"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "episode_canonical_mappings_alias_podcast_id_fkey"
+            columns: ["alias_podcast_id"]
+            isOneToOne: false
+            referencedRelation: "v_youtube_native_transcript_candidates"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "episode_canonical_mappings_canonical_episode_id_fkey"
+            columns: ["canonical_episode_id"]
+            isOneToOne: false
+            referencedRelation: "episodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "episode_canonical_mappings_canonical_episode_id_fkey"
+            columns: ["canonical_episode_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "episode_canonical_mappings_canonical_episode_id_fkey"
+            columns: ["canonical_episode_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "episode_canonical_mappings_canonical_episode_id_fkey"
+            columns: ["canonical_episode_id"]
+            isOneToOne: false
+            referencedRelation: "v_episode_data_quality_issues"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "episode_canonical_mappings_canonical_episode_id_fkey"
+            columns: ["canonical_episode_id"]
+            isOneToOne: false
+            referencedRelation: "v_episode_quality_indicator_audit"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "episode_canonical_mappings_canonical_podcast_id_fkey"
+            columns: ["canonical_podcast_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "episode_canonical_mappings_canonical_podcast_id_fkey"
+            columns: ["canonical_podcast_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "episode_canonical_mappings_canonical_podcast_id_fkey"
+            columns: ["canonical_podcast_id"]
+            isOneToOne: false
+            referencedRelation: "podcasts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "episode_canonical_mappings_canonical_podcast_id_fkey"
+            columns: ["canonical_podcast_id"]
+            isOneToOne: false
+            referencedRelation: "v_hu_archive_completeness"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "episode_canonical_mappings_canonical_podcast_id_fkey"
+            columns: ["canonical_podcast_id"]
+            isOneToOne: false
+            referencedRelation: "v_youtube_native_transcript_candidates"
+            referencedColumns: ["podcast_id"]
+          },
+        ]
+      }
       episode_cards: {
         Row: {
           audio_url: string | null
@@ -10850,6 +11036,119 @@ export type Database = {
         }
         Relationships: []
       }
+      podcast_canonical_mappings: {
+        Row: {
+          alias_podcast_id: string
+          alias_slug: string
+          applied_at: string
+          before_state: Json
+          canonical_podcast_id: string
+          canonical_slug: string
+          evidence: Json
+          group_key: string
+          reverted_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          alias_podcast_id: string
+          alias_slug: string
+          applied_at?: string
+          before_state?: Json
+          canonical_podcast_id: string
+          canonical_slug: string
+          evidence?: Json
+          group_key: string
+          reverted_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          alias_podcast_id?: string
+          alias_slug?: string
+          applied_at?: string
+          before_state?: Json
+          canonical_podcast_id?: string
+          canonical_slug?: string
+          evidence?: Json
+          group_key?: string
+          reverted_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "podcast_canonical_mappings_alias_podcast_id_fkey"
+            columns: ["alias_podcast_id"]
+            isOneToOne: true
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "podcast_canonical_mappings_alias_podcast_id_fkey"
+            columns: ["alias_podcast_id"]
+            isOneToOne: true
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "podcast_canonical_mappings_alias_podcast_id_fkey"
+            columns: ["alias_podcast_id"]
+            isOneToOne: true
+            referencedRelation: "podcasts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "podcast_canonical_mappings_alias_podcast_id_fkey"
+            columns: ["alias_podcast_id"]
+            isOneToOne: true
+            referencedRelation: "v_hu_archive_completeness"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "podcast_canonical_mappings_alias_podcast_id_fkey"
+            columns: ["alias_podcast_id"]
+            isOneToOne: true
+            referencedRelation: "v_youtube_native_transcript_candidates"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "podcast_canonical_mappings_canonical_podcast_id_fkey"
+            columns: ["canonical_podcast_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "podcast_canonical_mappings_canonical_podcast_id_fkey"
+            columns: ["canonical_podcast_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "podcast_canonical_mappings_canonical_podcast_id_fkey"
+            columns: ["canonical_podcast_id"]
+            isOneToOne: false
+            referencedRelation: "podcasts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "podcast_canonical_mappings_canonical_podcast_id_fkey"
+            columns: ["canonical_podcast_id"]
+            isOneToOne: false
+            referencedRelation: "v_hu_archive_completeness"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "podcast_canonical_mappings_canonical_podcast_id_fkey"
+            columns: ["canonical_podcast_id"]
+            isOneToOne: false
+            referencedRelation: "v_youtube_native_transcript_candidates"
+            referencedColumns: ["podcast_id"]
+          },
+        ]
+      }
       podcast_channel_meta: {
         Row: {
           author: string | null
@@ -15335,6 +15634,16 @@ export type Database = {
         Returns: Json
       }
       apply_person_role_label_v1: { Args: { _items: Json }; Returns: Json }
+      apply_podcast_canonical_mapping_v1: {
+        Args: {
+          p_alias_podcast_id: string
+          p_allow_audio_fallback?: boolean
+          p_canonical_podcast_id: string
+          p_evidence?: Json
+          p_group_key: string
+        }
+        Returns: Json
+      }
       apply_topic_cluster_staging: { Args: never; Returns: Json }
       apply_wiki_safe_match_v1: {
         Args: {
@@ -16076,6 +16385,14 @@ export type Database = {
       }
       get_pipeline_health_snapshot_v1: { Args: never; Returns: Json }
       get_pipeline_runner_health_v1: { Args: never; Returns: Json }
+      get_podcast_archive_years_v1: {
+        Args: { p_min_episodes?: number; p_podcast_id: string }
+        Returns: {
+          episode_count: number
+          latest_published_at: string
+          year: number
+        }[]
+      }
       get_podcast_embedding_inputs_v2: {
         Args: { _ids: string[] }
         Returns: {
@@ -16087,6 +16404,15 @@ export type Database = {
           recent_titles: string[]
           title: string
         }[]
+      }
+      get_podcast_year_archive_page_v1: {
+        Args: {
+          p_page?: number
+          p_page_size?: number
+          p_podcast_slug: string
+          p_year: number
+        }
+        Returns: Json
       }
       get_related_episodes_by_embedding: {
         Args: {
@@ -16377,6 +16703,17 @@ export type Database = {
           total_count: number
           wikipedia_match_confidence: number
           wikipedia_match_status: string
+        }[]
+      }
+      list_sitemap_podcast_annual_archives_v1: {
+        Args: { p_min_episodes?: number; p_page_size?: number }
+        Returns: {
+          episode_count: number
+          lastmod: string
+          podcast_slug: string
+          rank_label: string
+          total_pages: number
+          year: number
         }[]
       }
       mark_episode_derivation_v1: {
@@ -17052,6 +17389,16 @@ export type Database = {
           weight: number
         }[]
       }
+      resolve_canonical_episode_by_id_v1: {
+        Args: { p_episode_id: string }
+        Returns: {
+          canonical_episode_id: string
+          canonical_episode_slug: string
+          canonical_podcast_id: string
+          canonical_podcast_slug: string
+          is_aliased: boolean
+        }[]
+      }
       resolve_org_redirect_v1: { Args: { _slug: string }; Returns: string }
       resolve_person_name_variant_v1: {
         Args: { _episode?: string; _name: string }
@@ -17063,6 +17410,22 @@ export type Database = {
         }[]
       }
       resolve_person_redirect_v1: { Args: { p_slug: string }; Returns: string }
+      resolve_podcast_redirect_v1: {
+        Args: {
+          p_episode_slug?: string
+          p_page?: number
+          p_podcast_slug: string
+          p_year?: number
+        }
+        Returns: {
+          canonical_episode_id: string
+          canonical_episode_slug: string
+          canonical_podcast_id: string
+          canonical_podcast_slug: string
+          reason: string
+          redirect_path: string
+        }[]
+      }
       resolve_query_entities: {
         Args: { p_max?: number; p_q: string; p_threshold?: number }
         Returns: {
@@ -17083,6 +17446,10 @@ export type Database = {
           p_episode_id?: string
           p_reason?: string
         }
+        Returns: Json
+      }
+      revert_podcast_canonical_mapping_v1: {
+        Args: { p_alias_podcast_id: string }
         Returns: Json
       }
       revert_wiki_safe_match_v1: {

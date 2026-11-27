@@ -73,6 +73,7 @@ const Mr6Page = lazy(() => import("./pages/Mr6Page.tsx"));
 const AnantaraPage = lazy(() => import("./pages/AnantaraPage.tsx"));
 const BydPage = lazy(() => import("./pages/BydPage.tsx"));
 const PodcastDetail = lazy(() => import("./pages/PodcastDetail.tsx"));
+const PodcastYearArchivePage = lazy(() => import("./pages/PodcastYearArchivePage.tsx"));
 const EpisodeDetail = lazy(() => import("./pages/EpisodeDetail.tsx"));
 const SearchPage = lazy(() => import("./pages/SearchPage.tsx"));
 const TrendsPage = lazy(() => import("./pages/TrendsPage.tsx"));
@@ -188,8 +189,8 @@ const App = () => (
           <Route path="/category/:slug" element={<RedirectWithSlug to="/kategoria" />} />
           <Route path="/podcast/:podcastSlug" element={<PodcastDetail />} />
           <Route path="/podcast/:podcastSlug/:episodeSlug" element={<EpisodeDetail />} />
-          {/* Wave 3 long-tail: /podcast/:slug/epizodok/:year — humans get the podcast page */}
-          <Route path="/podcast/:podcastSlug/epizodok/:year" element={<PodcastDetail />} />
+          <Route path="/podcast/:podcastSlug/epizodok/:year" element={<PodcastYearArchivePage />} />
+          <Route path="/podcast/:podcastSlug/epizodok/:year/oldal/:page" element={<PodcastYearArchivePage />} />
           <Route path="/kereses" element={<SearchPage />} />
           <Route path="/trendek" element={<TrendsPage />} />
           <Route path="/search" element={<RedirectPreserveSearch to="/kereses" />} />

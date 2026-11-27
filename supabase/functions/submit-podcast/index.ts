@@ -6,6 +6,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { z } from "https://esm.sh/zod@3.23.8";
 import { assertPublicHttpUrl, safePublicFetch } from "../_shared/safe-public-fetch.ts";
+import { normalizeFeedUrlConservative } from "../_shared/rss-url-normalize.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -50,22 +51,37 @@ Deno.serve(async (req) => {
     return jr({ error: "invalid_input", details: parsed.error.flatten().fieldErrors }, 400);
   }
 
-  let rssUrl = parsed.data.rss_url;
+  let rssUrl = normalizeFeedUrlConservative(parsed.data.rss_url) || parsed.data.rss_url;
   try {
     const u = await assertPublicHttpUrl(rssUrl);
-    rssUrl = u.toString();
+    rssUrl = normalizeFeedUrlConservative(u.toString()) || u.toString();
   } catch {
     return jr({ error: "invalid_url" }, 400);
   }
 
   const sb = createClient(SUPABASE_URL, SERVICE_KEY);
 
-  // Dedup: already in podcasts?
-  const { data: existingPodcast } = await sb
-    .from("podcasts")
-    .select("id, slug, title")
-    .eq("rss_url", rssUrl)
-    .maybeSingle();
+  // Dedup: already in podcasts (including conservative whitespace normalization & alias resolution)?
+  const { data: matchedPodcastId } = await sb.rpc("find_existing_podcast", {
+    p_rss_url: rssUrl,
+    p_title: null,
+  });
+  let existingPodcast: { id: string; slug: string; title: string } | null = null;
+  if (matchedPodcastId) {
+    const { data } = await sb
+      .from("podcasts")
+      .select("id, slug, title")
+      .eq("id", matchedPodcastId)
+      .maybeSingle();
+    existingPodcast = data;
+  } else {
+    const { data } = await sb
+      .from("podcasts")
+      .select("id, slug, title")
+      .eq("rss_url", rssUrl)
+      .maybeSingle();
+    existingPodcast = data;
+  }
   if (existingPodcast) {
     return jr({
       status: "already_indexed",

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, Navigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { Apple, Music, Youtube, Globe, Activity, AlertTriangle, Mic, Search, X, Play, Pause, Headphones, CalendarDays, Library, ArrowRight, ExternalLink, type LucideIcon } from "lucide-react";
@@ -21,6 +21,8 @@ import { PodcastNewEpisodeSubscribe } from "@/components/PodcastNewEpisodeSubscr
 import { useSmartPlayer } from "@/components/smart-player/SmartPlayerProvider";
 import { playableAudioUrl } from "@/lib/playerAudio";
 import { playbackAlternative, playbackPageUrl } from "@/lib/playerFallback";
+import { formatActiveShowTrial } from "../../supabase/functions/_shared/podcast-active-trial";
+import { ANNUAL_ARCHIVE_MIN_EPISODES, podcastYearArchivePath } from "../../supabase/functions/_shared/podcast-annual-archive";
 import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
 import { pickEpisodeDescription } from "@/lib/episodeText";
 import ListLoadError from "@/components/ListLoadError";
@@ -159,8 +161,10 @@ async function fetchHosts(podcastId: string, manualNames: string[]): Promise<Hos
 
 export default function PodcastDetail() {
   const { podcastSlug } = useParams();
+  const [aliasRedirectTo, setAliasRedirectTo] = useState<string | null>(null);
   const [p, setP] = useState<any>(null);
   const [eps, setEps] = useState<any[]>([]);
+  const [archiveYears, setArchiveYears] = useState<Array<{ year: number; count: number }>>([]);
   const [hosts, setHosts] = useState<HostRow[]>([]);
   const [publisher, setPublisher] = useState<PublisherRef | null>(null);
   const [loading, setLoading] = useState(true);
@@ -170,17 +174,31 @@ export default function PodcastDetail() {
   // Channel-scoped episode search, shown right under the podcast header.
   const [episodeQuery, setEpisodeQuery] = useState("");
   useEffect(() => { setEpisodeQuery(""); }, [podcastSlug]);
-  const { play } = useSmartPlayer();
+  const { play, toggle, currentEpisode, isPlaying } = useSmartPlayer();
 
   useEffect(() => {
     if (!podcastSlug) return;
     (async () => {
       setLoading(true);
+      setAliasRedirectTo(null);
+      const { data: redirRows } = await (supabase as any).rpc("resolve_podcast_redirect_v1", {
+        p_podcast_slug: podcastSlug,
+        p_episode_slug: null,
+        p_year: null,
+        p_page: null,
+      });
+      const redir = Array.isArray(redirRows) ? redirRows[0] : redirRows;
+      if (typeof redir?.redirect_path === "string" && redir.redirect_path && redir.redirect_path !== `/podcast/${podcastSlug}`) {
+        setAliasRedirectTo(redir.redirect_path);
+        setLoading(false);
+        return;
+      }
       const { data } = await supabase.from("podcasts").select("*").eq("slug", podcastSlug).maybeSingle();
       const isForeignRejected = (podcast: any) => ["reject_foreign", "confirmed_foreign", "reject_non_hungarian"].includes(String(podcast?.language_decision || ""));
       if (data && isForeignRejected(data)) {
         setP(null);
         setEps([]);
+        setArchiveYears([]);
         setHosts([]);
         setLoading(false);
         return;
@@ -190,16 +208,25 @@ export default function PodcastDetail() {
       setLoading(false);
       if (data) {
         const manualHostNames = (data.hosts || []) as string[];
-        const [resolvedHosts, episodeResult, pub] = await Promise.all([
+        const [resolvedHosts, episodeResult, pub, archiveYearsRes] = await Promise.all([
           fetchHosts(data.id, manualHostNames),
           fetchAllEpisodes(data.id),
           fetchPodcastPublisher(data.id).catch(() => null),
+          (supabase as any).rpc("get_podcast_archive_years_v1", {
+            p_podcast_id: data.id,
+            p_min_episodes: ANNUAL_ARCHIVE_MIN_EPISODES,
+          }),
         ]);
         const allEps = episodeResult.rows;
         setHosts(resolvedHosts);
         setPublisher(pub);
         setEps(allEps);
         setEpsError(episodeResult.failed);
+        const dbYears = ((archiveYearsRes?.data || []) as Array<{ pub_year: number; episode_count: number }>)
+          .filter((r) => Number(r.episode_count) >= ANNUAL_ARCHIVE_MIN_EPISODES)
+          .map((r) => ({ year: Number(r.pub_year), count: Number(r.episode_count) }))
+          .sort((a, b) => b.year - a.year);
+        setArchiveYears(dbYears);
 
         const cleanSummary = sanitizeHungarianPublicText(data.summary);
         const cleanDesc = sanitizeHungarianPublicText(data.description);
@@ -226,16 +253,28 @@ export default function PodcastDetail() {
         const epCount = allEps.length;
         const epCountLabel = `${epCount} epizód`;
         const safeSeoTitle = sanitizeHungarianPublicText(data.seo_title);
-        const seoTitle = `${displayName} – ${epCountLabel} · podcast | Podiverzum`;
+        const activeTrial = formatActiveShowTrial({
+          podcastSlug: data.slug,
+          podcastTitle: displayName,
+          totalEpisodes: epCount,
+          episodes: allEps,
+          site: "https://podiverzum.hu",
+        });
+        const seoTitle = activeTrial
+          ? activeTrial.title
+          : `${displayName} – ${epCountLabel} · podcast | Podiverzum`;
         const alternateSeoName = safeSeoTitle
           ? safeSeoTitle.replace(/\s*\|\s*Podiverzum\s*$/i, "").trim()
           : undefined;
-        const seoDescription = podcastSeoDescription(baseDesc, [hostLine, organizationLine]);
+        const seoDescription = activeTrial
+          ? activeTrial.description
+          : podcastSeoDescription(baseDesc, [hostLine, organizationLine]);
         setSeo({
           title: seoTitle,
           description: seoDescription,
           canonical,
           noindex,
+          preserveTitle: Boolean(activeTrial),
           image: ogImageUrl({ kind: "podcast", title: displayName, subtitle: seoCategory || "Podcast", image: data.image_url }),
           jsonLd: noindex ? undefined : [
             {
@@ -243,7 +282,7 @@ export default function PodcastDetail() {
               "@type": "PodcastSeries",
               name: data.title,
               alternateName: alternateSeoName && alternateSeoName !== data.title ? alternateSeoName : undefined,
-              description: safeSeoDescription || cleanSummary || cleanDesc || baseDesc,
+              description: activeTrial ? activeTrial.description : (safeSeoDescription || cleanSummary || cleanDesc || baseDesc),
               image: data.image_url || undefined,
               url: typeof window !== "undefined" ? window.location.href : undefined,
               webFeed: data.rss_url || undefined,
@@ -254,6 +293,7 @@ export default function PodcastDetail() {
               publisher: pub
                 ? { "@type": "Organization", name: pub.name, url: `https://podiverzum.hu/ceg/${pub.slug}` }
                 : undefined,
+              ...(activeTrial ? { episode: activeTrial.latestEpisodeJsonLd } : {}),
             },
             breadcrumbJsonLd([
               { name: "Kezdőlap", url: typeof window !== "undefined" ? window.location.origin + "/" : "/" },
@@ -267,6 +307,7 @@ export default function PodcastDetail() {
   }, [podcastSlug, reloadKey]);
 
 
+  if (aliasRedirectTo) return <Navigate to={aliasRedirectTo} replace />;
   if (loading) return <Layout><PodcastDetailSkeleton /></Layout>;
   if (!p) return <NotFoundState title="Nincs ilyen podcast" message="A keresett podcast nem létezik, vagy már nem elérhető." />;
 
@@ -278,6 +319,35 @@ export default function PodcastDetail() {
   const latestAudio = latestEpisode ? playableAudioUrl(latestEpisode) : null;
   const latestAlt = latestEpisode && !latestAudio ? playbackAlternative(latestEpisode, latestEpisode.audio_url) : null;
   const latestPublished = latestEpisode?.published_at ? relativeTime(latestEpisode.published_at) : null;
+  const activeTrial = formatActiveShowTrial({
+    podcastSlug: p.slug,
+    podcastTitle: p.display_title || p.title,
+    totalEpisodes: eps.length,
+    episodes: eps,
+    site: "https://podiverzum.hu",
+  });
+  const trialEpisode = activeTrial ? (activeTrial.episode as any) : null;
+  const trialAudio = trialEpisode ? playableAudioUrl(trialEpisode) : null;
+  const trialAlt = trialEpisode && !trialAudio ? playbackAlternative(trialEpisode, trialEpisode.audio_url) : null;
+  const isTrialCurrent = Boolean(trialEpisode && currentEpisode?.id === trialEpisode.id);
+  const playTrialEpisode = () => {
+    if (!trialEpisode || !trialAudio) return;
+    if (isTrialCurrent) {
+      toggle();
+      return;
+    }
+    play({
+      id: trialEpisode.id,
+      title: trialEpisode.display_title || trialEpisode.title,
+      podcastId: p.id,
+      podcastTitle: p.display_title || p.title,
+      podcastSlug: p.slug,
+      episodeSlug: trialEpisode.slug || null,
+      imageUrl: trialEpisode.image_url || p.image_url || null,
+      audioUrl: trialAudio,
+      externalUrl: playbackPageUrl(trialEpisode, trialAudio),
+    });
+  };
   const description = sanitizeHungarianPublicText(p.summary) || sanitizeHungarianPublicText(p.description);
   const externalLinks = [
     p.apple_url ? { href: p.apple_url, label: "Apple", Icon: Apple } : null,
@@ -504,9 +574,65 @@ export default function PodcastDetail() {
         })()}
 
 
+        {activeTrial && trialEpisode && (
+          <section
+            aria-label="Legutóbbi epizód"
+            className="mb-8 rounded-xl border border-primary/25 bg-card p-4 sm:p-5"
+          >
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  <span className="font-semibold uppercase tracking-[0.14em] text-primary">Legutóbbi epizód</span>
+                  <time dateTime={activeTrial.latestDateIso}>{activeTrial.latestDateLabel}</time>
+                </div>
+                <h2 className="mt-1.5 text-lg font-semibold leading-snug text-foreground">
+                  <Link
+                    to={`/podcast/${p.slug}/${trialEpisode.slug}`}
+                    className="transition-colors hover:text-primary"
+                  >
+                    {activeTrial.latestHeadline}
+                  </Link>
+                </h2>
+                {activeTrial.latestSummary && (
+                  <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+                    {activeTrial.latestSummary}
+                  </p>
+                )}
+              </div>
+              <div className="flex shrink-0 flex-wrap items-center gap-2">
+                {trialAudio ? (
+                  <button
+                    type="button"
+                    onClick={playTrialEpisode}
+                    className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+                  >
+                    {isTrialCurrent && isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 fill-current" />}
+                    {isTrialCurrent && isPlaying ? "Szünet" : "Lejátszás most"}
+                  </button>
+                ) : trialAlt ? (
+                  <a
+                    href={trialAlt.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+                  >
+                    <ExternalLink className="h-4 w-4" /> {trialAlt.label}
+                  </a>
+                ) : null}
+                <Link
+                  to={`/podcast/${p.slug}/${trialEpisode.slug}`}
+                  className="inline-flex items-center gap-1 rounded-md border border-border px-3 py-2 text-sm font-medium text-foreground transition-colors hover:border-primary/40 hover:text-primary"
+                >
+                  Részletek <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+            </div>
+          </section>
+        )}
+
         {epsError && eps.length === 0
           ? <ListLoadError onRetry={() => setReloadKey((k) => k + 1)} />
-          : <EpisodeListWithSearch eps={eps} podcast={p} q={episodeQuery} />}
+          : <EpisodeListWithSearch eps={eps} podcast={p} q={episodeQuery} archiveYears={archiveYears} />}
 
 
         <SimilarPodcasts podcastId={p.id} />
@@ -535,7 +661,7 @@ function entityNames(v: unknown): string {
     .join(" ");
 }
 
-function EpisodeListWithSearch({ eps, podcast, q }: { eps: any[]; podcast: any; q: string }) {
+function EpisodeListWithSearch({ eps, podcast, q, archiveYears }: { eps: any[]; podcast: any; q: string; archiveYears: Array<{ year: number; count: number }> }) {
   const [visibleCount, setVisibleCount] = useState(PODCAST_EPISODE_INITIAL_RENDER_COUNT);
   const { play, toggle, currentEpisode, isPlaying } = useSmartPlayer();
   const podcastSlug = podcast.slug;
@@ -710,20 +836,22 @@ function EpisodeListWithSearch({ eps, podcast, q }: { eps: any[]; podcast: any; 
             </div>
           )}
           {(() => {
-            // Year archive nav — every year with ≥3 episodes links to /podcast/:slug/epizodok/:year
-            // (existing prerendered route). Gives Google deep-link paths into the full back catalog.
-            const yearTally = new Map<number, number>();
-            for (const e of eps) {
-              const pub = e?.published_at as string | null | undefined;
-              if (!pub) continue;
-              const y = Number(pub.slice(0, 4));
-              if (!Number.isFinite(y) || y < 2000 || y > 2100) continue;
-              yearTally.set(y, (yearTally.get(y) || 0) + 1);
+            // Year archive nav — uses indexed DB counts (so >1,000-episode shows list every year accurately).
+            let years: Array<[number, number]> = archiveYears.map((r) => [r.year, r.count]);
+            if (!years.length) {
+              const yearTally = new Map<number, number>();
+              for (const e of eps) {
+                const pub = e?.published_at as string | null | undefined;
+                if (!pub) continue;
+                const y = Number(pub.slice(0, 4));
+                if (!Number.isFinite(y) || y < 2000 || y > 2100) continue;
+                yearTally.set(y, (yearTally.get(y) || 0) + 1);
+              }
+              years = [...yearTally.entries()]
+                .filter(([, count]) => count >= ANNUAL_ARCHIVE_MIN_EPISODES)
+                .sort((a, b) => b[0] - a[0]);
             }
-            const years = [...yearTally.entries()]
-              .filter(([, count]) => count >= 3)
-              .sort((a, b) => b[0] - a[0]);
-            if (years.length < 2) return null;
+            if (!years.length) return null;
             return (
               <nav aria-label="Évek archívuma" className="mt-10 border-t border-border pt-6">
                 <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
@@ -733,7 +861,7 @@ function EpisodeListWithSearch({ eps, podcast, q }: { eps: any[]; podcast: any; 
                   {years.map(([year, count]) => (
                     <li key={year}>
                       <Link
-                        to={`/podcast/${podcastSlug}/epizodok/${year}`}
+                        to={podcastYearArchivePath(podcastSlug, year, 1)}
                         className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-sm text-foreground transition-colors hover:border-primary/40 hover:text-primary"
                       >
                         <span className="font-medium">{year}</span>

@@ -11,6 +11,9 @@ type SeoOpts = {
   image?: string;
   hreflang?: { lang: string; href: string }[];
   ogType?: "website" | "article";
+  preserveTitle?: boolean;
+  prevHref?: string | null;
+  nextHref?: string | null;
 };
 
 function absoluteUrl(url?: string): string {
@@ -28,7 +31,7 @@ export function setSeo(opts: SeoOpts) {
   // content first (keep the brand suffix) so the truncation is graceful.
   const rawTitle = opts.title || "Podiverzum";
   let finalTitle = rawTitle;
-  if (rawTitle.length > 60) {
+  if (!opts.preserveTitle && rawTitle.length > 60) {
     // Cut on a word boundary and never append an ellipsis — a "…" in the SERP
     // headline reads as broken and measurably lowers CTR.
     const cutWord = (s: string, max: number) => {
@@ -146,6 +149,23 @@ export function setSeo(opts: SeoOpts) {
     el.setAttribute("data-seo", "hreflang");
     document.head.appendChild(el);
   });
+
+  // Pagination rel="prev" / rel="next"
+  document.head.querySelectorAll('link[rel="prev"][data-seo="pagination"], link[rel="next"][data-seo="pagination"]').forEach((n) => n.remove());
+  if (opts.prevHref) {
+    const prevEl = document.createElement("link");
+    prevEl.setAttribute("rel", "prev");
+    prevEl.setAttribute("href", absoluteUrl(opts.prevHref));
+    prevEl.setAttribute("data-seo", "pagination");
+    document.head.appendChild(prevEl);
+  }
+  if (opts.nextHref) {
+    const nextEl = document.createElement("link");
+    nextEl.setAttribute("rel", "next");
+    nextEl.setAttribute("href", absoluteUrl(opts.nextHref));
+    nextEl.setAttribute("data-seo", "pagination");
+    document.head.appendChild(nextEl);
+  }
 
   // JSON-LD
   document.head.querySelectorAll('script[data-seo="ld"]').forEach((n) => n.remove());

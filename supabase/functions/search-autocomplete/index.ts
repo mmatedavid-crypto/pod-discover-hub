@@ -101,6 +101,7 @@ Deno.serve(async (req) => {
       supa.from("podcasts")
         .select("title,slug,image_url,podiverzum_rank,rank_label,normalized_title")
         .eq("language_decision", "accept_hungarian")
+        .neq("rss_status", "inactive")
         .or(`normalized_title.ilike.${nPrefixStar},normalized_title.ilike.${nTokenInfixStar},normalized_title.ilike.${nIlikeStar},title.ilike.${ilikeStar}`)
         .order("podiverzum_rank", { ascending: false, nullsFirst: false })
         .limit(12),

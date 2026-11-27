@@ -5,6 +5,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
 import { fetchOne } from "../_shared/fetch-one.ts";
 import { slugify as slugifyShared } from "../_shared/slug.ts";
+import { normalizeFeedUrlConservative } from "../_shared/rss-url-normalize.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -54,7 +55,16 @@ async function importOne(admin: any, item: any) {
     return { ...base, status: "failed", reason };
   }
 
-  const { data: dup } = await admin.from("podcasts").select("id").eq("rss_url", item.rss_url).maybeSingle();
+  const cleanRssUrl = normalizeFeedUrlConservative(item.rss_url) || item.rss_url;
+  const { data: existingId } = await admin.rpc("find_existing_podcast", {
+    p_rss_url: cleanRssUrl,
+    p_title: null,
+  });
+  if (existingId) {
+    await setQueue({ import_status: "skipped_duplicate", import_error: "duplicate rss_url", status: "approved", imported_podcast_id: existingId });
+    return { ...base, status: "skipped_duplicate", podcast_id: existingId };
+  }
+  const { data: dup } = await admin.from("podcasts").select("id").eq("rss_url", cleanRssUrl).maybeSingle();
   if (dup) {
     await setQueue({ import_status: "skipped_duplicate", import_error: "duplicate rss_url", status: "approved", imported_podcast_id: dup.id });
     return { ...base, status: "skipped_duplicate", podcast_id: dup.id };
@@ -70,7 +80,7 @@ async function importOne(admin: any, item: any) {
   const publicRank = initialPublicRank(item.candidate_rank);
   const { data: inserted, error: insErr } = await admin.from("podcasts").insert({
     title: item.title, slug,
-    description: item.description, rss_url: item.rss_url,
+    description: item.description, rss_url: cleanRssUrl,
     website_url: item.website_url, image_url: item.image_url,
     language: item.language || "en", category: item.category,
     source: "queue_drainer",

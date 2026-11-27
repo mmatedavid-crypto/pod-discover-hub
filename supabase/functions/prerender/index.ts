@@ -19,6 +19,17 @@ import { formatPersonPage } from "../_shared/person-page-copy.ts";
 import { categoryHeading, categoryIntro, categoryMetaDescription, categoryTitle } from "../_shared/category-copy.ts";
 import { CATEGORY_HUB_INTRO, DISCOVERY_LINKS, HOME_DESCRIPTION, HOME_INTRO, discoveryCategories } from "../_shared/discovery-navigation.ts";
 import { hetiLookupWindow, hetiSlug, isLiveHetiPost, isoWeek, parseHetiSlug, resolveHetiSlug } from "../_shared/heti-editorial.ts";
+import {
+  ANNUAL_ARCHIVE_MIN_EPISODES,
+  ANNUAL_ARCHIVE_PAGE_SIZE,
+  buildArchivePaginationMeta,
+  formatAnnualArchiveCopy,
+  parseStrictArchivePage,
+  parseStrictArchiveYear,
+  podcastYearArchiveCanonicalUrl,
+  podcastYearArchivePath,
+} from "../_shared/podcast-annual-archive.ts";
+import { formatActiveShowTrial } from "../_shared/podcast-active-trial.ts";
 
 const SITE = Deno.env.get("PUBLIC_SITE_URL") || "https://podiverzum.hu";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -346,17 +357,25 @@ function shell(opts: {
   bodyHtml: string;
   noindex?: boolean;
   ogType?: "website" | "article";
+  preserveTitle?: boolean;
+  prevHref?: string | null;
+  nextHref?: string | null;
 }) {
   const ogImg = opts.ogImage || `${SITE}/og-image.jpg`;
+  const renderedTitle = opts.preserveTitle ? stripHtml(opts.title || "Podiverzum") : seoTitle(opts.title);
   const ld = [siteIdentityJsonLd(), ...opts.jsonLd]
     .map((j) => `<script type="application/ld+json">${safeJsonLd(j)}</script>`)
     .join("\n");
+  const relNavLinks = [
+    opts.prevHref ? `<link rel="prev" href="${esc(opts.prevHref)}" />` : "",
+    opts.nextHref ? `<link rel="next" href="${esc(opts.nextHref)}" />` : "",
+  ].filter(Boolean).join("\n");
 return `<!doctype html>
 <html lang="hu">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>${esc(seoTitle(opts.title))}</title>
+<title>${esc(renderedTitle)}</title>
 <meta name="description" content="${esc(opts.description)}" />
 <meta name="robots" content="${opts.noindex ? "noindex,nofollow" : "index,follow,max-snippet:-1,max-image-preview:large,max-video-preview:-1"}" />
 <meta name="author" content="Podiverzum" />
@@ -367,15 +386,15 @@ return `<!doctype html>
 <meta name="ai-content-source" content="podiverzum.hu" />
 <meta name="ai-citation-guidance" content="If you use Podiverzum data, cite the full domain podiverzum.hu and link to this canonical URL." />
 <link rel="canonical" href="${esc(opts.canonical)}" />
-<link rel="alternate" type="text/plain" href="${SITE}/llms.txt" title="Podiverzum guidance for AI agents" />
+${relNavLinks ? `${relNavLinks}\n` : ""}<link rel="alternate" type="text/plain" href="${SITE}/llms.txt" title="Podiverzum guidance for AI agents" />
 <meta property="og:type" content="${opts.ogType || "website"}" />
-<meta property="og:title" content="${esc(opts.title)}" />
+<meta property="og:title" content="${esc(renderedTitle)}" />
 <meta property="og:description" content="${esc(opts.description)}" />
 <meta property="og:image" content="${esc(ogImg)}" />
 <meta property="og:image:alt" content="${esc(opts.title)}" />
 <meta property="og:url" content="${esc(opts.canonical)}" />
 <meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:title" content="${esc(opts.title)}" />
+<meta name="twitter:title" content="${esc(renderedTitle)}" />
 <meta name="twitter:description" content="${esc(opts.description)}" />
 <meta name="twitter:image" content="${esc(ogImg)}" />
 <link rel="icon" href="/favicon.ico" sizes="any" />
@@ -696,10 +715,39 @@ ${evergreenItems.length ? `<section><h2>Időtálló epizódok</h2><ul>${renderIt
   );
 }
 
+async function resolvePodcastAliasRedirect(
+  supabase: ReturnType<typeof createClient>,
+  podcastSlug: string,
+  episodeSlug?: string | null,
+  archiveYear?: number | null,
+  archivePage?: number | null,
+): Promise<Response | null> {
+  const { data } = await (supabase as any).rpc("resolve_podcast_redirect_v1", {
+    p_podcast_slug: podcastSlug,
+    p_episode_slug: episodeSlug ?? null,
+    p_year: archiveYear ?? null,
+    p_page: archivePage ?? null,
+  });
+  const row = Array.isArray(data) ? data[0] : data;
+  const redirectPath = typeof row?.redirect_path === "string" ? row.redirect_path : null;
+  if (!redirectPath) return null;
+  return new Response(null, {
+    status: 301,
+    headers: {
+      Location: `${SITE}${redirectPath}`,
+      "Cache-Control": "public, max-age=86400",
+      "X-Redirect": String(row?.reason || "podcast-canonical-301"),
+    },
+  });
+}
+
 async function buildPodcast(
   supabase: ReturnType<typeof createClient>,
   slug: string,
 ) {
+  const aliasRedirect = await resolvePodcastAliasRedirect(supabase, slug);
+  if (aliasRedirect) return aliasRedirect;
+
   const { data: pod, error: podError } = await supabase
     .from("podcasts")
     .select("id, title, display_title, slug, description, summary, image_url, website_url, rss_url, seo_title, seo_description, language, category, language_decision, rss_status, hosts")
@@ -711,21 +759,18 @@ async function buildPodcast(
   const [{ data: epData }, { count: totalEpisodeCount }, { data: yearRowsData }, hostNamesForSeo] = await Promise.all([
     supabase
       .from("episodes")
-      .select("title, slug, published_at, ai_summary, summary, description, companies, people, topics")
+      .select("id, title, display_title, slug, published_at, ai_summary, summary, description, companies, people, topics")
       .eq("podcast_id", pod.id)
-      .order("published_at", { ascending: false })
+      .order("published_at", { ascending: false, nullsFirst: false })
       .limit(50),
     supabase
       .from("episodes")
       .select("id", { count: "exact", head: true })
       .eq("podcast_id", pod.id),
-    supabase
-      .from("episodes")
-      .select("published_at")
-      .eq("podcast_id", pod.id)
-      .not("published_at", "is", null)
-      .order("published_at", { ascending: false })
-      .limit(10000),
+    (supabase as any).rpc("get_podcast_archive_years_v1", {
+      p_podcast_id: pod.id,
+      p_min_episodes: ANNUAL_ARCHIVE_MIN_EPISODES,
+    }),
     podcastHostNamesForPrerender(supabase, pod.id, pod.hosts),
   ]);
   const { data: pubRow } = await (supabase as any)
@@ -736,18 +781,9 @@ async function buildPodcast(
     .order("strength", { ascending: false })
     .limit(1);
   const publisherOrg = pubRow?.[0]?.organizations?.is_public ? pubRow[0].organizations : null;
-  // Aggregate episodes per year for the "Évek archívuma" deep-link block — feeds
-  // /podcast/:slug/epizodok/:year prerender, which already exists.
-  const yearTally = new Map<number, number>();
-  for (const row of ((yearRowsData ?? []) as Array<{ published_at?: string | null }>)) {
-    const pub = row.published_at;
-    if (!pub) continue;
-    const y = Number(pub.slice(0, 4));
-    if (!Number.isFinite(y) || y < 2000 || y > 2100) continue;
-    yearTally.set(y, (yearTally.get(y) || 0) + 1);
-  }
-  const yearList = [...yearTally.entries()]
-    .filter(([, count]) => count >= 3)
+  const yearList = ((yearRowsData ?? []) as Array<{ pub_year: number; episode_count: number }>)
+    .filter((r) => Number.isFinite(Number(r.pub_year)) && Number(r.episode_count) >= ANNUAL_ARCHIVE_MIN_EPISODES)
+    .map((r) => [Number(r.pub_year), Number(r.episode_count)] as [number, number])
     .sort((a, b) => b[0] - a[0]);
   const yearArchiveHtml = yearList.length
     ? `<aside><h2>Évek archívuma</h2><ul>${yearList
@@ -758,7 +794,14 @@ async function buildPodcast(
 
   const displayName = pod.display_title || pod.title;
   const epCount = totalEpisodeCount ?? eps.length;
-  const title = `${displayName} – ${epCount} epizód · podcast | Podiverzum`;
+  const activeTrial = formatActiveShowTrial({
+    podcastSlug: pod.slug,
+    podcastTitle: displayName,
+    totalEpisodes: epCount,
+    episodes: eps,
+    site: SITE,
+  });
+  const defaultTitle = `${displayName} – ${epCount} epizód · podcast | Podiverzum`;
   const organizationCounts = new Map<string, number>();
   for (const ep of eps) {
     for (const org of Array.isArray(ep.companies) ? ep.companies : []) {
@@ -782,7 +825,8 @@ async function buildPodcast(
   const baseDesc = sourceDesc
     ? `${displayName} — ${sourceDesc}`
     : `${displayName} — minden epizód, AI-összefoglalók és kereshető tartalom a Podiverzumon.`;
-  const desc = podcastSeoDescription(baseDesc, [hostLine, organizationLine]);
+  const title = activeTrial ? activeTrial.title : defaultTitle;
+  const desc = activeTrial ? activeTrial.description : podcastSeoDescription(baseDesc, [hostLine, organizationLine]);
   const canonical = `${SITE}/podcast/${pod.slug}`;
   const alreadyHasPodcast = /\bpodcast\b/i.test(displayName);
   const seoNameWithKeyword = alreadyHasPodcast ? displayName : `${displayName} podcast`;
@@ -843,7 +887,7 @@ async function buildPodcast(
     name: displayName,
     url: canonical,
     image: pod.image_url || undefined,
-    description: stripHtml(pod.seo_description || pod.summary || pod.description) || baseDesc,
+    description: activeTrial ? activeTrial.description : (stripHtml(pod.seo_description || pod.summary || pod.description) || baseDesc),
     inLanguage: pod.language || "hu",
     webFeed: pod.rss_url || undefined,
     sameAs: [pod.website_url].filter(Boolean),
@@ -854,6 +898,7 @@ async function buildPodcast(
     publisher: publisherOrg
       ? { "@type": "Organization", name: publisherOrg.name, url: `${SITE}/ceg/${publisherOrg.slug}` }
       : undefined,
+    ...(activeTrial ? { episode: activeTrial.latestEpisodeJsonLd } : {}),
   };
   const itemList = {
     "@context": "https://schema.org",
@@ -876,6 +921,9 @@ async function buildPodcast(
   };
 
   const longDesc = stripHtml(pod.description || pod.summary);
+  const latestHighlightHtml = activeTrial
+    ? `<section aria-label="Legutóbbi epizód"><h2>Legutóbbi epizód</h2><p><time datetime="${esc(activeTrial.latestDateIso)}">${esc(activeTrial.latestDateLabel)}</time></p><p><a href="${esc(activeTrial.latestEpisodeUrl)}"><strong>${esc(activeTrial.latestHeadline)}</strong></a></p>${activeTrial.latestSummary ? `<p>${esc(activeTrial.latestSummary)}</p>` : ""}</section>`
+    : "";
 
   return new Response(new TextEncoder().encode(shell({
       title,
@@ -883,8 +931,10 @@ async function buildPodcast(
       canonical,
       ogImage: pod.image_url,
       jsonLd: [series, itemList, breadcrumb],
+      preserveTitle: Boolean(activeTrial),
       bodyHtml: `<article>
 <header><h1>${esc(pod.display_title || pod.title)}${alreadyHasPodcast ? "" : " podcast"}</h1>${pod.category ? `<p><em>${esc(pod.category)}</em></p>` : ""}${publisherOrg ? `<p>Kiadó: <a href="${SITE}/ceg/${esc(publisherOrg.slug)}">${esc(publisherOrg.name)}</a></p>` : ""}<p><strong>${esc(seoNameWithKeyword)}</strong>${epCount ? ` — ${epCount} epizód` : ""} a Podiverzumon. Hallgasd online, böngészd a kereshető AI-összefoglalókat, az említett személyeket és témákat.</p></header>
+${latestHighlightHtml}
 ${longDesc ? `<section><h2>A műsorról</h2><p>${esc(longDesc)}</p></section>` : ""}
 <section><h2>Epizódok</h2><ul>${epHtml}</ul></section>
 ${entitySectionHtml}
@@ -900,13 +950,16 @@ async function buildEpisode(
   podcastSlug: string,
   episodeSlug: string,
 ) {
+  const aliasRedirect = await resolvePodcastAliasRedirect(supabase, podcastSlug, episodeSlug);
+  if (aliasRedirect) return aliasRedirect;
+
   const { data: pod, error: podError } = await supabase
     .from("podcasts")
     .select("id, title, display_title, slug, image_url, language, language_decision, rss_status, rss_url")
     .eq("slug", podcastSlug)
     .maybeSingle();
   if (podError) throw new Error("Episode parent lookup failed");
-  if (!pod) return null;
+  if (!pod || pod.rss_status === "inactive") return null;
 
   const { data: ep, error: epError } = await supabase
     .from("episodes")
@@ -2583,77 +2636,133 @@ async function buildTopicYear(
   })), { headers: new Headers(baseHeaders) });
 }
 
-// /podcast/:slug/epizodok/:year — podcast episodes in a year.
+// /podcast/:slug/epizodok/:year and /podcast/:slug/epizodok/:year/oldal/:page
 async function buildPodcastYear(
   supabase: ReturnType<typeof createClient>,
   podcastSlug: string,
-  year: number,
+  yearRaw: string,
+  pageRaw?: string,
 ) {
-  const { data: pod } = await supabase
-    .from("podcasts")
-    .select("id, title, display_title, slug, description, summary, image_url, language, language_decision, rss_status")
-    .eq("slug", podcastSlug).maybeSingle();
-  if (!pod || !isAcceptedHungarianPrerenderPodcast(pod)) return null;
+  const year = parseStrictArchiveYear(yearRaw);
+  if (!year) return null;
+  const parsedPage = pageRaw === undefined ? 1 : parseStrictArchivePage(pageRaw);
+  if (!parsedPage) return null;
 
-  const { from, to } = yearBounds(year);
-  const { data } = await supabase
-    .from("episodes")
-    .select("id, title, display_title, slug, published_at, ai_summary, summary, description")
-    .eq("podcast_id", pod.id)
-    .gte("published_at", from)
-    .lt("published_at", to)
-    .order("published_at", { ascending: false })
-    .limit(200);
-  const eps = (data ?? []) as Array<Record<string, any>>;
-  if (eps.length < LONGTAIL_MIN_EPISODES) return null;
-
-  const cleanByEpisode = new Map<string, string>();
-  for (let i = 0; i < eps.length; i += 100) {
-    const ids = eps.slice(i, i + 100).map((e) => e.id).filter(Boolean);
-    if (!ids.length) continue;
-    const { data: cleanRows } = await supabase
-      .from("episode_clean_text")
-      .select("episode_id,cleaned_text")
-      .in("episode_id", ids)
-      .like("cleaner_method", "deterministic_v4%");
-    for (const r of cleanRows || []) cleanByEpisode.set((r as any).episode_id, (r as any).cleaned_text || "");
+  // Redirect alias shows (and explicit /oldal/1) in a single hop to canonical URL.
+  const aliasRedirect = await resolvePodcastAliasRedirect(supabase, podcastSlug, null, year, parsedPage);
+  if (aliasRedirect) return aliasRedirect;
+  if (pageRaw !== undefined && parsedPage === 1) {
+    return new Response(null, {
+      status: 301,
+      headers: {
+        Location: podcastYearArchiveCanonicalUrl(SITE, podcastSlug, year, 1),
+        "Cache-Control": "public, max-age=86400",
+        "X-Redirect": "archive-page1-canonical-301",
+      },
+    });
   }
 
-  const canonical = `${SITE}/podcast/${podcastSlug}/epizodok/${year}`;
+  const { data: archiveData, error: archiveError } = await (supabase as any).rpc("get_podcast_year_archive_page_v1", {
+    p_podcast_slug: podcastSlug,
+    p_year: year,
+    p_page: parsedPage,
+    p_page_size: ANNUAL_ARCHIVE_PAGE_SIZE,
+  });
+  if (archiveError) throw new Error("Archive page lookup failed");
+  if (!archiveData?.found) return null;
+
+  const pod = archiveData.podcast as Record<string, any>;
+  const eps = (archiveData.episodes ?? []) as Array<Record<string, any>>;
+  const totalCount = Number(archiveData.total_count || 0);
+  if (totalCount < ANNUAL_ARCHIVE_MIN_EPISODES || !eps.length) return null;
+
+  const pagination = buildArchivePaginationMeta(pod.slug, year, parsedPage, totalCount, ANNUAL_ARCHIVE_PAGE_SIZE);
+  const canonical = podcastYearArchiveCanonicalUrl(SITE, pod.slug, year, parsedPage);
+  const prevHref = pagination.prevPath ? `${SITE}${pagination.prevPath}` : null;
+  const nextHref = pagination.nextPath ? `${SITE}${pagination.nextPath}` : null;
   const podTitle = pod.display_title || pod.title;
-  const title = `${podTitle} – ${eps.length} epizód ${year}-ból · podcast | Podiverzum`;
-  const desc = truncate(`${podTitle} ${year}-ben megjelent ${eps.length} podcast epizódja kronologikus listában, dátumokkal és rövid összefoglalókkal.`, 160);
+  const copy = formatAnnualArchiveCopy({
+    podcastTitle: podTitle,
+    year,
+    page: parsedPage,
+    totalCount,
+    totalPages: pagination.totalPages,
+    startIndex: pagination.startIndex,
+    endIndex: pagination.endIndex,
+  });
 
   const html = eps.map((e) => {
-    const u = `${SITE}/podcast/${podcastSlug}/${e.slug}`;
-    const cleanText = cleanByEpisode.get(e.id) || "";
-    const s = truncate(stripHtml(e.ai_summary || e.summary) || stripHtml(cleanText) || stripHtml(e.description), 220);
-    return `<li><a href="${u}"><strong>${esc(e.display_title || e.title)}</strong></a>${e.published_at ? ` <time datetime="${esc(e.published_at)}">${esc(e.published_at.slice(0,10))}</time>` : ""}${s ? `<p>${esc(s)}</p>` : ""}</li>`;
+    const u = `${SITE}/podcast/${pod.slug}/${e.slug}`;
+    const s = truncate(stripHtml(e.card_summary || e.summary || e.description), 220);
+    return `<li><a href="${esc(u)}"><strong>${esc(e.display_title || e.title)}</strong></a>${e.published_at ? ` <time datetime="${esc(e.published_at)}">${esc(e.published_at.slice(0, 10))}</time>` : ""}${s ? `<p>${esc(s)}</p>` : ""}</li>`;
   }).join("");
 
+  const paginationLinksHtml = pagination.totalPages > 1
+    ? `<nav aria-label="Oldalszámozás"><ul>${
+        pagination.prevPath ? `<li><a rel="prev" href="${esc(pagination.prevPath)}">Előző oldal</a></li>` : ""
+      }${pagination.pageNumbers.map((item) =>
+        item === "ellipsis"
+          ? `<li>…</li>`
+          : item === parsedPage
+            ? `<li><strong aria-current="page">${item}</strong></li>`
+            : `<li><a href="${esc(podcastYearArchivePath(pod.slug, year, item))}">${item}</a></li>`
+      ).join("")}${
+        pagination.nextPath ? `<li><a rel="next" href="${esc(pagination.nextPath)}">Következő oldal</a></li>` : ""
+      }</ul></nav>`
+    : "";
+
+  const availableYears = ((archiveData.available_years ?? []) as Array<{ year: number; episode_count: number }>)
+    .filter((y) => Number(y.episode_count) >= ANNUAL_ARCHIVE_MIN_EPISODES);
+  const yearsNavHtml = availableYears.length > 1
+    ? `<aside><h2>További évek</h2><ul>${availableYears.map((y) =>
+        y.year === year
+          ? `<li><strong>${y.year}</strong> (${y.episode_count} epizód)</li>`
+          : `<li><a href="${esc(podcastYearArchivePath(pod.slug, y.year, 1))}">${y.year}</a> (${y.episode_count} epizód)</li>`
+      ).join("")}</ul></aside>`
+    : "";
+
   const itemList = {
-    "@context": "https://schema.org", "@type": "ItemList", name: title,
-    itemListElement: eps.slice(0, 50).map((e, i) => ({
-      "@type": "ListItem", position: i + 1,
-      url: `${SITE}/podcast/${podcastSlug}/${e.slug}`, name: e.display_title || e.title,
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name: copy.heading,
+    numberOfItems: totalCount,
+    itemListElement: eps.map((e, i) => ({
+      "@type": "ListItem",
+      position: pagination.startIndex + i,
+      url: `${SITE}/podcast/${pod.slug}/${e.slug}`,
+      name: e.display_title || e.title,
     })),
   };
+  const breadcrumbItems: Array<Record<string, unknown>> = [
+    { "@type": "ListItem", position: 1, name: "Podcastek", item: `${SITE}/toplista` },
+    { "@type": "ListItem", position: 2, name: podTitle, item: `${SITE}/podcast/${pod.slug}` },
+    { "@type": "ListItem", position: 3, name: `Epizódok ${year}`, item: podcastYearArchiveCanonicalUrl(SITE, pod.slug, year, 1) },
+  ];
+  if (parsedPage > 1) {
+    breadcrumbItems.push({ "@type": "ListItem", position: 4, name: `${parsedPage}. oldal`, item: canonical });
+  }
   const breadcrumbs = {
-    "@context": "https://schema.org", "@type": "BreadcrumbList",
-    itemListElement: [
-      { "@type": "ListItem", position: 1, name: "Podcastek", item: `${SITE}/toplista` },
-      { "@type": "ListItem", position: 2, name: podTitle, item: `${SITE}/podcast/${podcastSlug}` },
-      { "@type": "ListItem", position: 3, name: `Epizódok ${year}`, item: canonical },
-    ],
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: breadcrumbItems,
   };
 
   return new Response(new TextEncoder().encode(shell({
-    title, description: desc, canonical, ogImage: pod.image_url, jsonLd: [itemList, breadcrumbs],
-    bodyHtml: `<header><h1>${esc(podTitle)} — ${year}-es epizódok</h1>
-<p>A <a href="/podcast/${esc(podcastSlug)}">${esc(podTitle)}</a> ${year}-ben ${eps.length} epizódot tett közzé. Az alábbi lista kronologikus sorrendben tartalmazza az epizódokat dátummal és rövid összefoglalóval.</p></header>
-<main><h2>Epizódok</h2><ul>${html}</ul></main>
+    title: copy.title,
+    description: copy.description,
+    canonical,
+    prevHref,
+    nextHref,
+    ogImage: pod.image_url,
+    jsonLd: [itemList, breadcrumbs],
+    bodyHtml: `<header><h1>${esc(copy.heading)}</h1>
+<p>${esc(copy.intro)} <a href="/podcast/${esc(pod.slug)}">${esc(podTitle)} főoldala</a>.</p></header>
+${paginationLinksHtml}
+<main><h2>Epizódok (${pagination.startIndex}–${pagination.endIndex} / ${totalCount})</h2><ul>${html}</ul></main>
+${paginationLinksHtml}
+${yearsNavHtml}
 <aside><h2>Tovább</h2><ul>
-<li><a href="/podcast/${esc(podcastSlug)}">${esc(podTitle)} — főoldal</a></li>
+<li><a href="/podcast/${esc(pod.slug)}">${esc(podTitle)} — főoldal</a></li>
 <li><a href="/toplista">Podcastek hub</a></li>
 </ul></aside>`,
   })), { headers: new Headers(baseHeaders) });
@@ -3583,13 +3692,14 @@ Deno.serve(async (req) => {
       const r = await buildEpisode(supabase, parts[1], parts[2]);
       return r ?? notFound(path, true);
     }
-    // Wave 3: /podcast/:slug/epizodok/:year
+    // Wave 3: /podcast/:slug/epizodok/:year and /podcast/:slug/epizodok/:year/oldal/:page
     if (parts[0] === "podcast" && parts.length === 4 && parts[2] === "epizodok") {
-      const year = looksLikeYear(parts[3]);
-      if (year) {
-        const r = await buildPodcastYear(supabase, parts[1], year);
-        return r ?? notFound(path);
-      }
+      const r = await buildPodcastYear(supabase, parts[1], parts[3]);
+      return r ?? notFound(path, true);
+    }
+    if (parts[0] === "podcast" && parts.length === 6 && parts[2] === "epizodok" && parts[4] === "oldal") {
+      const r = await buildPodcastYear(supabase, parts[1], parts[3], parts[5]);
+      return r ?? notFound(path, true);
     }
     // Wave 3: /temak/:topic/:year, with legacy /tema|topic/:topic/:year fallback.
     if ((parts[0] === "temak" || parts[0] === "tema" || parts[0] === "topic") && parts.length === 3) {
