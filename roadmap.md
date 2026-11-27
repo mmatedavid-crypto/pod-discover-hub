@@ -1,11 +1,12 @@
 # Traffic-led improvements
 
 ## Owner-approved catalogue cleanup (2026-11-27)
-- [ ] Durably exclude the one removed Szélsőközép item from ingestion and sitemaps; test without reinserting publicly.
-- [ ] Apply only the verified Veréb identity merge, preserve both episodes and aliases, and provide a one-hop redirect.
-- [ ] Protect Pápai Anita's reviewed guest link and verify both directions.
-- [ ] Share grounded Hungarian person-page formatting between React and prerender; test representative roles and mobile.
-- [ ] Apply scoped migrations/data, deploy affected functions, verify postconditions and commit; website publication stays with owner.
+- [x] Durably exclude the one removed Szélsőközép item from ingestion and sitemaps; transactional guard tests pass, public URL stays 404, 976 unrelated show episodes remain.
+- [x] Apply only the verified Veréb identity merge; both archive episodes and accepted searchable aliases preserved, crawler redirect deployed and Worker one-hop redirect tested.
+- [x] Protect Pápai Anita's reviewed guest link and verify both directions, including automated-update rollback tests.
+- [x] Share grounded Hungarian person-page formatting between React and prerender; five real pages match, mobile has no overflow, 30 focused tests and preview build pass.
+- [x] Apply migrations 0179–0180, deploy all 13 affected functions and regenerate live sitemaps; verify no forbidden URLs and commit.
+- [ ] Owner website publication and Cloudflare HU Worker deployment: source is ready; current normal-browser alias URL still returns 200, crawler returns 301. Cloudflare connector is unavailable in this workspace; no Cloudflare mutation was made.
 
 ## Targeted playback recovery (2026-11-25)
 - [x] Deduplicate terminal errors per attempt, reload on deliberate retry with position preservation, and offer safe distinct episode/platform links next to the main button and in both player views.
