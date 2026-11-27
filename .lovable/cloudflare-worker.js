@@ -19,32 +19,38 @@ const SUPABASE_PUBLISHABLE_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlveGV3a2xheWJvdWd6cG16dmtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1ODAxNDAsImV4cCI6MjA5NDE1NjE0MH0.R5tBT9VgFqWPvd5AYPIb16vJXmB7c116MSMfAuogwv8";
 
 // Verified lossless duplicate show aliases (alias_slug -> canonical_slug).
+// Generated verbatim from public.podcast_canonical_mappings WHERE status = 'active'.
 // Drives zero-latency single-hop 301s for both humans and bots; episode URLs on
 // these aliases resolve exact canonical slugs via edge-cached RPC (unmatched -> 404).
 const DUPLICATE_PODCAST_ALIASES = {
-  "marko-es-barna": "marko-es-barna-1",
-  "juhi-podcast": "juhi-podcast-9ee9",
-  "parallaxis-univerzum-1": "parallaxis-univerzum",
-  "maria-radio-magyarorszag-8dbd": "maria-radio-magyarorszag",
-  "csonkamagyarorszag-tilos-radio-podcast--3885": "csonkamagyarorszag-tilos-radio-podcast",
-  "zartosztaly-podcast-1": "zartosztaly-podcast",
+  "a-jovo-hangjai-generaciok-talalkozasa-2": "a-jovo-hangjai-generaciok-talalkozasa",
+  "a-maria-ut-podcast-csatornaja-8b0d": "a-maria-ut-podcast-csatornaja",
+  "adatepitesz-a-magyar-data-podcast-1": "adatepitesz-a-magyar-data-podcast",
+  "adatepitesz-a-magyar-data-podcast-2": "adatepitesz-a-magyar-data-podcast",
+  "adatepitesz-a-magyar-data-podcast-cf9b": "adatepitesz-a-magyar-data-podcast",
   "alley-oop": "alley-oop-3",
   "alley-oop-1": "alley-oop-3",
   "alley-oop-2": "alley-oop-3",
   "alley-oop-4": "alley-oop-3",
-  "okosotthon-guru-muhelye-az-automatizalason-tul-fcbc": "okosotthon-guru-muhelye-az-automatizalason-tul",
+  "booklove-podcast-d89a": "booklove-podcast",
+  "csonkamagyarorszag-tilos-radio-podcast--3885": "csonkamagyarorszag-tilos-radio-podcast",
+  "deloitte-magyarorszag-0f0e": "deloitte-magyarorszag",
   "innen-es-tul": "innen-es-tul-1",
-  "a-maria-ut-podcast-csatornaja-8b0d": "a-maria-ut-podcast-csatornaja",
+  "juhi-podcast": "juhi-podcast-9ee9",
   "kanada-banda-podcast-d17d": "kanada-banda-podcast",
-  "a-jovo-hangjai-generaciok-talalkozasa-2": "a-jovo-hangjai-generaciok-talalkozasa",
-  "deloitte-magyarorszag-1": "deloitte-magyarorszag",
-  "booklove-podcast-272a": "booklove-podcast",
-  "szaval-a-jo-oreg-csallokozi-1": "szaval-a-jo-oreg-csallokozi",
+  "maria-radio-magyarorszag-8dbd": "maria-radio-magyarorszag",
+  "marko-es-barna": "marko-es-barna-1",
+  "okosotthon-guru-muhelye-az-automatizalason-tul-fcbc": "okosotthon-guru-muhelye-az-automatizalason-tul",
+  "parallaxis-univerzum-1": "parallaxis-univerzum",
+  "szaval-a-jo-oreg-csallokozi-7b0a": "szaval-a-jo-oreg-csallokozi",
   "vipcast-hu-powered-by-media1-1": "vipcast-hu-powered-by-media1",
-  "adatepitesz-1": "adatepitesz",
-  "adatepitesz-2": "adatepitesz",
-  "adatepitesz-3": "adatepitesz",
+  "zartosztaly-podcast-1": "zartosztaly-podcast",
 };
+
+// Single exact permanently removed episode URL: return HTTP 410 Gone for all UAs (mobile, desktop, bots).
+const GONE_EXACT_PATHS = new Set([
+  "/podcast/szelsokozep/valtozas-es-batorsag-coming-out-szelsokozep-produkcio",
+]);
 
 const ACTIVE_SHOW_TRIAL_SLUGS = new Set([
   "ziccer-24-hu",
@@ -339,6 +345,21 @@ export default {
         Location: `https://podiverzum.hu/szemelyek/vereb-istvan${url.search}`,
         "Cache-Control": "public, max-age=86400", "X-Redirect": "verified-person-alias-301",
       } });
+    }
+
+    // Permanent HTTP 410 Gone for the exact removed episode URL across all devices/UAs.
+    if (["podiverzum.hu", "www.podiverzum.hu"].includes(url.hostname) &&
+        GONE_EXACT_PATHS.has(url.pathname.replace(/\/+$/, ""))) {
+      const html410 = `<!doctype html><html lang="hu"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Az epizód nem elérhető | Podiverzum</title><meta name="robots" content="noindex,nofollow"></head><body><main><h1>Ez az epizód már nem elérhető</h1><p>A keresett epizód eltávolításra került.</p><p><a href="https://podiverzum.hu/">Vissza a Podiverzum főoldalára</a></p></main></body></html>`;
+      return new Response(request.method === "HEAD" ? null : html410, {
+        status: 410,
+        headers: {
+          "Content-Type": "text/html; charset=utf-8",
+          "Cache-Control": "public, max-age=86400, s-maxage=86400",
+          "X-Robots-Tag": "noindex, nofollow",
+          "X-Served-By": "worker-exact-410",
+        },
+      });
     }
 
     // One-hop HTTP 301 redirects for verified duplicate shows, archives, and mapped episodes (human + bot).

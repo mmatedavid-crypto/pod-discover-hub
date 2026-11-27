@@ -511,6 +511,62 @@ export default function PodcastDetail() {
           )}
         </section>
 
+        {activeTrial && trialEpisode && (
+          <section
+            aria-label="Legutóbbi epizód"
+            className="mt-6 rounded-xl border border-primary/25 bg-card p-4 sm:p-5"
+          >
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  <span className="font-semibold uppercase tracking-[0.14em] text-primary">Legutóbbi epizód</span>
+                  <time dateTime={activeTrial.latestDateIso}>{activeTrial.latestDateLabel}</time>
+                </div>
+                <h2 className="mt-1.5 text-lg font-semibold leading-snug text-foreground">
+                  <Link
+                    to={`/podcast/${p.slug}/${trialEpisode.slug}`}
+                    className="transition-colors hover:text-primary"
+                  >
+                    {activeTrial.latestHeadline}
+                  </Link>
+                </h2>
+                {activeTrial.latestSummary && (
+                  <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+                    {activeTrial.latestSummary}
+                  </p>
+                )}
+              </div>
+              <div className="flex shrink-0 flex-wrap items-center gap-2">
+                {trialAudio ? (
+                  <button
+                    type="button"
+                    onClick={playTrialEpisode}
+                    className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+                  >
+                    {isTrialCurrent && isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 fill-current" />}
+                    {isTrialCurrent && isPlaying ? "Szünet" : "Lejátszás most"}
+                  </button>
+                ) : trialAlt ? (
+                  <a
+                    href={trialAlt.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+                  >
+                    <ExternalLink className="h-4 w-4" /> {trialAlt.label}
+                  </a>
+                ) : null}
+                <Link
+                  to={`/podcast/${p.slug}/${trialEpisode.slug}`}
+                  className="inline-flex items-center gap-1 rounded-md border border-border px-3 py-2 text-sm font-medium text-foreground transition-colors hover:border-primary/40 hover:text-primary"
+                >
+                  Részletek <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+            </div>
+          </section>
+        )}
+
         <form
           role="search"
           onSubmit={(e) => e.preventDefault()}
@@ -573,62 +629,6 @@ export default function PodcastDetail() {
           return <PodcastEntitiesCompact people={people} companies={companies} topics={topics} />;
         })()}
 
-
-        {activeTrial && trialEpisode && (
-          <section
-            aria-label="Legutóbbi epizód"
-            className="mb-8 rounded-xl border border-primary/25 bg-card p-4 sm:p-5"
-          >
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                  <span className="font-semibold uppercase tracking-[0.14em] text-primary">Legutóbbi epizód</span>
-                  <time dateTime={activeTrial.latestDateIso}>{activeTrial.latestDateLabel}</time>
-                </div>
-                <h2 className="mt-1.5 text-lg font-semibold leading-snug text-foreground">
-                  <Link
-                    to={`/podcast/${p.slug}/${trialEpisode.slug}`}
-                    className="transition-colors hover:text-primary"
-                  >
-                    {activeTrial.latestHeadline}
-                  </Link>
-                </h2>
-                {activeTrial.latestSummary && (
-                  <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-                    {activeTrial.latestSummary}
-                  </p>
-                )}
-              </div>
-              <div className="flex shrink-0 flex-wrap items-center gap-2">
-                {trialAudio ? (
-                  <button
-                    type="button"
-                    onClick={playTrialEpisode}
-                    className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
-                  >
-                    {isTrialCurrent && isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 fill-current" />}
-                    {isTrialCurrent && isPlaying ? "Szünet" : "Lejátszás most"}
-                  </button>
-                ) : trialAlt ? (
-                  <a
-                    href={trialAlt.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
-                  >
-                    <ExternalLink className="h-4 w-4" /> {trialAlt.label}
-                  </a>
-                ) : null}
-                <Link
-                  to={`/podcast/${p.slug}/${trialEpisode.slug}`}
-                  className="inline-flex items-center gap-1 rounded-md border border-border px-3 py-2 text-sm font-medium text-foreground transition-colors hover:border-primary/40 hover:text-primary"
-                >
-                  Részletek <ArrowRight className="h-3.5 w-3.5" />
-                </Link>
-              </div>
-            </div>
-          </section>
-        )}
 
         {epsError && eps.length === 0
           ? <ListLoadError onRetry={() => setReloadKey((k) => k + 1)} />

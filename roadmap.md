@@ -191,3 +191,10 @@
 - [x] Version the live identity merge system, name-variant rules, credit-policy correction and changed lane functions (verbatim, idempotent)
 - [x] Follow the owner correction everywhere: no absence closures (rules file, tests, admin copy, notes)
 - [x] Admin overview of merges, kept-apart namesakes, name-form rules, repair runs; SQL checks for merge guards
+
+## Duplicate show consolidation, paginated annual archives & 10-show active trial (2026-11-27)
+- [x] Reversible canonical/alias mappings for 17 lossless duplicate show groups (22 alias shows, 2,179 episode mappings, zero deletes, Gombapresszó & Saját Tőke kept unmerged)
+- [x] Sync both Cloudflare Worker mirrors verbatim from live `podcast_canonical_mappings` (22 active aliases) + exact HTTP 410 Gone for `/podcast/szelsokozep/valtozas-es-batorsag-coming-out-szelsokozep-produkcio` across all UAs
+- [x] Paginated annual archives (no 200 cap, 100/page, `/podcast/:slug/epizodok/:year/oldal/:page`, strict 404 on invalid/out-of-range, sitemap indexed archives via scheduled `refresh-sitemap`)
+- [x] 10-show active title + latest episode trial with React/prerender/JSON-LD parity and real player CTA (controls & Öt excluded)
+- [ ] Web bundle publish and production Cloudflare Worker release (handled by owner)

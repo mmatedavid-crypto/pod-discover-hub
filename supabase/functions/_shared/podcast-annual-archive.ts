@@ -96,6 +96,15 @@ export function huYearAdjective(year: number): string {
   return `${year}-es`;
 }
 
+export function huYearIn(year: number): string {
+  const mod100 = year % 100;
+  const last = year % 10;
+  if (mod100 === 0) return `${year}-ban`;
+  if (last === 0) return [10, 40, 50, 70, 90].includes(mod100) ? `${year}-ben` : `${year}-ban`;
+  if (last === 3 || last === 6 || last === 8) return `${year}-ban`;
+  return `${year}-ben`;
+}
+
 export function formatAnnualArchiveCopy(input: {
   podcastTitle: string;
   year: number;
@@ -116,8 +125,9 @@ export function formatAnnualArchiveCopy(input: {
   const description = (page > 1
     ? `${podcastTitle} ${yearAdj} archívuma (${countLabel}, ${startIndex}–${endIndex}. epizód, ${page}/${totalPages}. oldal) időrendi listában a Podiverzumon.`
     : `${podcastTitle} ${yearAdj} teljes archívuma (${countLabel}) időrendi listában, dátumokkal és összefoglalókkal a Podiverzumon.`).slice(0, 160);
+  const yearIn = huYearIn(year);
   const intro = totalPages > 1
-    ? `A ${podcastTitle} ${year}-ben összesen ${countLabel}ot tett közzé. Ezen az oldalon a ${startIndex}–${endIndex}. epizód látható (${page}/${totalPages}. oldal).`
-    : `A ${podcastTitle} ${year}-ben összesen ${countLabel}ot tett közzé.`;
+    ? `A ${podcastTitle} ${yearIn} összesen ${countLabel}ot tett közzé. Ezen az oldalon a ${startIndex}–${endIndex}. epizód látható (${page}/${totalPages}. oldal).`
+    : `A ${podcastTitle} ${yearIn} összesen ${countLabel}ot tett közzé.`;
   return { title, description, heading, intro };
 }

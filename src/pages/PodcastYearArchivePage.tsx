@@ -273,12 +273,14 @@ export default function PodcastYearArchivePage() {
         </div>
 
         <header className="flex flex-col gap-4 sm:flex-row sm:items-center">
-          <PodcastCover
-            src={pod.image_url}
-            title={podTitle}
-            size="md"
-            className="h-20 w-20 shrink-0 rounded-xl"
-          />
+          <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl">
+            <PodcastCover
+              src={pod.image_url}
+              title={podTitle}
+              size="md"
+              className="h-full w-full"
+            />
+          </div>
           <div className="min-w-0">
             <h1 className="font-display text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
               {copy.heading}

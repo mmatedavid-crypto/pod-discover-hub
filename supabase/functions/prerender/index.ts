@@ -950,6 +950,28 @@ async function buildEpisode(
   podcastSlug: string,
   episodeSlug: string,
 ) {
+  if (podcastSlug === "szelsokozep" && episodeSlug === "valtozas-es-batorsag-coming-out-szelsokozep-produkcio") {
+    return new Response(
+      new TextEncoder().encode(
+        shell({
+          title: "Az epizód nem elérhető | Podiverzum",
+          description: "Ez az epizód eltávolításra került.",
+          canonical: `${SITE}/podcast/${podcastSlug}/${episodeSlug}`,
+          jsonLd: [],
+          noindex: true,
+          bodyHtml: `<main><h1>Ez az epizód már nem elérhető</h1><p>A keresett epizód eltávolításra került.</p><p><a href="${SITE}/">Vissza a főoldalra</a></p></main>`,
+        }),
+      ),
+      {
+        status: 410,
+        headers: {
+          ...baseHeaders,
+          "X-Robots-Tag": "noindex, nofollow",
+        },
+      },
+    );
+  }
+
   const aliasRedirect = await resolvePodcastAliasRedirect(supabase, podcastSlug, episodeSlug);
   if (aliasRedirect) return aliasRedirect;
 

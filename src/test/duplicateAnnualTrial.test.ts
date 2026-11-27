@@ -45,7 +45,20 @@ describe("Task 1: Conservative RSS URL normalization & Worker sync", () => {
     expect(infra).toBe(lov);
     expect(infra).toContain('"marko-es-barna": "marko-es-barna-1"');
     expect(infra).toContain('"juhi-podcast": "juhi-podcast-9ee9"');
+    expect(infra).toContain('"deloitte-magyarorszag-0f0e": "deloitte-magyarorszag"');
+    expect(infra).toContain('"booklove-podcast-d89a": "booklove-podcast"');
+    expect(infra).toContain('"szaval-a-jo-oreg-csallokozi-7b0a": "szaval-a-jo-oreg-csallokozi"');
+    expect(infra).toContain('"adatepitesz-a-magyar-data-podcast-1": "adatepitesz-a-magyar-data-podcast"');
+    expect(infra).toContain('"adatepitesz-a-magyar-data-podcast-2": "adatepitesz-a-magyar-data-podcast"');
+    expect(infra).toContain('"adatepitesz-a-magyar-data-podcast-cf9b": "adatepitesz-a-magyar-data-podcast"');
+    expect(infra).not.toContain('"deloitte-magyarorszag-1":');
+    expect(infra).not.toContain('"booklove-podcast-272a":');
+    expect(infra).not.toContain('"szaval-a-jo-oreg-csallokozi-1":');
+    expect(infra).not.toContain('"adatepitesz-1":');
     expect(infra).not.toContain('"sajat-toke":');
+    expect(infra).not.toContain('"gombapresszo":');
+    expect(infra).toContain('"/podcast/szelsokozep/valtozas-es-batorsag-coming-out-szelsokozep-produkcio"');
+    expect(infra).toContain("status: 410");
     expect(infra).toContain("epizodok\\/\\d{4}(?:\\/oldal\\/[^/]+)?");
     expect(infra).toContain("20261127-archive-paginated");
     expect(infra).toContain("20261127-active-show-trial");
@@ -162,5 +175,35 @@ describe("Task 3: 10-show active title + latest episode trial", () => {
       episodes: [latest!],
       nowMs,
     })).toBeNull();
+
+    // Clean Hungarian truncation: no dangling article "a", no "?. " double punctuation, clean stop at "?".
+    const ziccer = formatActiveShowTrial({
+      podcastSlug: "ziccer-24-hu",
+      podcastTitle: "Ziccer - 24.hu",
+      totalEpisodes: 375,
+      episodes: [{
+        id: "z1",
+        slug: "miert-nem-lesz",
+        title: "Miért nem lesz topligás focista a magyar utánpótlás-válogatottakból?",
+        published_at: "2026-11-24T05:00:00Z",
+      }],
+      nowMs,
+    });
+    expect(ziccer!.title).not.toMatch(/\sa \| Podiverzum$/);
+    expect(ziccer!.description).not.toContain("?.");
+
+    const sinoa = formatActiveShowTrial({
+      podcastSlug: "sinoa-podcast",
+      podcastTitle: "Sinoa Podcast",
+      totalEpisodes: 29,
+      episodes: [{
+        id: "s1",
+        slug: "mennyire-kozel-az-agi",
+        title: "Mennyire közel az AGI? Beszélgetés Szegedy Balázs matematikus AI-szakértővel",
+        published_at: "2026-11-24T17:00:00Z",
+      }],
+      nowMs,
+    });
+    expect(sinoa!.title).toBe("Sinoa Podcast: Mennyire közel az AGI? | Podiverzum");
   });
 });
