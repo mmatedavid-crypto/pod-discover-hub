@@ -193,7 +193,9 @@ function normalizeAllCapsLead(s: string): string {
   return s.replace(/^([A-ZÁÉÍÓÖŐÚÜŰ0-9,\- ]{12,}):\s*/, (_m, lead: string) => {
     const trimmed = lead.trim();
     if (trimmed !== trimmed.toLocaleUpperCase("hu-HU")) return _m;
-    const lower = trimmed.toLocaleLowerCase("hu-HU");
+    const lower = trimmed
+      .toLocaleLowerCase("hu-HU")
+      .replace(/\bs(\d+)e(\d+)\b/g, "S$1E$2");
     return `${lower.charAt(0).toLocaleUpperCase("hu-HU")}${lower.slice(1)}: `;
   });
 }
@@ -250,15 +252,105 @@ function firstCleanSentence(raw: string | null | undefined, maxLen: number): str
   return truncateWordSafe(candidate, maxLen);
 }
 
+const MAX_TRIAL_TITLE_LENGTH = 105;
+
 const TRAILING_DANGLING_WORDS = new Set([
   "a", "az", "egy", "és", "is", "de", "vagy", "hogy", "mert", "míg", "ha",
-  "mint", "szerint", "mellett", "után", "előtt", "alatt", "felett", "beszélgetés",
+  "mint", "szerint", "mellett", "után", "előtt", "alatt", "felett", "miatt",
+  "ellen", "között", "kapcsán", "témában", "arról", "erről", "valamint",
+  "beszélgetés", "interjú", "vendég", "vendége", "adás", "rész", "epizód",
 ]);
+
+const COMPLETE_PHRASE_SUFFIX_RE = /(?:vel|val|ról|ről|ban|ben|tól|től|nál|nél|nak|nek|hoz|hez|höz|[.!?])$/i;
+
+function stripTrailingDanglingWords(text: string): string {
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  while (
+    words.length > 2 &&
+    TRAILING_DANGLING_WORDS.has(
+      words[words.length - 1].toLocaleLowerCase("hu-HU").replace(/[,;:\-–—/|"'„”»()]+$/g, ""),
+    )
+  ) {
+    words.pop();
+  }
+  return words.join(" ").replace(/[,;:\-–—/|]+$/, "").trim();
+}
+
+function isCleanPhraseEnding(candidate: string): boolean {
+  const clean = candidate.replace(/[,;:\-–—/|]+$/, "").trim();
+  if (!clean) return false;
+  const words = clean.split(/\s+/);
+  const last = words[words.length - 1]?.toLocaleLowerCase("hu-HU").replace(/[,;:\-–—/|"'„”»()]+$/g, "") || "";
+  return Boolean(last) && !TRAILING_DANGLING_WORDS.has(last);
+}
+
+export function fitNaturalTrialHeadline(text: string, maxLen: number): string {
+  const clean = text.replace(/\s+/g, " ").trim();
+  if (clean.length <= maxLen) return clean;
+
+  const minKeep = Math.max(18, Math.floor(maxLen * 0.45));
+  const candidates: number[] = [];
+
+  // 1. Prefer clear clause boundaries (dash, pipe, semicolon, comma, " és ")
+  const clauseRe = /(?:\s+[–—|]\s+|;\s+|,\s+|\s+és\s+)/gi;
+  let m: RegExpExecArray | null;
+  while ((m = clauseRe.exec(clean)) !== null) {
+    const end = m.index;
+    if (end > maxLen) break;
+    if (end >= minKeep && end <= maxLen && isCleanPhraseEnding(clean.slice(0, end))) {
+      candidates.push(end);
+    }
+  }
+
+  // 2. Allow cutting before a prepositional/topic clause (" az " / " a ") ONLY when the
+  //    preceding token completes an inflected speaker/topic phrase (e.g. "...AI-szakértővel"),
+  //    never mid-predicate before its required object.
+  const prepRe = /\s+(?:az|a)\s+/gi;
+  while ((m = prepRe.exec(clean)) !== null) {
+    const end = m.index;
+    if (end > maxLen) break;
+    if (end < minKeep) continue;
+    const left = clean.slice(0, end).trim();
+    const lastWord = left.split(/\s+/).pop() || "";
+    if (isCleanPhraseEnding(left) && COMPLETE_PHRASE_SUFFIX_RE.test(lastWord)) {
+      candidates.push(end);
+    }
+  }
+
+  // 3. Complete earlier sentence boundaries ([.!?] followed by space)
+  const sentRe = /[.!?](?=\s)/g;
+  let lastSentenceEnd = -1;
+  while ((m = sentRe.exec(clean)) !== null) {
+    const end = m.index + 1;
+    if (end > maxLen) break;
+    if (end >= 15 && end <= maxLen) {
+      lastSentenceEnd = end;
+      if (end >= minKeep) candidates.push(end);
+    }
+  }
+
+  if (candidates.length > 0) {
+    const bestEnd = Math.max(...candidates);
+    return clean.slice(0, bestEnd).replace(/[,;:\-–—/|]+$/, "").trim();
+  }
+
+  // If an earlier complete sentence ended (e.g. "Mennyire közel az AGI?") and the following
+  // clause could not fit cleanly, stop at the sentence end instead of keeping "? Beszélgetés".
+  if (lastSentenceEnd >= 15) {
+    return clean.slice(0, lastSentenceEnd).trim();
+  }
+
+  // Word-safe fallback with dangling-word cleanup
+  const cut = clean.slice(0, maxLen);
+  const sp = cut.lastIndexOf(" ");
+  const head = (sp > maxLen * 0.55 ? cut.slice(0, sp) : cut).replace(/[,;:\-–—/|]+$/, "").trim();
+  return stripTrailingDanglingWords(head);
+}
 
 function endWithSentencePunctuation(s: string): string {
   const clean = s.trim();
   if (!clean) return "";
-  return /[.!?…]$/.test(clean) ? clean : `${clean}.`;
+  return /[.!?…]["”»)]*$/.test(clean) ? clean : `${clean}.`;
 }
 
 export function formatActiveShowTrial(input: {
@@ -287,27 +379,13 @@ export function formatActiveShowTrial(input: {
     170,
   );
 
-  // Concise human Hungarian <title>: "<Show>: <Latest topic> | Podiverzum" (word-safe, no ellipsis)
+  // Natural human Hungarian <title>: preserve complete episode titles up to 105 chars;
+  // for longer titles cut only at clear clause/sentence boundaries (never leaving a dangling object or opener).
   const brandSuffix = " | Podiverzum";
-  const titleBudget = Math.max(22, 66 - showName.length - brandSuffix.length - 2);
-  const cutCleanWord = (text: string, max: number) => {
-    const clean = text.replace(/\s+/g, " ").trim();
-    if (clean.length <= max) return clean;
-    const cut = clean.slice(0, max);
-    const sp = cut.lastIndexOf(" ");
-    let head = (sp > max * 0.55 ? cut.slice(0, sp) : cut).replace(/[,;:\-–—/|]+$/, "").trim();
-    // If a complete question/exclamation ended earlier in the slice, prefer stopping there
-    // instead of keeping an unfinished trailing fragment like "Mennyire közel az AGI? Beszélgetés".
-    const sentenceEnd = head.match(/^(.{12,}[?!])\s+\S+$/);
-    if (sentenceEnd?.[1]) return sentenceEnd[1].trim();
-    const words = head.split(/\s+/);
-    while (words.length > 2 && TRAILING_DANGLING_WORDS.has(words[words.length - 1].toLocaleLowerCase("hu-HU").replace(/[,;:\-–—/|]+$/, ""))) {
-      words.pop();
-    }
-    return words.join(" ").replace(/[,;:\-–—/|]+$/, "").trim();
-  };
-  const shortTopic = cutCleanWord(latestHeadline, titleBudget);
-  const title = `${showName}: ${shortTopic}${brandSuffix}`;
+  const separator = /[!?]$/.test(showName) || latestHeadline.includes(": ") ? " – " : ": ";
+  const titleBudget = Math.max(40, MAX_TRIAL_TITLE_LENGTH - showName.length - separator.length - brandSuffix.length);
+  const shortTopic = fitNaturalTrialHeadline(latestHeadline, titleBudget);
+  const title = `${showName}${separator}${shortTopic}${brandSuffix}`;
 
   // Grounded human Hungarian meta description (<= 160 chars, no promo, no duplicated show name)
   const epCountLabel = input.totalEpisodes > 0 ? ` (${input.totalEpisodes} epizód)` : "";

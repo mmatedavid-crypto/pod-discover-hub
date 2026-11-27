@@ -219,10 +219,11 @@ describe("Task 3: 10-show active title + latest episode trial", () => {
       nowMs,
     });
     expect(out).not.toBeNull();
-    expect(out!.title).toContain("Friderikusz Podcast:");
+    expect(out!.title).toContain("Friderikusz Podcast");
+    expect(out!.title).toContain("Szabó Norton");
     expect(out!.title).toContain("| Podiverzum");
     expect(out!.title).not.toContain("///");
-    expect(out!.title.length).toBeLessThanOrEqual(66);
+    expect(out!.title.length).toBeLessThanOrEqual(105);
     expect(out!.description).toContain("2026. nov. 24.");
     expect(out!.description).toContain("294 epizód");
     expect(out!.description.length).toBeLessThanOrEqual(160);
@@ -238,7 +239,7 @@ describe("Task 3: 10-show active title + latest episode trial", () => {
       nowMs,
     })).toBeNull();
 
-    // Clean Hungarian truncation: no dangling article "a", no "?. " double punctuation, clean stop at "?".
+    // Preserve complete natural episode titles (Ziccer keeps its full object, no dangling "a" or "?.").
     const ziccer = formatActiveShowTrial({
       podcastSlug: "ziccer-24-hu",
       podcastTitle: "Ziccer - 24.hu",
@@ -251,9 +252,13 @@ describe("Task 3: 10-show active title + latest episode trial", () => {
       }],
       nowMs,
     });
+    expect(ziccer!.title).toBe(
+      "Ziccer - 24.hu: Miért nem lesz topligás focista a magyar utánpótlás-válogatottakból? | Podiverzum",
+    );
     expect(ziccer!.title).not.toMatch(/\sa \| Podiverzum$/);
     expect(ziccer!.description).not.toContain("?.");
 
+    // Long titles cut at clean speaker/clause boundaries, preserving accurate speaker title (never "? Beszélgetés").
     const sinoa = formatActiveShowTrial({
       podcastSlug: "sinoa-podcast",
       podcastTitle: "Sinoa Podcast",
@@ -261,11 +266,45 @@ describe("Task 3: 10-show active title + latest episode trial", () => {
       episodes: [{
         id: "s1",
         slug: "mennyire-kozel-az-agi",
-        title: "Mennyire közel az AGI? Beszélgetés Szegedy Balázs matematikus AI-szakértővel",
+        title: "Mennyire közel az AGI? Beszélgetés Szegedy Balázs matematikus AI-szakértővel az USA–Kína harcáról és az AI jövőjéről",
         published_at: "2026-11-24T17:00:00Z",
       }],
       nowMs,
     });
-    expect(sinoa!.title).toBe("Sinoa Podcast: Mennyire közel az AGI? | Podiverzum");
+    expect(sinoa!.title).toBe(
+      "Sinoa Podcast: Mennyire közel az AGI? Beszélgetés Szegedy Balázs matematikus AI-szakértővel | Podiverzum",
+    );
+    expect(sinoa!.title).not.toMatch(/\?\s+Beszélgetés\s*\|/);
+    expect(sinoa!.description).not.toContain("?.");
+
+    const marko = formatActiveShowTrial({
+      podcastSlug: "marko-es-barna-1",
+      podcastTitle: "MÁRKÓ ÉS BARNA",
+      totalEpisodes: 47,
+      episodes: [{
+        id: "m1",
+        slug: "sikideg-s14e13",
+        title: "SÍKIDEG S14E13: Járai Máté: - Feleség a volánnál",
+        published_at: "2026-11-26T17:00:00Z",
+      }],
+      nowMs,
+    });
+    expect(marko!.title).toBe("MÁRKÓ ÉS BARNA – Síkideg S14E13: Járai Máté – Feleség a volánnál | Podiverzum");
+
+    const filmklub = formatActiveShowTrial({
+      podcastSlug: "filmklub-podcast",
+      podcastTitle: "Filmklub podcast",
+      totalEpisodes: 336,
+      episodes: [{
+        id: "f1",
+        slug: "kemeny-lili",
+        title: '"Imádom a brutális dolgokat" - Kemény Lili a Nem-hangoskönyről és Az orosz barátról',
+        published_at: "2026-11-27T14:48:44Z",
+      }],
+      nowMs,
+    });
+    expect(filmklub!.title).toBe(
+      'Filmklub podcast: "Imádom a brutális dolgokat" – Kemény Lili a Nem-hangoskönyről | Podiverzum',
+    );
   });
 });

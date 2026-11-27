@@ -1289,6 +1289,13 @@
       "when": 1795818878470,
       "tag": "0183_gombapresszo_lossless_merge_and_archive_sql_guards",
       "breakpoints": true
+    },
+    {
+      "idx": 184,
+      "version": "7",
+      "when": 1795819526007,
+      "tag": "0184_sitemap_annual_archives_json_rpc",
+      "breakpoints": true
     }
   ]
 }

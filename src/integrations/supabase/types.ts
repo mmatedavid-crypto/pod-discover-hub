@@ -16866,6 +16866,10 @@ export type Database = {
           wikipedia_match_status: string
         }[]
       }
+      list_sitemap_podcast_annual_archives_json_v1: {
+        Args: { p_min_episodes?: number; p_page_size?: number }
+        Returns: Json
+      }
       list_sitemap_podcast_annual_archives_v1: {
         Args: { p_min_episodes?: number; p_page_size?: number }
         Returns: {

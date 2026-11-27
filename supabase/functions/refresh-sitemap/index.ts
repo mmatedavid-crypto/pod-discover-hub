@@ -395,21 +395,39 @@ Deno.serve(async (req) => {
       }
       const podFiles = await writeChunks('podcasts', podcasts);
 
-      // canonical annual archive pages (bounded indexed DB query, includes paginated pages 2..N)
+      // canonical annual archive pages: single-pass scalar JSON aggregate (immune to PostgREST's
+      // 1,000-row rowset cap and avoids re-aggregating 155k episodes per page).
       const archiveUrls: string[] = [];
-      const { data: archiveRows, error: archiveErr } = await sb.rpc('list_sitemap_podcast_annual_archives_v1', {
+      const { data: archivePayload, error: archiveErr } = await sb.rpc('list_sitemap_podcast_annual_archives_json_v1', {
         p_min_episodes: ANNUAL_ARCHIVE_MIN_EPISODES,
         p_page_size: ANNUAL_ARCHIVE_PAGE_SIZE,
       });
       if (archiveErr) throw archiveErr;
-      for (const row of (archiveRows || []) as Array<{ podcast_slug: string; year?: number; pub_year?: number; total_pages: number; lastmod?: string | null; latest_published_at?: string | null }>) {
-        const y = Number(row.year ?? row.pub_year);
+      const archiveItems = Array.isArray((archivePayload as any)?.items)
+        ? ((archivePayload as any).items as Array<{
+            podcast_slug: string;
+            year: number;
+            episode_count?: number;
+            total_pages: number;
+            lastmod?: string | null;
+          }>)
+        : [];
+      const expectedShowYears = Number((archivePayload as any)?.show_year_count ?? archiveItems.length);
+      const expectedArchiveUrls = Number((archivePayload as any)?.total_url_count ?? 0);
+      if (expectedShowYears > 0 && archiveItems.length !== expectedShowYears) {
+        throw new Error(`annual archive aggregate truncated: got ${archiveItems.length}, expected ${expectedShowYears}`);
+      }
+      for (const row of archiveItems) {
+        const y = Number(row.year);
         if (!row.podcast_slug || !Number.isFinite(y) || !row.total_pages) continue;
-        const lm = row.lastmod ?? row.latest_published_at ?? null;
+        const lm = row.lastmod ?? null;
         for (let page = 1; page <= row.total_pages; page++) {
           const path = podcastYearArchivePath(row.podcast_slug, y, page);
           archiveUrls.push(tag(`${SITE}${esc(path)}`, lm, 'weekly', page === 1 ? '0.6' : '0.5'));
         }
+      }
+      if (expectedArchiveUrls > 0 && archiveUrls.length !== expectedArchiveUrls) {
+        throw new Error(`annual archive URL count mismatch: built ${archiveUrls.length}, expected ${expectedArchiveUrls}`);
       }
       const archiveFiles = await writeChunks('archives', archiveUrls);
 
