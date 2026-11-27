@@ -41,4 +41,29 @@ describe("public-evidence person classification", () => {
   it("does not turn a historical panel subject into a personal appearance", () => {
     expect(formatPersonPage({ name: "Test", count: 1, historical: true, episodes: [{ ...e, role_type: "participant", mention_type: "guest" }] }).relation).toBe("subject");
   });
+  it("keeps material identity in the standalone snippet, not beside the visible subtitle", () => {
+    for (const [name, identityLabel, role_type, podcast_title] of [
+      ["Pápai Anita", "A Tejhabos mindenit szerzője, a KÁVÉKALANDOK vendége", "participant", "KÁVÉKALANDOK"],
+      ["Veréb István", "A Friderikusz Archív 1991-es és 1992-es riportjainak szereplője", "subject", "Friderikusz Podcast"],
+    ]) {
+      const copy = formatPersonPage({ name, identityLabel, count: 2, episodes: [{ ...e, podcast_title, role_type, mention_type: "guest" }] });
+      const visibleHeader = `${identityLabel}\n${copy.intro}`;
+      expect(visibleHeader.split(identityLabel)).toHaveLength(2);
+      expect(copy.description).toContain(identityLabel);
+      expect(copy.intro).not.toContain("2");
+      expect(copy.intro).not.toContain(podcast_title);
+      expect(copy.relation).toBe(role_type === "subject" ? "subject" : "guest");
+    }
+  });
+  it("never promotes a one-word category to prose or standalone identity metadata", () => {
+    const copy = formatPersonPage({ name: "Varga Dorottya", identityLabel: "kultúra", count: 0, episodes: [] });
+    expect(copy.intro).not.toContain("kultúra");
+    expect(copy.description).not.toContain("kultúra");
+    expect(copy.relation).toBe("empty");
+  });
+  it("does not let a guest subtitle hide mixed or unverified evidence", () => {
+    const input = { name: "Test", identityLabel: "A műsor vendége", count: 2, episodes: [{ ...e, role_type: "participant", mention_type: "guest" }, { ...e, role_type: "mention" }] };
+    expect(formatPersonPage(input).relation).toBe("mixed");
+    expect(formatPersonPage({ ...input, episodes: input.episodes.map(row => ({ ...row, verified: false })) }).relation).toBe("unverified");
+  });
 });

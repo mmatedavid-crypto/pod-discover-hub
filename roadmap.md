@@ -1,6 +1,7 @@
 # Traffic-led improvements
 
 ## Owner-approved catalogue cleanup (2026-11-27)
+- [ ] Bounded visible-copy deduplication: preserve subtitle once, omit adjacent counts and redundant shows, verify roles and empty profiles, deploy prerender; no data or Worker changes.
 - [x] Final shared person-page Hungarian editorial QA: 18 focused tests, desktop/mobile and deployed prerender verified; person-only Worker cache namespace ready for owner deployment.
 - [x] Durably exclude the one removed Szélsőközép item from ingestion and sitemaps; transactional guard tests pass, public URL stays 404, 976 unrelated show episodes remain.
 - [x] Apply only the verified Veréb identity merge; both archive episodes and accepted searchable aliases preserved, crawler redirect deployed and Worker one-hop redirect tested.

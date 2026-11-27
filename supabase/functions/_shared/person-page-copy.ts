@@ -34,7 +34,7 @@ const generic = /^(podcast|beszélgetés|interjú|élet|társadalom|kultúra|gaz
 export function formatPersonPage(input: PersonPageCopyInput) {
   const name = plain(input.name);
   const rawIdentity = plain(input.identityLabel);
-  const identity = /^(személy|közszereplő|köz[eé]leti szereplő|nemzetközi( téma)? személy|podcast(ok)?ban (előforduló|említett) személy)$/i.test(rawIdentity) ? "" : rawIdentity;
+  const identity = !rawIdentity.includes(" ") || /^(személy|közszereplő|köz[eé]leti szereplő|nemzetközi( téma)? személy|podcast(ok)?ban (előforduló|említett) személy)$/i.test(rawIdentity) ? "" : rawIdentity;
   // Both callers pass the first 40 rows of the SAME RPC in its original order.
   const sample = input.episodes.slice(0, 40);
   const verified = sample.filter(e => e.verified === true);
@@ -74,8 +74,8 @@ export function formatPersonPage(input: PersonPageCopyInput) {
   let lead: string;
   if (relation === "empty") lead = `${name} nevéhez még nincs ellenőrzött magyar podcast-epizód a Podiverzumon.`;
   else if (relation === "unverified") lead = `${name} neve szerepel a katalógus találataiban; ezek még nem igazolt személykapcsolatok.`;
-  else if (relation === "subject") lead = `${name} a kapcsolódó adások témája; ez nem jelent személyes megszólalást.`;
-  else if (relation === "mention") lead = `${name} neve elhangzik a kapcsolódó adásokban; ez nem jelent személyes megszólalást.`;
+  else if (relation === "subject") lead = `A kapcsolódó adásokban róla beszélnek: ${name}.`;
+  else if (relation === "mention") lead = `A kapcsolódó adásokban megemlítik: ${name}.`;
   else {
     const clauses: string[] = [];
     if (roles.has("guest")) clauses.push(`vendégként${relation === "mixed" ? " is" : ""} megszólal`);
@@ -86,12 +86,24 @@ export function formatPersonPage(input: PersonPageCopyInput) {
     if (roles.has("mention")) lead += `${clauses.length || roles.has("subject") ? "; más adásokban" : " a kapcsolódó adásokban"} megemlítik`;
     lead += ".";
   }
-  if (identity) lead += ` ${identity}.`;
-  const detail = context ? ` Az adások középpontjában ${context} áll.` : "";
-  const showText = shows.length ? ` A válogatásban ${shows.join(" és ")} epizódjai szerepelnek.` : "";
+  const detail = context ? `Témák: ${context}.` : "";
+  // A subtitle is already rendered by both callers. Only omit a role clause
+  // when the subtitle explicitly states the SAME verified role, never for mixed evidence.
+  const subtitleStatesRole = Boolean(identity) && (
+    (relation === "guest" && /vend[eé]g/i.test(identity)) ||
+    (relation === "host" && /műsorvezető|házigazda/i.test(identity))
+  );
+  const visibleShows = shows.filter(value => {
+    const words = fold(value).split(/[^a-z0-9]+/).filter(word => word.length >= 4 && !["podcast", "podcastok", "musor", "radio"].includes(word));
+    return !identity || !words.length || !words.every(word => fold(identity).includes(word));
+  });
+  const showText = shows.length ? `Kapcsolódó műsor${shows.length > 1 ? "ok" : ""}: ${shows.join(" és ")}.` : "";
+  const visibleShowText = visibleShows.length ? `Kapcsolódó műsor${visibleShows.length > 1 ? "ok" : ""}: ${visibleShows.join(" és ")}.` : "";
   const example = !context && verified[0]?.title ? ` Kapcsolódó adás: „${short(plain(verified[0].title), 110)}”.` : "";
   const count = input.count > 0 ? ` ${input.count} kapcsolódó magyar epizód.` : "";
-  const intro = `${lead}${detail}${showText}${example}${count}`;
-  const description = short(`${lead}${detail}${showText}${count}`, 160);
+  const intro = [subtitleStatesRole ? "" : lead, detail, visibleShowText, example.trim()].filter(Boolean).join(" ");
+  // Search snippets are standalone: material identity and totals may remain
+  // here, but never in the visible paragraph next to its subtitle and counters.
+  const description = short([identity ? `${identity.replace(/[.!?]$/, "")}.` : "", subtitleStatesRole ? "" : lead, detail, showText, count.trim()].filter(Boolean).join(" "), 160);
   return { title, description, intro, relation, topics, shows };
 }
