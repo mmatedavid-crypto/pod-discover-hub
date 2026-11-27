@@ -46,11 +46,6 @@ export function formatPersonPage(input: PersonPageCopyInput) {
     return "speaker";
   }));
   const relation = roles.size > 1 ? "mixed" : [...roles][0] || (input.count > 0 ? "unverified" : "empty");
-  const labels: Record<string, string> = {
-    guest: "vendégként", host: "műsorvezetőként", speaker: "megszólalóként",
-    subject: "róla szóló adások", mention: "említések", mixed: "különböző szerepek",
-    unverified: "név szerinti találatok", empty: "podcastok",
-  };
   const shows = [...new Set(verified.map(e => plain(e.podcast_display_title || e.podcast_title)).filter(Boolean))].slice(0, 2);
   const topics: string[] = [];
   for (const e of verified) {
@@ -67,27 +62,36 @@ export function formatPersonPage(input: PersonPageCopyInput) {
     }
     if (topics.length === 2) break;
   }
-  const context = topics.length ? topics.join(", ") : "";
+  const context = topics.join(" és ");
   const show = shows[0] || "";
-  const specific = (relation === "subject" ? show : topics[0]) || show;
-  const titleHead = `${name} – ${labels[relation]}`;
-  // Leave title truncation to a deterministic boundary here, identical in both renderers.
-  const fullTitleHead = `${titleHead}${specific ? `: ${specific}` : ""}`;
-  const conciseTitleHead = specific ? `${name} – ${specific}` : titleHead;
-  const title = `${short(fullTitleHead.length <= 47 ? fullTitleHead : conciseTitleHead, 47)} | Podiverzum`;
+  // Both SEO writers cap titles at 60 characters. Fit whole phrases within
+  // their 47-character head budget rather than leaving a dangling “és”.
+  const candidates = relation === "subject" ? [show] : [context, topics[0], show];
+  const specific = candidates.find(value => value && `${name} – ${value}`.length <= 47) || "";
+  // Context describes the linked programmes, never the person's expertise.
+  // Keep personal names unchanged; Hungarian name suffixes cannot be guessed safely.
+  const title = `${name}${specific ? ` – ${specific}` : ""} | Podiverzum`;
   let lead: string;
   if (relation === "empty") lead = `${name} nevéhez még nincs ellenőrzött magyar podcast-epizód a Podiverzumon.`;
   else if (relation === "unverified") lead = `${name} neve szerepel a katalógus találataiban; ezek még nem igazolt személykapcsolatok.`;
-  else if (relation === "subject") lead = `${name}: róla szóló magyar adások a Podiverzumon.`;
-  else if (relation === "mention") lead = `${name} említései magyar podcastokban; az említés nem jelent megszólalást.`;
-  else if (relation === "mixed") lead = `${name} különböző szerepekben kapcsolódik ezekhez az adásokhoz: ${[...roles].map(r => labels[r]).join(", ")}.`;
-  else lead = `${name} ${labels[relation]} hallható a kapcsolódó magyar adásokban.`;
+  else if (relation === "subject") lead = `${name} a kapcsolódó adások témája; ez nem jelent személyes megszólalást.`;
+  else if (relation === "mention") lead = `${name} neve elhangzik a kapcsolódó adásokban; ez nem jelent személyes megszólalást.`;
+  else {
+    const clauses: string[] = [];
+    if (roles.has("guest")) clauses.push(`vendégként${relation === "mixed" ? " is" : ""} megszólal`);
+    if (roles.has("host")) clauses.push("műsorvezetőként beszélget");
+    if (roles.has("speaker")) clauses.push("megszólal a kapcsolódó adásokban");
+    lead = clauses.length ? `${name} ${clauses.join(", illetve ")}` : `${name}:`;
+    if (roles.has("subject")) lead += `${clauses.length ? "; más adásokban" : " a kapcsolódó adásokban"} róla beszélnek`;
+    if (roles.has("mention")) lead += `${clauses.length || roles.has("subject") ? "; más adásokban" : " a kapcsolódó adásokban"} megemlítik`;
+    lead += ".";
+  }
   if (identity) lead += ` ${identity}.`;
-  const detail = context ? ` Témák: ${context}.` : "";
-  const showText = shows.length ? ` Műsorok: ${shows.join("; ")}.` : "";
+  const detail = context ? ` Az adások középpontjában ${context} áll.` : "";
+  const showText = shows.length ? ` A válogatásban ${shows.join(" és ")} epizódjai szerepelnek.` : "";
   const example = !context && verified[0]?.title ? ` Kapcsolódó adás: „${short(plain(verified[0].title), 110)}”.` : "";
   const count = input.count > 0 ? ` ${input.count} kapcsolódó magyar epizód.` : "";
   const intro = `${lead}${detail}${showText}${example}${count}`;
-  const description = short(`${name}: ${input.count > 0 ? `${input.count} magyar epizód, ` : ""}${labels[relation]}${context ? ` – ${context}` : ""}.${showText}${relation === "empty" ? " Még nincs ellenőrzött epizód." : relation === "unverified" ? " A személyazonosság még nem igazolt." : ""}`, 160);
+  const description = short(`${lead}${detail}${showText}${count}`, 160);
   return { title, description, intro, relation, topics, shows };
 }

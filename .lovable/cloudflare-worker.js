@@ -617,9 +617,11 @@ export default {
     // Episode pages use their own cache namespace: 2026-10-20 removed the
     // auto-generated NewsArticle + third-party publisher claim from them, so
     // only that page class is invalidated; every other route keeps its cache.
-    const cacheNs = /^\/podcast\/[^/]+\/[^/]+\/?$/.test(url.pathname) && !/\/epizodok\//.test(url.pathname)
-      ? "20261020-episode-nonews"
-      : "20260916-seo";
+    const cacheNs = url.pathname.startsWith("/szemelyek/")
+      ? "20261127-person-editorial"
+      : /^\/podcast\/[^/]+\/[^/]+\/?$/.test(url.pathname) && !/\/epizodok\//.test(url.pathname)
+        ? "20261020-episode-nonews"
+        : "20260916-seo";
     const isSearch = url.pathname === "/kereses" || url.pathname === "/kereses/";
     const searchQ = isSearch ? normalizeSearchQ(url.searchParams.get("q")) : "";
     const searchTier = isSearch && isAiAssistant(ua) ? "ai" : "basic";

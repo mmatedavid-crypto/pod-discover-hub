@@ -27,4 +27,18 @@ describe("public-evidence person classification", () => {
     expect(copy.shows).toEqual(["Portfolio Business"]);
   });
   it("never promotes unverified topics", () => expect(formatPersonPage({ name: "Test", count: 1, episodes: [{ ...e, verified: false }] }).topics).toEqual([]));
+  it("retains both supported Fabók subjects without adding an unsupported second one", () => {
+    const input = { name: "Fabók György", count: 2, episodes: [{ title: "Bankkártyás fizetés és készpénzhasználat", topics: ["bankkártyás fizetés", "készpénzhasználat", "mindfulness"], verified: true, role_type: "participant", mention_type: "guest" }] };
+    expect(formatPersonPage(input).topics).toEqual(["bankkártyás fizetés", "készpénzhasználat"]);
+    expect(formatPersonPage({ ...input, episodes: [{ ...input.episodes[0], title: "Bankkártyás fizetés" }] }).topics).toEqual(["bankkártyás fizetés"]);
+  });
+  it("keeps Rapinec's mixed guest and mention evidence distinct", () => {
+    expect(formatPersonPage({ name: "Rapinec Valéria", count: 2, episodes: [
+      { ...e, role_type: "participant", mention_type: "guest" },
+      { ...e, role_type: "mention" },
+    ] }).relation).toBe("mixed");
+  });
+  it("does not turn a historical panel subject into a personal appearance", () => {
+    expect(formatPersonPage({ name: "Test", count: 1, historical: true, episodes: [{ ...e, role_type: "participant", mention_type: "guest" }] }).relation).toBe("subject");
+  });
 });
