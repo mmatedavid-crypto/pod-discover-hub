@@ -3,6 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { isPlayerPreviewActive } from "@/lib/playerPreview";
 import { detectAudioSource } from "@/lib/playerAudio";
 import { getProgress, saveProgress, markPlayCount } from "@/lib/playerProgress";
+import { getAnalyticsLandingPath } from "@/lib/analyticsSession";
+import { resolveShowTrialPlaybackScope } from "../../../supabase/functions/_shared/podcast-active-trial";
 import { SMART_PLAYER_RECOMMENDATIONS_ENABLED } from "./recommendationsConfig";
 
 export type SmartPlayerEpisode = {
@@ -70,7 +72,7 @@ const PROGRESS_MARKERS = [
 
 type PlayerEventPayload = {
   eventType:
-    | "play_start" | "play_pause" | "play_resume" | "play_seek"
+    | "play_start" | "play_playing" | "play_pause" | "play_resume" | "play_seek"
     | "play_25" | "play_50" | "play_75" | "play_complete"
     | "playback_error" | "playback_blocked" | "external_open" | "speed_change";
   episodeId?: string | null;
@@ -159,6 +161,8 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
   // Source generation: bumped only when the loaded audio source changes or stops, so a pending
   // loadedmetadata seek survives tapping Play on the same episode after blocked autoplay.
   const sourceGenRef = useRef(0);
+  // Native "playing" confirmation dedupe per loaded episode source generation (no doubles on buffer/resume).
+  const playingLoggedSourceGenRef = useRef<number | null>(null);
   const retriedRef = useRef<Set<string>>(new Set());
   const failedGenRef = useRef<number | null>(null);
   const retryPendingRef = useRef(false);
@@ -303,6 +307,36 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
       interruptedRef.current = false;
       userPausedRef.current = false;
     };
+    const onPlaying = () => {
+      setIsLoading(false);
+      const ep = currentEpisodeRef.current;
+      if (!ep || !a.getAttribute("src") || a.paused || a.ended || a.error) return;
+      if (a.currentSrc && a.currentSrc !== a.src) return;
+      const currentSourceGen = sourceGenRef.current;
+      if (playingLoggedSourceGenRef.current === currentSourceGen) return;
+      const scope = resolveShowTrialPlaybackScope({
+        landingPath: getAnalyticsLandingPath(),
+        currentPath: typeof window !== "undefined" ? window.location.pathname : "",
+        episodePodcastSlug: ep.podcastSlug,
+      });
+      if (!scope) return;
+      playingLoggedSourceGenRef.current = currentSourceGen;
+      logPlayerEventLater({
+        eventType: "play_playing",
+        episodeId: ep.id,
+        podcastId: ep.podcastId,
+        positionSec: a.currentTime,
+        durationSec: Number.isFinite(a.duration) && a.duration > 0 ? a.duration : undefined,
+        meta: {
+          cohort: scope.cohort,
+          show_slug: scope.showSlug,
+          landing_path: scope.landingPath,
+          current_path: scope.currentPath,
+          direct_show_landing: scope.directShowLanding,
+          trigger: "native_playing",
+        },
+      });
+    };
     const onPause = () => {
       setIsPlaying(false);
       // If we're paused but not at end and the user didn't ask for it,
@@ -342,6 +376,7 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
     a.addEventListener("durationchange", onDur);
     a.addEventListener("loadedmetadata", onDur);
     a.addEventListener("play", onPlay);
+    a.addEventListener("playing", onPlaying);
     a.addEventListener("pause", onPause);
     a.addEventListener("waiting", onWait);
     a.addEventListener("canplay", onCanPlay);
@@ -356,6 +391,7 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
       a.removeEventListener("durationchange", onDur);
       a.removeEventListener("loadedmetadata", onDur);
       a.removeEventListener("play", onPlay);
+      a.removeEventListener("playing", onPlaying);
       a.removeEventListener("pause", onPause);
       a.removeEventListener("waiting", onWait);
       a.removeEventListener("canplay", onCanPlay);
@@ -508,6 +544,7 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
     interruptedRef.current = false;
     if (!same || reload) {
       const sourceGen = ++sourceGenRef.current;
+      playingLoggedSourceGenRef.current = null;
       setCurrentEpisode(ep);
       // Keep non-React handlers on the new episode immediately (not after the next render).
       currentEpisodeRef.current = ep;
@@ -642,6 +679,7 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
     interruptedRef.current = false;
     loadGenRef.current += 1;
     sourceGenRef.current += 1;
+    playingLoggedSourceGenRef.current = null;
     clearPendingSeek(audioRef.current);
     currentEpisodeRef.current = null;
     audioRef.current?.pause();

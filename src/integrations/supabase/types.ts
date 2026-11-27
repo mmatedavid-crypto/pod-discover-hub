@@ -3699,6 +3699,157 @@ export type Database = {
           },
         ]
       }
+      episode_podcast_reassignments: {
+        Row: {
+          applied_at: string
+          before_state: Json
+          episode_id: string
+          episode_slug: string
+          from_podcast_id: string
+          from_podcast_slug: string
+          group_key: string
+          reverted_at: string | null
+          status: string
+          to_podcast_id: string
+          to_podcast_slug: string
+          updated_at: string
+        }
+        Insert: {
+          applied_at?: string
+          before_state?: Json
+          episode_id: string
+          episode_slug: string
+          from_podcast_id: string
+          from_podcast_slug: string
+          group_key: string
+          reverted_at?: string | null
+          status?: string
+          to_podcast_id: string
+          to_podcast_slug: string
+          updated_at?: string
+        }
+        Update: {
+          applied_at?: string
+          before_state?: Json
+          episode_id?: string
+          episode_slug?: string
+          from_podcast_id?: string
+          from_podcast_slug?: string
+          group_key?: string
+          reverted_at?: string | null
+          status?: string
+          to_podcast_id?: string
+          to_podcast_slug?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "episode_podcast_reassignments_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: true
+            referencedRelation: "episodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "episode_podcast_reassignments_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: true
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "episode_podcast_reassignments_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: true
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "episode_podcast_reassignments_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: true
+            referencedRelation: "v_episode_data_quality_issues"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "episode_podcast_reassignments_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: true
+            referencedRelation: "v_episode_quality_indicator_audit"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "episode_podcast_reassignments_from_podcast_id_fkey"
+            columns: ["from_podcast_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "episode_podcast_reassignments_from_podcast_id_fkey"
+            columns: ["from_podcast_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "episode_podcast_reassignments_from_podcast_id_fkey"
+            columns: ["from_podcast_id"]
+            isOneToOne: false
+            referencedRelation: "podcasts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "episode_podcast_reassignments_from_podcast_id_fkey"
+            columns: ["from_podcast_id"]
+            isOneToOne: false
+            referencedRelation: "v_hu_archive_completeness"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "episode_podcast_reassignments_from_podcast_id_fkey"
+            columns: ["from_podcast_id"]
+            isOneToOne: false
+            referencedRelation: "v_youtube_native_transcript_candidates"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "episode_podcast_reassignments_to_podcast_id_fkey"
+            columns: ["to_podcast_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "episode_podcast_reassignments_to_podcast_id_fkey"
+            columns: ["to_podcast_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "episode_podcast_reassignments_to_podcast_id_fkey"
+            columns: ["to_podcast_id"]
+            isOneToOne: false
+            referencedRelation: "podcasts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "episode_podcast_reassignments_to_podcast_id_fkey"
+            columns: ["to_podcast_id"]
+            isOneToOne: false
+            referencedRelation: "v_hu_archive_completeness"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "episode_podcast_reassignments_to_podcast_id_fkey"
+            columns: ["to_podcast_id"]
+            isOneToOne: false
+            referencedRelation: "v_youtube_native_transcript_candidates"
+            referencedColumns: ["podcast_id"]
+          },
+        ]
+      }
       episode_public_page_evidence: {
         Row: {
           attempts: number
@@ -15635,6 +15786,16 @@ export type Database = {
       }
       apply_person_role_label_v1: { Args: { _items: Json }; Returns: Json }
       apply_podcast_canonical_mapping_v1: {
+        Args: {
+          p_alias_podcast_id: string
+          p_allow_audio_fallback?: boolean
+          p_canonical_podcast_id: string
+          p_evidence?: Json
+          p_group_key: string
+        }
+        Returns: Json
+      }
+      apply_podcast_lossless_merge_v1: {
         Args: {
           p_alias_podcast_id: string
           p_allow_audio_fallback?: boolean

@@ -402,11 +402,13 @@ Deno.serve(async (req) => {
         p_page_size: ANNUAL_ARCHIVE_PAGE_SIZE,
       });
       if (archiveErr) throw archiveErr;
-      for (const row of (archiveRows || []) as Array<{ podcast_slug: string; pub_year: number; total_pages: number; latest_published_at: string | null }>) {
-        if (!row.podcast_slug || !row.pub_year || !row.total_pages) continue;
+      for (const row of (archiveRows || []) as Array<{ podcast_slug: string; year?: number; pub_year?: number; total_pages: number; lastmod?: string | null; latest_published_at?: string | null }>) {
+        const y = Number(row.year ?? row.pub_year);
+        if (!row.podcast_slug || !Number.isFinite(y) || !row.total_pages) continue;
+        const lm = row.lastmod ?? row.latest_published_at ?? null;
         for (let page = 1; page <= row.total_pages; page++) {
-          const path = podcastYearArchivePath(row.podcast_slug, row.pub_year, page);
-          archiveUrls.push(tag(`${SITE}${esc(path)}`, row.latest_published_at, 'weekly', page === 1 ? '0.6' : '0.5'));
+          const path = podcastYearArchivePath(row.podcast_slug, y, page);
+          archiveUrls.push(tag(`${SITE}${esc(path)}`, lm, 'weekly', page === 1 ? '0.6' : '0.5'));
         }
       }
       const archiveFiles = await writeChunks('archives', archiveUrls);
@@ -543,9 +545,10 @@ Deno.serve(async (req) => {
       if (exclusionError) throw exclusionError;
       // Keyset pagination by id to keep PostgREST happy on large tables.
       let lastId: number | null = null;
+      const nowMs = Date.now();
       while (true) {
         let q = sb.from('episodes')
-          .select('id,slug,guid,published_at,updated_at,podcast_id')
+          .select('id,slug,guid,published_at,updated_at,podcast_id,is_prefetch_placeholder')
           .order('id', { ascending: true })
           .limit(PAGE);
         if (lastId !== null) q = q.gt('id', lastId);
@@ -555,6 +558,11 @@ Deno.serve(async (req) => {
         for (const e of data as any[]) {
           lastId = e.id;
           if (!e.slug) continue;
+          if (e.is_prefetch_placeholder === true) continue;
+          if (e.published_at) {
+            const pubMs = Date.parse(e.published_at);
+            if (Number.isFinite(pubMs) && pubMs > nowMs) continue;
+          }
           if (episodeIsExcluded(exclusions || [], e.podcast_id, e)) continue;
           const ps = podMap.get(String(e.podcast_id));
           if (!ps) continue;

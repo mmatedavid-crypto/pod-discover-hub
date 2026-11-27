@@ -77,9 +77,10 @@ function isSafeHostPerson(p: any): boolean {
 // to abort the whole list, which rendered as "ennek a podcastnak nincs epizódja".
 async function fetchAllEpisodes(podcastId: string): Promise<{ rows: any[]; failed: boolean }> {
   const PAGE = 300;
-  const SELECT = "id,title,display_title,slug,published_at,ai_summary,summary,description,audio_url,audio_health_status,audio_manual_override,image_url,episode_url,spotify_url,apple_url,youtube_url,topics,people,companies,tickers,ingredients";
+  const SELECT = "id,title,display_title,slug,published_at,is_prefetch_placeholder,ai_summary,summary,description,audio_url,audio_health_status,audio_manual_override,image_url,episode_url,spotify_url,apple_url,youtube_url,topics,people,companies,tickers,ingredients";
   let from = 0;
   const all: any[] = [];
+  const nowMs = Date.now();
   for (let i = 0; i < 40; i++) {
     let data: any[] | null = null;
     for (let attempt = 0; attempt < 2; attempt++) {
@@ -92,7 +93,14 @@ async function fetchAllEpisodes(podcastId: string): Promise<{ rows: any[]; faile
       if (!res.error && res.data) { data = res.data as any[]; break; }
     }
     if (!data) return { rows: all, failed: all.length === 0 };
-    all.push(...data);
+    for (const row of data) {
+      if (row.is_prefetch_placeholder === true) continue;
+      if (row.published_at) {
+        const ts = Date.parse(row.published_at);
+        if (Number.isFinite(ts) && ts > nowMs) continue;
+      }
+      all.push(row);
+    }
     if (data.length < PAGE) break;
     from += PAGE;
   }
@@ -222,9 +230,9 @@ export default function PodcastDetail() {
         setPublisher(pub);
         setEps(allEps);
         setEpsError(episodeResult.failed);
-        const dbYears = ((archiveYearsRes?.data || []) as Array<{ pub_year: number; episode_count: number }>)
-          .filter((r) => Number(r.episode_count) >= ANNUAL_ARCHIVE_MIN_EPISODES)
-          .map((r) => ({ year: Number(r.pub_year), count: Number(r.episode_count) }))
+        const dbYears = ((archiveYearsRes?.data || []) as Array<{ year?: number; pub_year?: number; episode_count: number }>)
+          .map((r) => ({ year: Number(r.year ?? r.pub_year), count: Number(r.episode_count) }))
+          .filter((r) => Number.isFinite(r.year) && r.count >= ANNUAL_ARCHIVE_MIN_EPISODES)
           .sort((a, b) => b.year - a.year);
         setArchiveYears(dbYears);
 

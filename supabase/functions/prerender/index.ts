@@ -756,17 +756,22 @@ async function buildPodcast(
   if (podError) throw new Error("Podcast lookup failed");
   if (!pod || !isAcceptedHungarianPrerenderPodcast(pod)) return null;
 
+  const nowIso = new Date().toISOString();
   const [{ data: epData }, { count: totalEpisodeCount }, { data: yearRowsData }, hostNamesForSeo] = await Promise.all([
     supabase
       .from("episodes")
       .select("id, title, display_title, slug, published_at, ai_summary, summary, description, companies, people, topics")
       .eq("podcast_id", pod.id)
+      .or("is_prefetch_placeholder.is.null,is_prefetch_placeholder.eq.false")
+      .or(`published_at.is.null,published_at.lte.${nowIso}`)
       .order("published_at", { ascending: false, nullsFirst: false })
       .limit(50),
     supabase
       .from("episodes")
       .select("id", { count: "exact", head: true })
-      .eq("podcast_id", pod.id),
+      .eq("podcast_id", pod.id)
+      .or("is_prefetch_placeholder.is.null,is_prefetch_placeholder.eq.false")
+      .or(`published_at.is.null,published_at.lte.${nowIso}`),
     (supabase as any).rpc("get_podcast_archive_years_v1", {
       p_podcast_id: pod.id,
       p_min_episodes: ANNUAL_ARCHIVE_MIN_EPISODES,
@@ -781,9 +786,9 @@ async function buildPodcast(
     .order("strength", { ascending: false })
     .limit(1);
   const publisherOrg = pubRow?.[0]?.organizations?.is_public ? pubRow[0].organizations : null;
-  const yearList = ((yearRowsData ?? []) as Array<{ pub_year: number; episode_count: number }>)
-    .filter((r) => Number.isFinite(Number(r.pub_year)) && Number(r.episode_count) >= ANNUAL_ARCHIVE_MIN_EPISODES)
-    .map((r) => [Number(r.pub_year), Number(r.episode_count)] as [number, number])
+  const yearList = ((yearRowsData ?? []) as Array<{ year?: number; pub_year?: number; episode_count: number }>)
+    .map((r) => [Number(r.year ?? r.pub_year), Number(r.episode_count)] as [number, number])
+    .filter(([y, c]) => Number.isFinite(y) && c >= ANNUAL_ARCHIVE_MIN_EPISODES)
     .sort((a, b) => b[0] - a[0]);
   const yearArchiveHtml = yearList.length
     ? `<aside><h2>Évek archívuma</h2><ul>${yearList
@@ -2733,7 +2738,7 @@ async function buildPodcastYear(
       }</ul></nav>`
     : "";
 
-  const availableYears = ((archiveData.available_years ?? []) as Array<{ year: number; episode_count: number }>)
+  const availableYears = ((archiveData.available_years ?? archiveData.years ?? []) as Array<{ year: number; episode_count: number }>)
     .filter((y) => Number(y.episode_count) >= ANNUAL_ARCHIVE_MIN_EPISODES);
   const yearsNavHtml = availableYears.length > 1
     ? `<aside><h2>További évek</h2><ul>${availableYears.map((y) =>

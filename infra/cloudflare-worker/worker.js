@@ -35,6 +35,7 @@ const DUPLICATE_PODCAST_ALIASES = {
   "booklove-podcast-d89a": "booklove-podcast",
   "csonkamagyarorszag-tilos-radio-podcast--3885": "csonkamagyarorszag-tilos-radio-podcast",
   "deloitte-magyarorszag-0f0e": "deloitte-magyarorszag",
+  "gombapresszo": "gombapresszo-1",
   "innen-es-tul": "innen-es-tul-1",
   "juhi-podcast": "juhi-podcast-9ee9",
   "kanada-banda-podcast-d17d": "kanada-banda-podcast",

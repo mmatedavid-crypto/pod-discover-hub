@@ -30,6 +30,7 @@ const ep: SmartPlayerEpisode = { id: "a", title: "A", audioUrl: "https://media.e
 const epB: SmartPlayerEpisode = { ...ep, id: "b", title: "B", audioUrl: "https://media.example/b.mp3" };
 const flush = async () => { for (let i = 0; i < 12; i++) await Promise.resolve(); };
 const errors = () => mocks.log.mock.calls.filter(([e]) => e.eventType === "playback_error");
+const playings = () => mocks.log.mock.calls.filter(([e]) => e.eventType === "play_playing");
 async function start(episode = ep) { await act(async () => { player.play(episode); await flush(); }); }
 function rejectNext() {
   let reject: (error: unknown) => void = () => {};
@@ -39,6 +40,8 @@ function rejectNext() {
 
 beforeEach(() => {
   vi.useFakeTimers(); mocks.log.mockClear();
+  sessionStorage.clear();
+  window.history.replaceState({}, "", "/");
   vi.stubGlobal("Audio", function () { audio = new FakeAudio(); return audio; });
   render(<SmartPlayerProvider><Probe /></SmartPlayerProvider>);
 });
@@ -156,6 +159,104 @@ describe("actual player attempt recovery", () => {
     await act(async () => { audio.fail(4); await flush(); });
     await act(async () => { player.resume(); await flush(); audio.dispatchEvent(new Event("loadedmetadata")); });
     expect(audio.load).toHaveBeenCalledTimes(1); expect(audio.currentTime).toBe(125); expect(player.isPlaying).toBe(true);
+  });
+});
+
+describe("scoped native playing confirmation for active show trial & fixed controls", () => {
+  const pilotEp: SmartPlayerEpisode = {
+    id: "pilot-ep-1",
+    title: "Pilot ep",
+    podcastId: "2f564d96-279a-49b5-a4c1-21796fec2b73",
+    podcastSlug: "friderikusz-podcast",
+    audioUrl: "https://media.example/pilot-1.mp3",
+  };
+  const pilotEp2: SmartPlayerEpisode = {
+    ...pilotEp,
+    id: "pilot-ep-2",
+    audioUrl: "https://media.example/pilot-2.mp3",
+  };
+  const controlEp: SmartPlayerEpisode = {
+    id: "ctrl-ep-1",
+    title: "Control ep",
+    podcastId: "973593cf-c16d-4d0d-a7a8-d2cf66f113f3",
+    podcastSlug: "kettes-szamrendszer",
+    audioUrl: "https://media.example/ctrl-1.mp3",
+  };
+  const otherEp: SmartPlayerEpisode = {
+    id: "other-ep-1",
+    title: "Other ep",
+    podcastId: "a5092c31-5eea-402b-8697-1e12991efc85",
+    podcastSlug: "gombapresszo-1",
+    audioUrl: "https://media.example/other-1.mp3",
+  };
+
+  it("never logs play_playing on click alone or autoplay failure, and logs once per loaded episode on native playing without doubles on buffer/resume", async () => {
+    window.history.replaceState({}, "", "/podcast/friderikusz-podcast");
+    sessionStorage.setItem("pv_landing_path", "/podcast/friderikusz-podcast");
+
+    // Autoplay blocked -> zero play_playing
+    audio.play.mockRejectedValueOnce({ name: "NotAllowedError" });
+    await start(pilotEp);
+    expect(playings()).toHaveLength(0);
+
+    // Click / play() resolves, but native "playing" hasn't fired yet -> still zero play_playing
+    await act(async () => { player.toggle(); await flush(); });
+    expect(playings()).toHaveLength(0);
+
+    // Native "playing" fires -> logs exactly once with pilot cohort metadata
+    await act(async () => { audio.dispatchEvent(new Event("playing")); await flush(); });
+    expect(playings()).toHaveLength(1);
+    expect(playings()[0][0]).toMatchObject({
+      eventType: "play_playing",
+      episodeId: "pilot-ep-1",
+      podcastId: pilotEp.podcastId,
+      meta: {
+        cohort: "pilot",
+        show_slug: "friderikusz-podcast",
+        landing_path: "/podcast/friderikusz-podcast",
+        current_path: "/podcast/friderikusz-podcast",
+        direct_show_landing: true,
+        trigger: "native_playing",
+      },
+    });
+
+    // Buffering stall (waiting -> playing) and user pause -> resume -> playing MUST NOT double-log
+    await act(async () => {
+      audio.dispatchEvent(new Event("waiting"));
+      audio.dispatchEvent(new Event("playing"));
+      player.pause();
+      player.resume();
+      audio.dispatchEvent(new Event("playing"));
+      await flush();
+    });
+    expect(playings()).toHaveLength(1);
+
+    // Loading a new episode DOES log a fresh play_playing once native playing fires
+    await start(pilotEp2);
+    await act(async () => { audio.dispatchEvent(new Event("playing")); await flush(); });
+    expect(playings()).toHaveLength(2);
+    expect(playings()[1][0].episodeId).toBe("pilot-ep-2");
+  });
+
+  it("logs play_playing for fixed control show landings and ignores non-cohort shows", async () => {
+    window.history.replaceState({}, "", "/podcast/kettes-szamrendszer");
+    sessionStorage.setItem("pv_landing_path", "/podcast/kettes-szamrendszer");
+    await start(controlEp);
+    await act(async () => { audio.dispatchEvent(new Event("playing")); await flush(); });
+    expect(playings()).toHaveLength(1);
+    expect(playings()[0][0].meta).toMatchObject({
+      cohort: "control",
+      show_slug: "kettes-szamrendszer",
+      direct_show_landing: true,
+    });
+
+    // Unrelated show landing gets zero play_playing events
+    mocks.log.mockClear();
+    sessionStorage.setItem("pv_landing_path", "/podcast/gombapresszo-1");
+    window.history.replaceState({}, "", "/podcast/gombapresszo-1");
+    await start(otherEp);
+    await act(async () => { audio.dispatchEvent(new Event("playing")); await flush(); });
+    expect(playings()).toHaveLength(0);
   });
 });
 

@@ -56,6 +56,7 @@ type ArchivePayload = {
     youtube_url: string | null;
   }>;
   available_years?: Array<{ year: number; episode_count: number }>;
+  years?: Array<{ year: number; episode_count: number }>;
 };
 
 export default function PodcastYearArchivePage() {
@@ -200,7 +201,7 @@ export default function PodcastYearArchivePage() {
     startIndex: pagination.startIndex,
     endIndex: pagination.endIndex,
   });
-  const availableYears = (archive.available_years || []).filter((y) => y.episode_count >= ANNUAL_ARCHIVE_MIN_EPISODES);
+  const availableYears = (archive.available_years || archive.years || []).filter((y) => y.episode_count >= ANNUAL_ARCHIVE_MIN_EPISODES);
 
   const PaginationBar = () => {
     if (pagination.totalPages <= 1) return null;

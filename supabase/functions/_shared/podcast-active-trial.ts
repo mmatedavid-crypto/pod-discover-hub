@@ -15,18 +15,15 @@ export const ACTIVE_SHOW_TRIAL_SLUGS = [
   "friderikusz-podcast",
 ] as const;
 
-// Unchanged active HU canonical control shows (zero duplicate aliases, zero pilot overlap).
+// Fixed unchanged active HU canonical comparison/control shows (zero duplicate aliases, zero pilot overlap).
 export const ACTIVE_SHOW_TRIAL_CONTROL_SLUGS = [
-  "nyilt-titok",
-  "alapos-elemzo",
   "4th-long",
+  "balazsek",
   "delelott-kossuth-radio",
   "felkelo",
-  "balazsek",
-  "portfolio-checklist",
-  "telex-after",
-  "szelsokozep",
-  "partizan-podcast",
+  "kettes-szamrendszer",
+  "nyilt-titok",
+  "alapos-elemzo",
 ] as const;
 
 // Explicitly excluded from active trial with documented reasons.
@@ -36,6 +33,7 @@ export const ACTIVE_SHOW_TRIAL_EXCLUDED_SLUGS: Record<string, string> = {
 };
 
 const TRIAL_SET = new Set<string>(ACTIVE_SHOW_TRIAL_SLUGS);
+const CONTROL_SET = new Set<string>(ACTIVE_SHOW_TRIAL_CONTROL_SLUGS);
 const HU_MONTHS_SHORT = [
   "jan.", "febr.", "márc.", "ápr.", "máj.", "jún.",
   "júl.", "aug.", "szept.", "okt.", "nov.", "dec.",
@@ -45,12 +43,77 @@ export function isActiveShowTrialSlug(slug: string | null | undefined): boolean 
   return !!slug && TRIAL_SET.has(slug);
 }
 
+export type ShowTrialCohort = "pilot" | "control";
+
+export function getShowTrialCohort(slug: string | null | undefined): ShowTrialCohort | null {
+  if (!slug) return null;
+  if (TRIAL_SET.has(slug)) return "pilot";
+  if (CONTROL_SET.has(slug)) return "control";
+  return null;
+}
+
+export function matchShowTrialLandingPath(
+  pathname: string | null | undefined,
+): { showSlug: string; cohort: ShowTrialCohort } | null {
+  if (!pathname) return null;
+  const clean = pathname.split("?")[0].split("#")[0].replace(/\/+$/, "");
+  const m = clean.match(/^\/podcast\/([^/]+)$/);
+  if (!m?.[1]) return null;
+  const showSlug = m[1];
+  const cohort = getShowTrialCohort(showSlug);
+  return cohort ? { showSlug, cohort } : null;
+}
+
+export type ShowTrialPlaybackScope = {
+  cohort: ShowTrialCohort;
+  showSlug: string;
+  landingPath: string;
+  currentPath: string;
+  directShowLanding: boolean;
+};
+
+export function resolveShowTrialPlaybackScope(input: {
+  landingPath: string | null | undefined;
+  currentPath: string | null | undefined;
+  episodePodcastSlug?: string | null;
+}): ShowTrialPlaybackScope | null {
+  const landingPath = (input.landingPath || "").split("?")[0].split("#")[0].replace(/\/+$/, "") || "/";
+  const currentPath = (input.currentPath || "").split("?")[0].split("#")[0].replace(/\/+$/, "") || "/";
+  const currentMatch = matchShowTrialLandingPath(currentPath);
+  const landingMatch = matchShowTrialLandingPath(landingPath);
+
+  if (currentMatch) {
+    return {
+      cohort: currentMatch.cohort,
+      showSlug: currentMatch.showSlug,
+      landingPath,
+      currentPath,
+      directShowLanding: landingMatch?.showSlug === currentMatch.showSlug,
+    };
+  }
+  if (
+    landingMatch &&
+    (input.episodePodcastSlug === landingMatch.showSlug ||
+      currentPath.startsWith(`/podcast/${landingMatch.showSlug}/`))
+  ) {
+    return {
+      cohort: landingMatch.cohort,
+      showSlug: landingMatch.showSlug,
+      landingPath,
+      currentPath,
+      directShowLanding: true,
+    };
+  }
+  return null;
+}
+
 export type TrialEpisodeInput = {
   id?: string | null;
   slug?: string | null;
   title?: string | null;
   display_title?: string | null;
   published_at?: string | null;
+  is_prefetch_placeholder?: boolean | null;
   ai_summary?: string | null;
   summary?: string | null;
   description?: string | null;
@@ -88,8 +151,9 @@ export function selectLatestReleasedPublicEpisode<T extends TrialEpisodeInput>(
   let bestTs = -Infinity;
   for (const ep of episodes) {
     if (!ep?.slug || !(ep.display_title || ep.title) || !ep.published_at) continue;
+    if (ep.is_prefetch_placeholder === true) continue;
     const ts = Date.parse(ep.published_at);
-    if (!Number.isFinite(ts) || ts > nowMs + 60_000) continue;
+    if (!Number.isFinite(ts) || ts > nowMs) continue;
     if (ts > bestTs) {
       bestTs = ts;
       best = ep;

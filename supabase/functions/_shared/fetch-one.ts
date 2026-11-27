@@ -217,18 +217,40 @@ export async function fetchOne(supabase: any, podcast: any, opts: { episodeCap?:
   const pubDates = Array.from(new Set(candidates.map((c) => c.it.published).filter(Boolean) as string[]));
 
   const dedupQueries: Promise<any>[] = [];
-  if (guids.length) dedupQueries.push(supabase.from("episodes").select("guid").eq("podcast_id", podcast.id).in("guid", guids));
-  if (links.length) dedupQueries.push(supabase.from("episodes").select("episode_url").eq("podcast_id", podcast.id).in("episode_url", links));
-  if (pubDates.length) dedupQueries.push(supabase.from("episodes").select("title, published_at").eq("podcast_id", podcast.id).in("published_at", pubDates));
+  if (guids.length) dedupQueries.push(supabase.from("episodes").select("guid, slug").eq("podcast_id", podcast.id).in("guid", guids));
+  if (links.length) dedupQueries.push(supabase.from("episodes").select("episode_url, slug").eq("podcast_id", podcast.id).in("episode_url", links));
+  if (pubDates.length) dedupQueries.push(supabase.from("episodes").select("title, published_at, slug").eq("podcast_id", podcast.id).in("published_at", pubDates));
 
   const dedupResults = await Promise.all(dedupQueries);
   const existingGuids = new Set<string>();
   const existingLinks = new Set<string>();
   const existingTitlePub = new Set<string>();
+  const existingSlugByGuid = new Map<string, string>();
+  const existingSlugByLink = new Map<string, string>();
+  const existingSlugByTitlePub = new Map<string, string>();
   let qi = 0;
-  if (guids.length) { (dedupResults[qi++]?.data || []).forEach((r: any) => r.guid && existingGuids.add(r.guid)); }
-  if (links.length) { (dedupResults[qi++]?.data || []).forEach((r: any) => r.episode_url && existingLinks.add(r.episode_url)); }
-  if (pubDates.length) { (dedupResults[qi++]?.data || []).forEach((r: any) => existingTitlePub.add(`${r.title}|${r.published_at}`)); }
+  if (guids.length) {
+    (dedupResults[qi++]?.data || []).forEach((r: any) => {
+      const g = typeof r.guid === "string" ? r.guid.trim() : "";
+      if (!g) return;
+      existingGuids.add(g);
+      if (r.slug && !existingSlugByGuid.has(g)) existingSlugByGuid.set(g, r.slug);
+    });
+  }
+  if (links.length) {
+    (dedupResults[qi++]?.data || []).forEach((r: any) => {
+      if (!r.episode_url) return;
+      existingLinks.add(r.episode_url);
+      if (r.slug && !existingSlugByLink.has(r.episode_url)) existingSlugByLink.set(r.episode_url, r.slug);
+    });
+  }
+  if (pubDates.length) {
+    (dedupResults[qi++]?.data || []).forEach((r: any) => {
+      const key = `${r.title}|${r.published_at}`;
+      existingTitlePub.add(key);
+      if (r.slug && !existingSlugByTitlePub.has(key)) existingSlugByTitlePub.set(key, r.slug);
+    });
+  }
 
   // Prefetch placeholder merge: for podcasts where a `bible-prefetch`-style edge
   // pre-creates "{N}-nap" rows a few hours before the RSS drops, we merge the
@@ -273,8 +295,14 @@ export async function fetchOne(supabase: any, podcast: any, opts: { episodeCap?:
   const rowsToUpsert: any[] = [];
   const placeholderUpdates: Array<{ id: string; patch: any }> = [];
   for (const { it, slug } of candidates) {
+    const trimmedGuid = typeof it.guid === "string" ? it.guid.trim() : "";
+    const matchedSlug =
+      (trimmedGuid && existingSlugByGuid.get(trimmedGuid)) ||
+      (linkIdentifiesItem(it, linkCounts) && it.link && existingSlugByLink.get(it.link)) ||
+      (it.published && existingSlugByTitlePub.get(`${it.title}|${it.published}`)) ||
+      null;
     const isDup =
-      (it.guid && existingGuids.has(it.guid)) ||
+      (trimmedGuid && existingGuids.has(trimmedGuid)) ||
       (linkIdentifiesItem(it, linkCounts) && existingLinks.has(it.link)) ||
       (it.published && existingTitlePub.has(`${it.title}|${it.published}`));
 
@@ -328,11 +356,13 @@ export async function fetchOne(supabase: any, podcast: any, opts: { episodeCap?:
     if (isDup) duplicates++; else newCount++;
     if (isDup && !upsertDuplicates) continue;
 
-
+    // Preserve the existing canonical/reassigned slug when reconciling an already-known item
+    // (e.g. a reassigned unique episode later re-emitted by the canonical feed) so upserting
+    // on (podcast_id, slug) updates in place instead of creating a twin row.
     const row: any = {
       podcast_id: podcast.id,
       title: it.title,
-      slug,
+      slug: matchedSlug || slug,
       description: (it.description || "").slice(0, 12000),
       published_at: it.published,
       audio_url: it.audio_url || null,

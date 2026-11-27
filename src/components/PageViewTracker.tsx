@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useInRouterContext, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { isBotClient } from "@/lib/botDetect";
-import { getAnalyticsSessionId } from "@/lib/analyticsSession";
+import { getAnalyticsSessionId, recordAnalyticsLandingPath } from "@/lib/analyticsSession";
 import { pageViewDecision, type PageViewState } from "@/lib/pageViewDedupe";
 
 const SKIP_PREFIXES = ["/admin", "/auth", "/belepes", "/growth-status", "/admin-bootstrap"];
@@ -79,6 +79,7 @@ function RoutedPageViewTracker() {
   useEffect(() => {
     const path = location.pathname;
     if (SKIP_PREFIXES.some((p) => path === p || path.startsWith(p + "/"))) return;
+    recordAnalyticsLandingPath(path);
 
     const href = window.location.href;
     const decision = pageViewDecision(state, path + location.search, href, document.referrer || null, Date.now());
