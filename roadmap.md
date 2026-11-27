@@ -1,7 +1,7 @@
 # Traffic-led improvements
 
 ## Owner-approved catalogue cleanup (2026-11-27)
-- [ ] Final shared person-page Hungarian editorial QA, focused regressions, person-only Worker cache namespace and latest prerender deployment.
+- [x] Final shared person-page Hungarian editorial QA: 18 focused tests, desktop/mobile and deployed prerender verified; person-only Worker cache namespace ready for owner deployment.
 - [x] Durably exclude the one removed Szélsőközép item from ingestion and sitemaps; transactional guard tests pass, public URL stays 404, 976 unrelated show episodes remain.
 - [x] Apply only the verified Veréb identity merge; both archive episodes and accepted searchable aliases preserved, crawler redirect deployed and Worker one-hop redirect tested.
 - [x] Protect Pápai Anita's reviewed guest link and verify both directions, including automated-update rollback tests.
