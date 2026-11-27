@@ -3406,6 +3406,69 @@ export type Database = {
           },
         ]
       }
+      episode_ingest_exclusions: {
+        Row: {
+          asset_id: string | null
+          created_at: string
+          guid: string | null
+          id: string
+          old_slug: string | null
+          podcast_id: string
+        }
+        Insert: {
+          asset_id?: string | null
+          created_at?: string
+          guid?: string | null
+          id?: string
+          old_slug?: string | null
+          podcast_id: string
+        }
+        Update: {
+          asset_id?: string | null
+          created_at?: string
+          guid?: string | null
+          id?: string
+          old_slug?: string | null
+          podcast_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "episode_ingest_exclusions_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "episode_ingest_exclusions_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "episode_ingest_exclusions_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "podcasts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "episode_ingest_exclusions_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "v_hu_archive_completeness"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "episode_ingest_exclusions_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "v_youtube_native_transcript_candidates"
+            referencedColumns: ["podcast_id"]
+          },
+        ]
+      }
       episode_organization_map: {
         Row: {
           confidence: number
@@ -15785,6 +15848,7 @@ export type Database = {
         Args: { p_detail?: string; p_event: string }
         Returns: Json
       }
+      episode_ingest_excluded_v1: { Args: { p_item: Json }; Returns: boolean }
       episode_topic_slug_backfill_tick: { Args: never; Returns: number }
       etsm_published_backfill: { Args: { _batch?: number }; Returns: number }
       extend_pipeline_catchup_v1: {
@@ -16998,6 +17062,7 @@ export type Database = {
           person_id: string
         }[]
       }
+      resolve_person_redirect_v1: { Args: { p_slug: string }; Returns: string }
       resolve_query_entities: {
         Args: { p_max?: number; p_q: string; p_threshold?: number }
         Returns: {

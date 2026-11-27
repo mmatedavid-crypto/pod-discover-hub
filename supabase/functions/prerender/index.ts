@@ -15,6 +15,7 @@
 //   anything else                  → 404 (Worker will fall back to origin)
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { bodyParagraphs } from "../_shared/body-paragraphs.ts";
+import { formatPersonPage } from "../_shared/person-page-copy.ts";
 import { categoryHeading, categoryIntro, categoryMetaDescription, categoryTitle } from "../_shared/category-copy.ts";
 import { CATEGORY_HUB_INTRO, DISCOVERY_LINKS, HOME_DESCRIPTION, HOME_INTRO, discoveryCategories } from "../_shared/discovery-navigation.ts";
 import { hetiLookupWindow, hetiSlug, isLiveHetiPost, isoWeek, parseHetiSlug, resolveHetiSlug } from "../_shared/heti-editorial.ts";
@@ -1567,9 +1568,15 @@ async function buildPerson(
 ) {
   const { data: person } = await (supabase as any)
     .from("people")
-    .select("id, name, slug, image_url, ai_bio, ai_bio_status, ai_bio_confidence, overview_text, short_description_hu, page_summary_hu, wikipedia_extract, wikipedia_description, wikipedia_match_status, wikipedia_match_confidence, short_bio, identity_ambiguous, manual_approved, is_deceased, is_historical, has_archival_evidence, persona, is_topic_only, date_of_death, is_living, participant_count, host_count, guest_count, is_public, is_indexable, ai_review_status, activation_status")
+    .select("id, name, slug, image_url, ai_bio, ai_bio_status, ai_bio_confidence, overview_text, short_description_hu, page_summary_hu, wikipedia_extract, wikipedia_description, wikipedia_match_status, wikipedia_match_confidence, short_bio, identity_ambiguous, identity_status, disambiguation_label, manual_approved, is_deceased, is_historical, has_archival_evidence, persona, is_topic_only, date_of_death, is_living, participant_count, host_count, guest_count, is_public, is_indexable, ai_review_status, activation_status")
     .eq("slug", slug)
     .maybeSingle();
+  if (!person || person.identity_status === "merged_into") {
+    const { data: canonicalSlug } = await (supabase as any).rpc("resolve_person_redirect_v1", { p_slug: slug });
+    if (typeof canonicalSlug === "string" && canonicalSlug !== slug) {
+      return new Response(null, { status: 301, headers: { ...baseHeaders, Location: `${SITE}/szemelyek/${canonicalSlug}` } });
+    }
+  }
   if (!person || person.is_public === false) return null;
   const historicalWithoutEvidence = (
       person.is_deceased === true
@@ -1599,6 +1606,8 @@ async function buildPerson(
   ]);
   const pageRows = (rows ?? []) as Array<any>;
   const totalEpisodes = Number(pageRows[0]?.total_episodes ?? 0);
+  const copy = formatPersonPage({ name: person.name, count: totalEpisodes,
+    identityLabel: person.disambiguation_label, historical: Boolean(person.is_deceased || person.is_historical), episodes: pageRows });
   const eps = pageRows
     .map((r) => ({
       id: r.id, title: r.title, display_title: r.display_title, slug: r.slug,
@@ -1648,19 +1657,9 @@ async function buildPerson(
   const relation = !historicalWithoutEvidence && eps.some((e) => e.mention_role === "participant")
     ? "hallható"
     : "kapcsolódik";
-  const desc = seoLead
-    ? truncate(`${seoLead}${epCount > 0 ? ` Megnézhető ${epCount} podcast epizód, amelyben ${person.name} ${relation}.` : ""}`, 160)
-    : epCount > 0
-      ? truncate(`Megnézhető ${epCount} podcast epizód, amelyben ${person.name} ${relation}. Kapcsolódó műsorok és említések a Podiverzumon.`, 160)
-      : truncate(`${person.name} nevéhez a Podiverzum katalógusában még nincs ellenőrzött magyar podcast epizód. Keresés a névre és kapcsolódó személyek.`, 160);
+  const desc = copy.description;
   // Short enough for seoTitle's 60-char cut (it used to drop the verb).
-  const title = epCount > 0
-    ? (relation === "hallható"
-      ? (`${person.name} – ${epCount} podcast epizódban hallható | Podiverzum`.length <= 60
-        ? `${person.name} – ${epCount} podcast epizódban hallható | Podiverzum`
-        : `${person.name} – ${epCount} epizódban hallható | Podiverzum`)
-      : `${person.name} – ${epCount} podcast epizód | Podiverzum`)
-    : `${person.name} a podcastokban | Podiverzum`;
+  const title = copy.title;
   const emptyThin = totalEpisodes === 0 && !bio && hasTraffic !== true;
 
   const huDate = (v: unknown) => {
@@ -1761,7 +1760,7 @@ async function buildPerson(
       ],
       // Empty page: still reachable, indexed only with a profile or existing Google visits.
       noindex: noindex || emptyThin,
-      bodyHtml: `<header><h1>${esc(person.name)}</h1>${bio ? `<p>${esc(truncate(bio, 600))}</p>` : ""}</header>
+      bodyHtml: `<header><h1>${esc(person.name)}</h1>${person.disambiguation_label ? `<p>${esc(person.disambiguation_label)}</p>` : ""}<p>${esc(copy.intro)}</p>${bio ? `<p>${esc(truncate(bio, 600))}</p>` : ""}</header>
 <main>${eps.length
   ? `<h2>Epizódok, amelyekben ${esc(person.name)} ${esc(relation)}</h2><p>${totalEpisodes} ellenőrzött vagy megbízható epizód${totalEpisodes > eps.length ? `, ebből a ${eps.length} legrelevánsabb` : ""}.</p><ul>${html}</ul>`
   : `<h2>Még nincs ellenőrzött epizód</h2><p>${esc(person.name)} nevét a katalógus ismeri, de egyetlen epizódnál sem igazolt még, hogy róla van szó — azonos nevű emberek miatt csak ellenőrzött kapcsolatot mutatunk.</p><p><a href="${SITE}/kereses?q=${encodeURIComponent(`"${person.name}"`)}" rel="nofollow">Keresés pontos névre</a></p>`}

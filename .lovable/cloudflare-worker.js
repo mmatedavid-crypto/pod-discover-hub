@@ -243,6 +243,14 @@ export default {
       });
     }
 
+    // One hop for browsers and crawlers, including www and legacy person aliases.
+    if (["podiverzum.hu", "www.podiverzum.hu"].includes(url.hostname) &&
+        /^\/(szemelyek|szemely|person)\/vereb-pisti\/?$/.test(url.pathname)) {
+      return new Response(null, { status: 301, headers: {
+        Location: `https://podiverzum.hu/szemelyek/vereb-istvan${url.search}`,
+        "Cache-Control": "public, max-age=86400", "X-Redirect": "verified-person-alias-301",
+      } });
+    }
     // Permanent www -> apex redirect (preserves path + query).
     // Runs first so no other logic (passthrough, prerender) can downgrade it to 302.
     // NOTE: podiverzum.com is a SEPARATE English site with its own DB — do NOT redirect it here.

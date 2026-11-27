@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { isUsefulPersonIdentityLabel } from "@/components/PersonCard";
+import { formatPersonPage } from "../../supabase/functions/_shared/person-page-copy";
 
 const root = process.cwd();
 const read = (path: string) => readFileSync(`${root}/${path}`, "utf8");
@@ -22,7 +23,6 @@ describe("person detail identity safety", () => {
 
     expect(page).toContain("personCollectionIntro");
     expect(page).toContain("Podcastokban");
-    expect(page).toContain("const introText = personCollectionIntro(person.name, eps.length)");
     expect(page).toContain("function safePersonIdentityLabel");
     expect(page).toContain("sanitizeHungarianPublicText(label || \"\") || null");
     expect(page).toContain("const identityLabel = safePersonIdentityLabel(person.disambiguation_label)");
@@ -40,7 +40,7 @@ describe("person detail identity safety", () => {
 
     expect(page).toContain("published_at, ai_summary, summary, description");
     expect(page).toContain('.eq("podcasts.language_decision", "accept_hungarian")');
-    expect(page).toContain('.eq("episodes.podcasts.language_decision", "accept_hungarian")');
+    expect(page).toContain('rpc("get_person_page_episodes_v1"');
     expect(page).not.toContain('.eq("podcasts.is_hungarian", true)');
     expect(page).not.toContain('.eq("episodes.podcasts.is_hungarian", true)');
   });
@@ -76,11 +76,7 @@ describe("person detail identity safety", () => {
     expect(page).toContain("if (historicalWithoutEvidence || hiddenCompanyEponym)");
     expect(page).toContain("setNotFound(true)");
     expect(page).toContain('id: `fallback-${decodedSlug}`');
-    expect(page).toContain('const fallbackRelation = "említve"');
-    expect(page).toContain('const fallbackDescriptionRelation = "említve szerepel"');
-    expect(page).not.toContain('const fallbackRelation = sorted.some');
-    expect(page).toContain('`${exemplar} – ${fallbackEpCount} podcast epizódban ${fallbackRelation} | Podiverzum`');
-    expect(page).toContain("Megnézhető ${fallbackEpCount} podcast epizód, amelyben ${exemplar} ${fallbackDescriptionRelation}.");
+    expect(formatPersonPage({ name: "Unconfirmed", count: 1, episodes: [{ verified: false, role_type: "participant" }] }).relation).toBe("unverified");
   });
 
   it("keeps prerendered person SEO identity-safe for ambiguous or historical names", () => {

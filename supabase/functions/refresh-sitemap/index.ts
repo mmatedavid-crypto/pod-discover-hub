@@ -1,4 +1,5 @@
 import { denyUntrustedCaller } from "../_shared/internal-auth.ts";
+import { episodeIsExcluded } from "../_shared/episode-ingest-exclusion.ts";
 // Refresh sitemap: regenerates per-type sitemaps and uploads them to the
 // public `sitemaps` Storage bucket. Triggered by pg_cron daily.
 // Two run modes (CPU budget split):
@@ -502,11 +503,14 @@ Deno.serve(async (req) => {
       }
 
       let total = 0;
+      const { data: exclusions, error: exclusionError } = await sb.from('episode_ingest_exclusions')
+        .select('podcast_id,guid,asset_id,old_slug');
+      if (exclusionError) throw exclusionError;
       // Keyset pagination by id to keep PostgREST happy on large tables.
       let lastId: number | null = null;
       while (true) {
         let q = sb.from('episodes')
-          .select('id,slug,published_at,updated_at,podcast_id')
+          .select('id,slug,guid,published_at,updated_at,podcast_id')
           .order('id', { ascending: true })
           .limit(PAGE);
         if (lastId !== null) q = q.gt('id', lastId);
@@ -516,6 +520,7 @@ Deno.serve(async (req) => {
         for (const e of data as any[]) {
           lastId = e.id;
           if (!e.slug) continue;
+          if (episodeIsExcluded(exclusions || [], e.podcast_id, e)) continue;
           const ps = podMap.get(String(e.podcast_id));
           if (!ps) continue;
           const lm = [e.updated_at, e.published_at].filter(Boolean).sort().pop();

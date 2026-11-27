@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { setSeo } from "@/lib/seo";
@@ -14,6 +14,7 @@ import { matchesEntitySlug } from "@/lib/entity";
 import { snippet } from "@/lib/text";
 import { isUsefulPersonIdentityLabel } from "@/components/PersonCard";
 import { sanitizeHungarianPublicText } from "@/lib/publicTextLanguage";
+import { formatPersonPage } from "../../supabase/functions/_shared/person-page-copy";
 
 interface Person {
   id: string; name: string; slug: string;
@@ -116,6 +117,7 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
 }
 
 export default function PersonDetailPage() {
+  const navigate = useNavigate();
   const { slug = "" } = useParams();
   const decodedSlug = useMemo(() => decodeURIComponent(slug), [slug]);
   const [person, setPerson] = useState<Person | null>(null);
@@ -129,6 +131,7 @@ export default function PersonDetailPage() {
   const [epsError, setEpsError] = useState(false);
   const [totals, setTotals] = useState<{ episodes: number; podcasts: number; latest: string | null }>({ episodes: 0, podcasts: 0, latest: null });
   const [reloadKey, setReloadKey] = useState(0);
+  const [pageCopy, setPageCopy] = useState<ReturnType<typeof formatPersonPage> | null>(null);
 
 
   useEffect(() => {
@@ -143,6 +146,18 @@ export default function PersonDetailPage() {
         .eq("slug", slug)
         .maybeSingle();
       const pp: any = p;
+      if (!pp || pp.identity_status === "merged_into") {
+        const { data: canonicalSlug } = await supabase.rpc("resolve_person_redirect_v1", { p_slug: slug });
+        if (typeof canonicalSlug === "string" && canonicalSlug !== slug) {
+          navigate(`/szemelyek/${canonicalSlug}`, { replace: true });
+          return;
+        }
+        if (pp?.identity_status === "merged_into") {
+          setNotFound(true);
+          setLoading(false);
+          return;
+        }
+      }
       const historicalWithoutEvidence = isTemporalTopicOnlyPerson(pp);
       const hiddenCompanyEponym = Boolean(pp)
         && typeof pp.editorial_notes === "string"
@@ -224,20 +239,17 @@ export default function PersonDetailPage() {
           wikipedia_match_confidence: null,
         });
         setEps(sorted.slice(0, 40) as any);
+        setTotals({ episodes: sorted.length, podcasts: podMap.size, latest: null });
+        const fallbackCopy = formatPersonPage({ name: exemplar, count: sorted.length, episodes: sorted.map(e => ({ ...e, verified: false })) });
+        setPageCopy(fallbackCopy);
         setRelated([]);
         setLoading(false);
 
         const pageUrl = typeof window !== "undefined" ? window.location.href.split("?")[0] : "";
         const fallbackEpCount = sorted.length;
-        const fallbackRelation = "említve";
-        const fallbackDescriptionRelation = "említve szerepel";
         setSeo({
-          title: fallbackEpCount > 0
-            ? `${exemplar} – ${fallbackEpCount} podcast epizódban ${fallbackRelation} | Podiverzum`
-            : `${exemplar} podcast epizódok és említések | Podiverzum`,
-          description: fallbackEpCount > 0
-            ? `Megnézhető ${fallbackEpCount} podcast epizód, amelyben ${exemplar} ${fallbackDescriptionRelation}. Kapcsolódó műsorok és említések a Podiverzumon.`
-            : `${exemplar} témájú magyar podcast epizódok, róla szóló adások és említések egy helyen.`,
+          title: fallbackCopy.title,
+          description: fallbackCopy.description,
           canonical: pageUrl,
           noindex: fallbackEpCount < 5,
           jsonLd: fallbackEpCount < 5 ? undefined : [
@@ -280,6 +292,10 @@ export default function PersonDetailPage() {
         latest: (rows[0]?.latest_episode_at as string | null) ?? null,
       };
       setTotals(pageTotals);
+      const copy = formatPersonPage({ name: (p as any).name, count: pageTotals.episodes,
+        identityLabel: (p as any).disambiguation_label,
+        historical: Boolean((p as any).is_deceased || (p as any).is_historical), episodes: rows });
+      setPageCopy(copy);
       const epList: any[] = rows.map((row) => ({
         ...mapEpisodeCardRow(row),
         mention_type: row.mention_type,
@@ -321,7 +337,7 @@ export default function PersonDetailPage() {
 
       const pageUrl = typeof window !== "undefined" ? window.location.href.split("?")[0] : "";
       const verifiedWiki = (p as any).wikipedia_match_status === "verified" && Number((p as any).wikipedia_match_confidence || 0) >= 0.8;
-      const safeDesc = `${(p as any).name} témájú magyar podcast epizódok, róla szóló adások és említések egy helyen. Fedezd fel a kapcsolódó műsorokat a Podiverzumon.`;
+      const safeDesc = copy.description;
       // Backend `is_indexable` már 1+ HU epizódnál true (person-single-ep-indexable,
       // 2026-05-21) — SEO okból ne írjuk kliensen felül `noindex`-re a "vékony"
       // (1 epizódos) oldalakat, mert Googlebot JS-t futtat és pont ezekre a
@@ -369,33 +385,20 @@ export default function PersonDetailPage() {
         });
       }
 
-      const personName = (p as any).name;
       const epCount = pageTotals.episodes;
       // An empty page stays reachable (old links keep working) but is only indexed when it has a
       // verified profile or still brings Google visitors; never noindex pages that have episodes.
       const hasVerifiedProfile = verifiedWiki || Boolean((p as any).overview_text);
       const emptyThin = !pageError && epCount === 0 && !hasVerifiedProfile && hasTraffic !== true;
-      const hasParticipantSeoEvidence = epList.some((e) => e.role_type === "participant");
-      const personSeoRelation = hasParticipantSeoEvidence && !isTemporalTopicOnlyPerson(p) ? "hallható" : "kapcsolódik";
-      const titleTail = epCount > 0
-        ? (personSeoRelation === "hallható"
-          ? (`${personName} – ${epCount} podcast epizódban hallható | Podiverzum`.length <= 60 ? ` – ${epCount} podcast epizódban hallható` : ` – ${epCount} epizódban hallható`)
-          : ` – ${epCount} podcast epizód`)
-        : " a podcastokban";
-      const descBase = safePersonSeoLead(p) || safeDesc;
-      const descSuffix = epCount > 0
-        ? ` Megnézhető ${epCount} podcast epizód, amelyben ${personName} ${personSeoRelation}.`
-        : "";
-      const fullDesc = `${descBase}${descSuffix}`.trim();
       setSeo({
-        title: `${personName}${titleTail} | Podiverzum`,
-        description: fullDesc.length > 160 ? fullDesc.slice(0, 157).trimEnd() + "…" : fullDesc,
+        title: copy.title,
+        description: copy.description,
         canonical: pageUrl,
         noindex: !(p as any).is_indexable || thinPage || emptyThin,
         jsonLd: (!(p as any).is_indexable || thinPage || emptyThin) ? undefined : jsonLd,
       });
     })();
-  }, [slug, decodedSlug, reloadKey]);
+  }, [slug, decodedSlug, reloadKey, navigate]);
 
   const isHistorical = Boolean((person as any)?.is_deceased || (person as any)?.is_historical);
   const hasArchival = Boolean((person as any)?.has_archival_evidence);
@@ -435,7 +438,7 @@ export default function PersonDetailPage() {
   const hasArchivalSection = segments.archival.length > 0;
   const distinctSections = [hasParticipants, hasSubjects, hasMentions, hasArchivalSection].filter(Boolean).length;
   const useDistinct = distinctSections >= 2;
-  const introText = personCollectionIntro(person.name, eps.length);
+  const introText = pageCopy?.intro || personCollectionIntro(person.name, totals.episodes);
   const avatarUrl = isAmbiguousWithoutTrustedIdentity(person)
     ? null
     : person.image_url || person.image_original_url || null;
@@ -469,7 +472,7 @@ export default function PersonDetailPage() {
               {identityLabel && (
                 <div className="text-sm text-muted-foreground mt-1">{identityLabel}</div>
               )}
-              <p className="text-foreground/85 mt-3 max-w-2xl leading-relaxed">{snippet(introText, 320)}</p>
+              <p className="text-foreground/85 mt-3 max-w-2xl leading-relaxed">{introText}</p>
               {avatarUrl && person.image_license && (
                 <div className="text-xs text-muted-foreground mt-3 flex flex-wrap gap-x-3 gap-y-1">
                   <span>Fotó: {person.image_attribution || "Wikimedia Commons"}</span>

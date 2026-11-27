@@ -5,6 +5,7 @@ import { parseFeed } from "./rss.ts";
 import { slugify as slugifyShared } from "./slug.ts";
 import { countLinks, linkIdentifiesItem, newestFirst } from "./feed-item-policy.ts";
 import { parseChannelMeta } from "./podcast-channel-meta.ts";
+import { episodeIsExcluded } from "./episode-ingest-exclusion.ts";
 
 function slugify(s: string) {
   return slugifyShared(s, "episode");
@@ -169,7 +170,13 @@ export async function fetchOne(supabase: any, podcast: any, opts: { episodeCap?:
   }
 
   // Newest first, so a feed ordered oldest-first still yields its new episodes within the cap.
-  const sliced = newestFirst(items).slice(0, episodeCap).filter((it) => it.title);
+  // Filter before the cap and before side effects (AI/indexing/email). DB trigger also
+  // protects other writers/backfills and a rule added during this fetch.
+  const { data: exclusions, error: exclusionError } = await supabase.from("episode_ingest_exclusions")
+    .select("podcast_id,guid,asset_id,old_slug").eq("podcast_id", podcast.id);
+  if (exclusionError) return { ok: false, error: "exclusion lookup failed", new: 0, duplicates: 0, items: 0 };
+  const sliced = newestFirst(items).filter(it => !episodeIsExcluded(exclusions || [], podcast.id, it))
+    .slice(0, episodeCap).filter((it) => it.title);
   const linkCounts = countLinks(items);
 
   const candidates = sliced.map((it) => {

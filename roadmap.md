@@ -1,5 +1,12 @@
 # Traffic-led improvements
 
+## Owner-approved catalogue cleanup (2026-11-27)
+- [ ] Durably exclude the one removed Szélsőközép item from ingestion and sitemaps; test without reinserting publicly.
+- [ ] Apply only the verified Veréb identity merge, preserve both episodes and aliases, and provide a one-hop redirect.
+- [ ] Protect Pápai Anita's reviewed guest link and verify both directions.
+- [ ] Share grounded Hungarian person-page formatting between React and prerender; test representative roles and mobile.
+- [ ] Apply scoped migrations/data, deploy affected functions, verify postconditions and commit; website publication stays with owner.
+
 ## Targeted playback recovery (2026-11-25)
 - [x] Deduplicate terminal errors per attempt, reload on deliberate retry with position preservation, and offer safe distinct episode/platform links next to the main button and in both player views.
 - [x] Focused successful/error/retry tests, real episode playback and recovery, one external_open per click, desktop/mobile and expanded UI verified; preview build OK.

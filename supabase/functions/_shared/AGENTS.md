@@ -1,0 +1,3 @@
+# Shared public catalogue rules
+- Person hub copy uses `person-page-copy.ts` on the same first 40 public RPC rows in React and prerender; only verified links supply roles/topics/show context, because metadata and the visible introduction must agree without extra reads or generated biographies.
+- Removed RSS items use `episode_ingest_exclusions` and `episode-ingest-exclusion.ts` before ingestion side effects, with the database trigger as the final guard, because a feed or another importer must never restore an excluded item.
